@@ -3,7 +3,8 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { ShoppingCart, Search, Menu, User, LogOut, Package, Store } from "lucide-react"
+import { ShoppingCart, Search, Menu, User, LogOut, Package, Store, LayoutDashboard } from "lucide-react"
+import { toast } from "sonner" // 1. IMPORT TOAST
 
 // UI Components
 import { Button } from "@/components/ui/button"
@@ -30,6 +31,10 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
 
+  // --- LOGIKA ROLE ---
+  const userRole = user?.app_metadata?.role || user?.role
+  const isRestrictedUser = userRole === 'super_admin' || userRole === 'merchant'
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     if (searchQuery.trim()) {
@@ -37,11 +42,18 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
     }
   }
 
+  // 2. UPDATE FUNGSI LOGOUT
   const handleLogout = async () => {
     const supabase = createClient()
-    await supabase.auth.signOut()
-    router.refresh()
-    router.push("/login")
+    const { error } = await supabase.auth.signOut()
+
+    if (error) {
+      toast.error("Gagal keluar: " + error.message)
+    } else {
+      toast.success("Berhasil Logout!") // Tampilkan Toast Sukses
+      router.refresh()
+      router.push("/login")
+    }
   }
 
   return (
@@ -65,8 +77,18 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
               </SheetHeader>
               <div className="flex flex-col gap-4 mt-6">
                 <Link href="/" className="text-sm font-medium hover:text-primary transition-colors">Beranda</Link>
-                <Link href="/search" className="text-sm font-medium hover:text-primary transition-colors">Semua Produk</Link>
-                {/* Tambahkan link kategori lain disini jika perlu */}
+                
+                {/* Menu Khusus Buyer (Mobile) */}
+                {!isRestrictedUser && (
+                   <Link href="/search" className="text-sm font-medium hover:text-primary transition-colors">Semua Produk</Link>
+                )}
+
+                {/* Menu Khusus Admin/Merchant (Mobile) */}
+                {isRestrictedUser && (
+                  <Link href={userRole === 'super_admin' ? "/admin" : "/dashboard"} className="text-sm font-medium text-blue-600">
+                    Dashboard
+                  </Link>
+                )}
               </div>
             </SheetContent>
           </Sheet>
@@ -80,45 +102,51 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
         </div>
 
         {/* 2. SEARCH BAR (Desktop) */}
-        <form onSubmit={handleSearch} className="flex-1 max-w-xl relative hidden md:flex items-center">
-          <Input 
-            placeholder="Cari produk mahasiswa..." 
-            className="pr-10 rounded-full bg-muted/50 focus-visible:bg-background transition-colors" 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          <Button 
-            type="submit" 
-            size="icon" 
-            variant="ghost" 
-            className="absolute right-1 h-8 w-8 rounded-full hover:bg-transparent text-muted-foreground"
-          >
-            <Search className="h-4 w-4" />
-          </Button>
-        </form>
+        {!isRestrictedUser && (
+          <form onSubmit={handleSearch} className="flex-1 max-w-xl relative hidden md:flex items-center">
+            <Input 
+              placeholder="Cari produk mahasiswa..." 
+              className="pr-10 rounded-full bg-muted/50 focus-visible:bg-background transition-colors" 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <Button 
+              type="submit" 
+              size="icon" 
+              variant="ghost" 
+              className="absolute right-1 h-8 w-8 rounded-full hover:bg-transparent text-muted-foreground"
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+          </form>
+        )}
 
-        {/* 3. ACTIONS (Cart & Profile) */}
+        {/* 3. ACTIONS */}
         <div className="flex items-center gap-1 sm:gap-2">
           
-          {/* Mobile Search Trigger */}
-          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => router.push('/search')}>
-             <Search className="h-5 w-5" />
-          </Button>
+          {/* Mobile Search - Hide for Admin/Merchant */}
+          {!isRestrictedUser && (
+            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => router.push('/search')}>
+               <Search className="h-5 w-5" />
+            </Button>
+          )}
 
-          {/* Cart Icon */}
-          <Button asChild variant="ghost" size="icon" className="relative">
-            <Link href="/cart">
-              <ShoppingCart className="h-5 w-5" />
-              {cartCount > 0 && (
-                <Badge 
-                  className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-[10px] ring-2 ring-background" 
-                  variant="destructive"
-                >
-                  {cartCount}
-                </Badge>
-              )}
-            </Link>
-          </Button>
+          {/* Cart Icon - Hide for Admin/Merchant */}
+          {!isRestrictedUser && (
+            <Button asChild variant="ghost" size="icon" className="relative">
+              <Link href="/cart">
+                <ShoppingCart className="h-5 w-5" />
+                {cartCount > 0 && (
+                  <Badge 
+                    className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-[10px] ring-2 ring-background" 
+                    variant="destructive"
+                  >
+                    {cartCount}
+                  </Badge>
+                )}
+              </Link>
+            </Button>
+          )}
 
           {/* User Dropdown */}
           {user ? (
@@ -136,35 +164,55 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none truncate">{user.user_metadata?.full_name || "Pengguna"}</p>
-                    <p className="text-xs leading-none text-muted-foreground truncate">{user.email}</p>
+                    <p className="text-sm font-medium leading-none truncate">
+                      {user.user_metadata?.full_name || "Pengguna"}
+                    </p>
+                    <p className="text-xs leading-none text-muted-foreground truncate">
+                      {user.email}
+                    </p>
+                    {isRestrictedUser && (
+                       <Badge variant="outline" className="w-fit mt-1 text-[10px] h-5 px-1">
+                         {userRole === 'super_admin' ? 'Admin' : 'Merchant'}
+                       </Badge>
+                    )}
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/profile" className="cursor-pointer">
-                    <User className="mr-2 h-4 w-4" /> Akun Saya
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/orders" className="cursor-pointer">
-                    <Package className="mr-2 h-4 w-4" /> Pesanan Saya
-                  </Link>
-                </DropdownMenuItem>
                 
-                {/* Conditional Link: Dashboard Merchant/Admin */}
-                {(user.role === 'merchant' || user.role === 'super_admin' || user.app_metadata?.role === 'merchant') && (
-                   <>
-                     <DropdownMenuSeparator />
-                     <DropdownMenuItem asChild>
-                       <Link href="/dashboard" className="cursor-pointer font-medium text-blue-600 focus:text-blue-600 focus:bg-blue-50">
-                         <Store className="mr-2 h-4 w-4" /> Dashboard Toko
-                       </Link>
-                     </DropdownMenuItem>
-                   </>
+                {/* --- MENU BUYER --- */}
+                {!isRestrictedUser && (
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link href="/profile" className="cursor-pointer">
+                        <User className="mr-2 h-4 w-4" /> Akun Saya
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/orders" className="cursor-pointer">
+                        <Package className="mr-2 h-4 w-4" /> Pesanan Saya
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
                 )}
 
-                <DropdownMenuSeparator />
+                {/* --- MENU MERCHANT/ADMIN --- */}
+                {isRestrictedUser && (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link 
+                          href={userRole === 'super_admin' ? "/admin" : "/dashboard"} 
+                          className="cursor-pointer font-medium text-blue-600 focus:text-blue-600 focus:bg-blue-50"
+                        >
+                          <LayoutDashboard className="mr-2 h-4 w-4" /> 
+                          {userRole === 'super_admin' ? "Dashboard Admin" : "Dashboard Toko"}
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                )}
+
+                {/* LOGOUT BUTTON */}
                 <DropdownMenuItem onClick={handleLogout} className="text-red-600 cursor-pointer focus:text-red-600 focus:bg-red-50">
                   <LogOut className="mr-2 h-4 w-4" /> Keluar
                 </DropdownMenuItem>

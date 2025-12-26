@@ -157,7 +157,7 @@ export function ProductForm({ categories, orgId, initialData }: ProductFormProps
   return (
     <>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 max-w-5xl">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           
           {/* HEADER */}
           <div className="flex items-center justify-between">
