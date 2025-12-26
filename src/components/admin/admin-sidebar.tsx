@@ -9,8 +9,9 @@ import {
   Settings,
   LogOut,
   ShieldCheck,
-  ChevronRight,
+  ChevronsUpDown,
   Wallet,
+  MessageCircle,
 } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
@@ -26,7 +27,6 @@ import {
   SidebarMenuItem,
   SidebarGroup,
   SidebarGroupLabel,
-  SidebarGroupContent,
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar"
@@ -37,43 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-
-// Menu Configuration
-const mainNav = [
-  {
-    title: "Overview",
-    url: "/admin",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Merchants",
-    url: "/admin/merchants",
-    icon: Store,
-  },
-  {
-    title: "Finance",
-    url: "/admin/finance",
-    icon: Wallet,
-  },
-  {
-    title: "Products",
-    url: "/admin/products",
-    icon: Package,
-  },
-  {
-    title: "Users",
-    url: "/admin/users",
-    icon: Users,
-  },
-]
-
-const settingsNav = [
-  {
-    title: "Settings",
-    url: "/admin/settings",
-    icon: Settings,
-  },
-]
+import { SidebarBadge } from "@/components/dashboard/sidebar-badge"
 
 export function AppSidebar({ user }: { user: any }) {
   const pathname = usePathname()
@@ -89,6 +53,7 @@ export function AppSidebar({ user }: { user: any }) {
 
   return (
     <Sidebar collapsible="icon">
+      {/* --- HEADER --- */}
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -109,53 +74,91 @@ export function AppSidebar({ user }: { user: any }) {
       </SidebarHeader>
 
       <SidebarContent>
-        {/* Main Group */}
+        {/* --- GROUP 1: PLATFORM MANAGE --- */}
         <SidebarGroup>
           <SidebarGroupLabel>Platform</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {mainNav.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={pathname === item.url}
-                    tooltip={item.title}
-                  >
-                    <a href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname === "/admin"} tooltip="Overview">
+                <a href="/admin">
+                  <LayoutDashboard />
+                  <span>Overview</span>
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/admin/merchants")} tooltip="Merchants">
+                <a href="/admin/merchants">
+                  <Store />
+                  <span>Merchants</span>
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/admin/products")} tooltip="Products">
+                <a href="/admin/products">
+                  <Package />
+                  <span>Products</span>
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/admin/users")} tooltip="Users">
+                <a href="/admin/users">
+                  <Users />
+                  <span>Users</span>
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
         </SidebarGroup>
 
-        {/* Settings Group */}
-        <SidebarGroup className="mt-auto">
+        {/* --- GROUP 2: MONITORING & SUPPORT --- */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Monitoring</SidebarGroupLabel>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/admin/finance")} tooltip="Finance">
+                <a href="/admin/finance">
+                  <Wallet />
+                  <span>Finance</span>
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+
+            {/* MESSAGES WITH BADGE */}
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/admin/messages")} tooltip="Messages">
+                <a href="/admin/messages" className="flex items-center w-full">
+                  <MessageCircle />
+                  <span className="flex-1">Messages</span>
+                  <SidebarBadge role="admin" />
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+
+        {/* --- GROUP 3: CONFIGURATION --- */}
+        <SidebarGroup>
           <SidebarGroupLabel>Configuration</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {settingsNav.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={pathname === item.url}
-                    tooltip={item.title}
-                  >
-                    <a href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/admin/settings")} tooltip="Settings">
+                <a href="/admin/settings">
+                  <Settings />
+                  <span>Settings</span>
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
 
+      {/* --- FOOTER --- */}
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -172,7 +175,7 @@ export function AppSidebar({ user }: { user: any }) {
                     <span className="truncate font-semibold">{user?.email || "Admin"}</span>
                     <span className="truncate text-xs">Active</span>
                   </div>
-                  <ChevronRight className="ml-auto size-4" />
+                  <ChevronsUpDown className="ml-auto size-4" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent

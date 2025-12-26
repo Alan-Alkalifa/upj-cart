@@ -3,14 +3,7 @@ import { redirect } from "next/navigation"
 import { AppSidebar } from "@/components/admin/admin-sidebar"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
+import { AdminBreadcrumbs } from "@/components/admin/admin-breadcrumbs" // Import the new component
 
 export default async function AdminLayout({
   children,
@@ -42,17 +35,10 @@ export default async function AdminLayout({
           <div className="flex items-center gap-2">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem className="hidden md:block">
-                  <BreadcrumbLink href="/admin">Admin</BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="hidden md:block" />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>Dashboard</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
+            
+            {/* --- Dynamic Breadcrumbs --- */}
+            <AdminBreadcrumbs />
+            
           </div>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 pt-0 mt-4">

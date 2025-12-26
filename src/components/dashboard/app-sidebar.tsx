@@ -12,6 +12,7 @@ import {
   Star,
   TicketPercent,
   ChevronsUpDown,
+  MessageCircle, 
 } from "lucide-react"
 import {
   Sidebar,
@@ -24,17 +25,18 @@ import {
   SidebarRail,
   SidebarGroup,
   SidebarGroupLabel,
-} from "@/components/ui/sidebar"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+} from "@/components/ui/sidebar" 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar" 
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { createClient } from "@/utils/supabase/client"
+} from "@/components/ui/dropdown-menu" 
+import { createClient } from "@/utils/supabase/client" 
 import { useRouter, usePathname } from "next/navigation"
-import { toast } from "sonner"
+import { toast } from "sonner" 
+import { SidebarBadge } from "./sidebar-badge" // [NEW IMPORT]
 
 export function AppSidebar({ user, org }: { user: any; org: any }) {
   const router = useRouter()
@@ -53,7 +55,6 @@ export function AppSidebar({ user, org }: { user: any; org: any }) {
 
   return (
     <Sidebar collapsible="icon">
-      {/* 1. Header: Store Info */}
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -73,7 +74,6 @@ export function AppSidebar({ user, org }: { user: any; org: any }) {
         </SidebarMenu>
       </SidebarHeader>
 
-      {/* 2. Content: Navigation */}
       <SidebarContent>
         {/* GROUP 1: OPERATIONAL */}
         <SidebarGroup>
@@ -103,6 +103,19 @@ export function AppSidebar({ user, org }: { user: any; org: any }) {
                 </a>
               </SidebarMenuButton>
             </SidebarMenuItem>
+            
+            {/* MESSAGES WITH BADGE */}
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/merchant/messages")} tooltip="Pesan Chat">
+                <a href="/merchant/messages" className="flex items-center w-full">
+                  <MessageCircle />
+                  <span className="flex-1">Pesan Chat</span>
+                  {/* [BADGE HERE] */}
+                  {org?.id && <SidebarBadge role="merchant" orgId={org.id} />}
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname.startsWith("/merchant/finance")} tooltip="Keuangan">
                 <a href="/merchant/finance">
@@ -153,15 +166,11 @@ export function AppSidebar({ user, org }: { user: any; org: any }) {
         </SidebarGroup>
       </SidebarContent>
 
-      {/* 3. Footer: User Profile & Logout */}
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                {/* FIX: Added suppressHydrationWarning 
-                   This stops React from complaining about the random Radix ID mismatch 
-                */}
                 <SidebarMenuButton
                   size="lg"
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"

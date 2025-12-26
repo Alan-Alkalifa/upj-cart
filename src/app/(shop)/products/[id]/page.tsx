@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server"
 import { notFound } from "next/navigation"
 import { ProductDetailClient } from "@/components/shop/product-detail-client"
+import { ChatSheet } from "@/components/chat/chat-sheet" 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
@@ -13,14 +14,17 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { Star, Store, MapPin, ShieldCheck, Truck, Share2, Heart } from "lucide-react"
+import { Star, Store, MapPin, ShieldCheck, Truck, Share2 } from "lucide-react"
 import Link from "next/link"
 
 export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
 
-  // Fetch Product Data dengan Relasi Lengkap
+  // 1. Fetch User Data (Required for Chat)
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // 2. Fetch Product Data with Relations
   const { data: product } = await supabase
     .from("products")
     .select(`
@@ -38,19 +42,19 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
   if (!product) notFound()
 
-  // Hitung Rating
+  // Calculate Rating
   const reviews = product.reviews || []
   const avgRating = reviews.length > 0 
     ? (reviews.reduce((acc: number, r: any) => acc + r.rating, 0) / reviews.length).toFixed(1)
     : "0.0"
 
-  // Filter varian aktif
+  // Filter active variants
   const activeVariants = product.product_variants.filter((v: any) => v.deleted_at === null)
   product.product_variants = activeVariants
 
   return (
     <div className="bg-background min-h-screen pb-20">
-      {/* 1. BREADCRUMBS SECTION */}
+      {/* BREADCRUMBS SECTION */}
       <div className="border-b">
         <div className="container mx-auto px-4 py-3">
           <Breadcrumb>
@@ -80,7 +84,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
       <div className="container mx-auto px-4 py-8 lg:py-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           
-          {/* 2. LEFT COLUMN: PRODUCT IMAGES (Sticky on Desktop) */}
+          {/* LEFT COLUMN: PRODUCT IMAGES (Sticky on Desktop) */}
           <div className="lg:col-span-5 xl:col-span-5 h-fit lg:sticky lg:top-24">
             <div className="aspect-square bg-muted rounded-2xl overflow-hidden border shadow-sm relative group">
               {product.image_url ? (
@@ -102,13 +106,16 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
               </div>
             </div>
             
-            {/* Merchant Info (Mobile Only - dipindah ke bawah foto utk mobile) */}
+            {/* Merchant Info (Mobile Only) */}
             <div className="lg:hidden mt-6">
-               <MerchantCard organization={product.organizations} />
+               <MerchantCard 
+                 organization={product.organizations} 
+                 currentUserId={user?.id || null} 
+               />
             </div>
           </div>
 
-          {/* 3. RIGHT COLUMN: PRODUCT DETAILS */}
+          {/* RIGHT COLUMN: PRODUCT DETAILS */}
           <div className="lg:col-span-7 xl:col-span-6 space-y-8">
             
             {/* Header Info */}
@@ -117,7 +124,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                 <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight text-foreground leading-tight">
                   {product.name}
                 </h1>
-                {/* Wishlist & Share Buttons (Visual Only) */}
+                {/* Wishlist & Share Buttons */}
                 <div className="flex gap-2 shrink-0">
                    <Button variant="outline" size="icon" className="rounded-full h-10 w-10 text-muted-foreground">
                       <Share2 className="h-5 w-5" />
@@ -178,7 +185,10 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
             {/* Merchant Info (Desktop Only) */}
             <div className="hidden lg:block">
               <h3 className="font-bold text-lg mb-4">Informasi Penjual</h3>
-              <MerchantCard organization={product.organizations} />
+              <MerchantCard 
+                organization={product.organizations} 
+                currentUserId={user?.id || null} 
+              />
             </div>
 
             {/* Reviews Section */}
@@ -238,8 +248,14 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   )
 }
 
-// Sub-component untuk Merchant Card agar kode lebih rapi
-function MerchantCard({ organization }: { organization: any }) {
+// Sub-component for Merchant Card
+function MerchantCard({ 
+  organization, 
+  currentUserId 
+}: { 
+  organization: any;
+  currentUserId: string | null;
+}) {
   return (
     <div className="flex items-center gap-4 p-5 bg-card rounded-xl border hover:border-primary/50 transition-colors shadow-sm group">
       <Avatar className="h-16 w-16 border bg-white shadow-sm group-hover:scale-105 transition-transform">
@@ -266,9 +282,18 @@ function MerchantCard({ organization }: { organization: any }) {
           </div>
         </div>
       </div>
-      <Button variant="outline" className="shrink-0 font-medium" asChild>
-        <Link href={`/shop/${organization.slug}`}>Kunjungi</Link>
-      </Button>
+      
+      {/* Action Buttons: Chat & Visit */}
+      <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+        <ChatSheet 
+          orgId={organization.id} 
+          storeName={organization.name} 
+          currentUserId={currentUserId} 
+        />
+        <Button variant="outline" className="font-medium" asChild>
+          <Link href={`/shop/${organization.slug}`}>Kunjungi</Link>
+        </Button>
+      </div>
     </div>
   )
 }

@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { getPlatformSettings } from "@/utils/get-settings";
 import { createClient } from "@/utils/supabase/server";
 import { Wrench, Mail } from "lucide-react"; // Icon untuk halaman maintenance
+import { FloatingChat } from "@/components/chat/floating-chat";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,7 +32,9 @@ export default async function RootLayout({
   const supabase = await createClient();
 
   // 2. Cek User & Role (Untuk Bypass Maintenance)
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   let isSuperAdmin = false;
 
   if (user) {
@@ -40,8 +43,8 @@ export default async function RootLayout({
       .select("role")
       .eq("id", user.id)
       .single();
-    
-    isSuperAdmin = profile?.role === 'super_admin';
+
+    isSuperAdmin = profile?.role === "super_admin";
   }
 
   // --- LOGIC: MAINTENANCE MODE ---
@@ -49,8 +52,9 @@ export default async function RootLayout({
   if (settings.is_maintenance_mode && !isSuperAdmin) {
     return (
       <html lang="id">
-        <body className={`${geistSans.variable} ${geistMono.variable} antialiased flex h-screen w-full flex-col items-center justify-center bg-gray-50 text-center p-6`}>
-          
+        <body
+          className={`${geistSans.variable} ${geistMono.variable} antialiased flex h-screen w-full flex-col items-center justify-center bg-gray-50 text-center p-6`}
+        >
           <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-2xl shadow-xl border border-gray-100">
             {/* Icon Animasi */}
             <div className="flex justify-center">
@@ -64,7 +68,8 @@ export default async function RootLayout({
                 Sedang Dalam Perbaikan
               </h1>
               <p className="text-gray-500 leading-relaxed">
-                Mohon maaf, <b>{settings.platform_name}</b> sedang menjalani pemeliharaan sistem terjadwal untuk meningkatkan layanan kami.
+                Mohon maaf, <b>{settings.platform_name}</b> sedang menjalani
+                pemeliharaan sistem terjadwal untuk meningkatkan layanan kami.
               </p>
             </div>
 
@@ -73,19 +78,18 @@ export default async function RootLayout({
                 <Mail className="h-4 w-4" />
                 <span>Butuh bantuan mendesak?</span>
               </div>
-              <a 
-                href={`mailto:${settings.support_email}`} 
+              <a
+                href={`mailto:${settings.support_email}`}
                 className="mt-2 inline-block font-medium text-blue-600 hover:text-blue-500 transition-colors"
               >
                 {settings.support_email}
               </a>
             </div>
-            
+
             <div className="text-xs text-gray-300">
               &copy; {new Date().getFullYear()} {settings.platform_name}
             </div>
           </div>
-
         </body>
       </html>
     );
@@ -95,9 +99,12 @@ export default async function RootLayout({
   // Tampilan Normal
   return (
     <html lang="id">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
         {children}
         <Toaster />
+        {user && <FloatingChat currentUserId={user.id} />}
       </body>
     </html>
   );
