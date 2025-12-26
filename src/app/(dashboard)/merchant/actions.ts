@@ -21,7 +21,7 @@ export async function updateStoreSettings(orgId: string, values: z.infer<typeof 
 
   if (error) return { error: error.message }
   
-  revalidatePath("/dashboard/settings")
+  revalidatePath("/merchant/settings")
   return { success: true }
 }
 
@@ -59,6 +59,6 @@ export async function createProduct(orgId: string, values: z.infer<typeof produc
 
   if (varError) return { error: "Produk dibuat, tapi gagal simpan varian." }
 
-  revalidatePath("/dashboard/products")
+  revalidatePath("/merchant/products")
   return { success: true }
 }

@@ -50,7 +50,7 @@ export default function LoginPage() {
               toast.dismiss(toastId);
               toast.success("Login Berhasil!");
               window.history.replaceState(null, "", window.location.pathname);
-              router.push("/dashboard"); 
+              router.push("/merchant"); 
               router.refresh();
             } else {
               toast.error("Gagal memulihkan sesi.");

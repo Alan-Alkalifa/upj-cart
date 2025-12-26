@@ -33,6 +33,6 @@ export async function requestWithdrawal(orgId: string, values: z.infer<typeof wi
     return { error: error.message }
   }
 
-  revalidatePath("/dashboard/finance")
+  revalidatePath("/merchant/finance")
   return { success: true }
 }

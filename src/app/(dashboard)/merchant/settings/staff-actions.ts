@@ -40,7 +40,7 @@ export async function addStaffMember(orgId: string, email: string) {
 
   if (error) return { error: error.message }
 
-  revalidatePath("/dashboard/settings")
+  revalidatePath("/merchant/settings")
   return { success: true }
 }
 
@@ -106,6 +106,6 @@ export async function removeStaffMember(memberId: string) {
   }
 
   console.log("Success Delete")
-  revalidatePath("/dashboard/settings")
+  revalidatePath("/merchant/settings")
   return { success: true }
 }

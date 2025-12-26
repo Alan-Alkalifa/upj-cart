@@ -44,7 +44,7 @@ export async function createProduct(orgId: string, values: z.infer<typeof produc
     if (varError) return { error: "Produk dibuat, tapi gagal simpan varian: " + varError.message }
   }
 
-  revalidatePath("/dashboard/products")
+  revalidatePath("/merchant/products")
   return { success: true }
 }
 
@@ -91,8 +91,8 @@ export async function updateProduct(productId: string, values: z.infer<typeof pr
     }
   }
 
-  revalidatePath("/dashboard/products")
-  revalidatePath(`/dashboard/products/${productId}`)
+  revalidatePath("/merchant/products")
+  revalidatePath(`/merchant/products/${productId}`)
   return { success: true }
 }
 
@@ -108,7 +108,7 @@ export async function deleteProduct(productId: string) {
 
   if (error) return { error: error.message }
   
-  revalidatePath("/dashboard/products")
+  revalidatePath("/merchant/products")
   return { success: true }
 }
 
@@ -125,6 +125,6 @@ export async function deleteProductVariant(variantId: string) {
 
   if (error) return { error: error.message }
 
-  revalidatePath("/dashboard/products")
+  revalidatePath("/merchant/products")
   return { success: true }
 }

@@ -22,7 +22,7 @@ export async function createCoupon(orgId: string, values: z.infer<typeof couponS
     return { error: error.message }
   }
 
-  revalidatePath("/dashboard/coupons")
+  revalidatePath("/merchant/coupons")
   return { success: true }
 }
 
@@ -31,7 +31,7 @@ export async function deleteCoupon(id: string) {
   const { error } = await supabase.from("coupons").delete().eq("id", id)
   if (error) return { error: error.message }
   
-  revalidatePath("/dashboard/coupons")
+  revalidatePath("/merchant/coupons")
   return { success: true }
 }
 
@@ -43,6 +43,6 @@ export async function toggleCouponStatus(id: string, currentStatus: boolean) {
     .eq("id", id)
     
   if (error) return { error: error.message }
-  revalidatePath("/dashboard/coupons")
+  revalidatePath("/merchant/coupons")
   return { success: true }
 }

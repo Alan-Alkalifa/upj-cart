@@ -16,7 +16,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
     .eq("id", id)
     .single()
 
-  if (!product) redirect("/dashboard/products")
+  if (!product) redirect("/merchant/products")
 
   // --- FILTERING LOGIC (SANGAT PENTING) ---
   // Kita harus membuang varian yang memiliki deleted_at tidak null

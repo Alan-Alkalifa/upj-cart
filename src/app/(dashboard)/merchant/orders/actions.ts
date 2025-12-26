@@ -26,7 +26,7 @@ export async function shipOrder(orderId: string, values: z.infer<typeof updateRe
 
   if (error) return { error: error.message }
 
-  revalidatePath("/dashboard/orders")
+  revalidatePath("/merchant/orders")
   return { success: true }
 }
 
@@ -41,7 +41,7 @@ export async function completeOrder(orderId: string) {
 
   if (error) return { error: error.message }
 
-  revalidatePath("/dashboard/orders")
+  revalidatePath("/merchant/orders")
   return { success: true }
 }
 
@@ -56,6 +56,6 @@ export async function cancelOrder(orderId: string) {
 
   if (error) return { error: error.message }
 
-  revalidatePath("/dashboard/orders")
+  revalidatePath("/merchant/orders")
   return { success: true }
 }

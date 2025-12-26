@@ -140,7 +140,7 @@ export default async function DashboardPage() {
         </div>
         <div className="flex items-center space-x-2">
           <Button asChild>
-            <Link href="/dashboard/products/create">
+            <Link href="/merchant/products/create">
               <Plus className="mr-2 h-4 w-4" /> Produk Baru
             </Link>
           </Button>
@@ -282,7 +282,7 @@ export default async function DashboardPage() {
               </div>
               <div className="mt-6">
                 <Button asChild variant="outline" className="w-full">
-                  <Link href="/dashboard/orders">
+                  <Link href="/merchant/orders">
                     Lihat Semua Pesanan <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
@@ -301,13 +301,13 @@ export default async function DashboardPage() {
             </CardHeader>
             <CardContent className="grid gap-2">
                <Button asChild variant="secondary" className="justify-start">
-                 <Link href="/dashboard/products/create"><Plus className="mr-2 h-4 w-4" /> Tambah Produk</Link>
+                 <Link href="/merchant/products/create"><Plus className="mr-2 h-4 w-4" /> Tambah Produk</Link>
                </Button>
                <Button asChild variant="secondary" className="justify-start">
-                 <Link href="/dashboard/orders"><ShoppingBag className="mr-2 h-4 w-4" /> Proses Pesanan</Link>
+                 <Link href="/merchant/orders"><ShoppingBag className="mr-2 h-4 w-4" /> Proses Pesanan</Link>
                </Button>
                <Button asChild variant="secondary" className="justify-start">
-                 <Link href="/dashboard/finance"><TrendingUp className="mr-2 h-4 w-4" /> Keuangan & Penarikan</Link>
+                 <Link href="/merchant/finance"><TrendingUp className="mr-2 h-4 w-4" /> Keuangan & Penarikan</Link>
                </Button>
             </CardContent>
           </Card>
@@ -340,7 +340,7 @@ export default async function DashboardPage() {
                           </div>
                        </div>
                        <Button asChild size="sm" variant="ghost">
-                          <Link href={`/dashboard/products/${p.id}`}>Edit</Link>
+                          <Link href={`/merchant/products/${p.id}`}>Edit</Link>
                        </Button>
                     </div>
                   ))

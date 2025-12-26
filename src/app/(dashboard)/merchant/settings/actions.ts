@@ -38,9 +38,9 @@ export async function updateOrganization(orgId: string, values: z.infer<typeof o
 
   if (error) return { error: error.message }
 
-  revalidatePath("/dashboard/settings")
+  revalidatePath("/merchant/settings")
   // Also revalidate the sidebar/layout to update name/logo immediately if changed
-  revalidatePath("/dashboard", "layout") 
+  revalidatePath("/merchant", "layout") 
   
   return { success: true }
 }

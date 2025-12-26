@@ -55,7 +55,7 @@ export async function login(values: z.infer<typeof loginSchema>) {
   if (role === "super_admin") {
     redirectUrl = "/admin";
   } else if (isMerchant) {
-    redirectUrl = "/dashboard";
+    redirectUrl = "/merchant";
   }
 
   return { success: true, redirectUrl };
@@ -180,7 +180,7 @@ export async function registerMerchant(
         email: values.email,
         password: values.password,
         options: {
-          redirectTo: "http://localhost:3000/dashboard", // Redirect setelah klik email
+          redirectTo: "http://localhost:3000/merchant", // Redirect setelah klik email
         },
       });
 

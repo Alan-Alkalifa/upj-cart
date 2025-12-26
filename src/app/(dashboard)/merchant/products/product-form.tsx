@@ -146,7 +146,7 @@ export function ProductForm({ categories, orgId, initialData }: ProductFormProps
         toast.error(res.error)
       } else {
         toast.success(isEdit ? "Produk diperbarui!" : "Produk berhasil dibuat!")
-        router.push("/dashboard/products")
+        router.push("/merchant/products")
       }
     })
   }

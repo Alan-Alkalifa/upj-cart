@@ -44,7 +44,7 @@ export default async function ProductsPage() {
            <h2 className="text-2xl font-bold tracking-tight">Daftar Produk</h2>
            <p className="text-muted-foreground">Kelola katalog, harga, dan stok produk toko Anda.</p>
         </div>
-        <Button asChild><Link href="/dashboard/products/create"><Plus className="mr-2 h-4 w-4" /> Tambah Produk</Link></Button>
+        <Button asChild><Link href="/merchant/products/create"><Plus className="mr-2 h-4 w-4" /> Tambah Produk</Link></Button>
       </div>
 
       {/* 2. Stats Cards Section (New) */}

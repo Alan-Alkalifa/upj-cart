@@ -85,7 +85,7 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
 
                 {/* Menu Khusus Admin/Merchant (Mobile) */}
                 {isRestrictedUser && (
-                  <Link href={userRole === 'super_admin' ? "/admin" : "/dashboard"} className="text-sm font-medium text-blue-600">
+                  <Link href={userRole === 'super_admin' ? "/admin" : "/merchant"} className="text-sm font-medium text-blue-600">
                     Dashboard
                   </Link>
                 )}
@@ -201,7 +201,7 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
                     <>
                       <DropdownMenuItem asChild>
                         <Link 
-                          href={userRole === 'super_admin' ? "/admin" : "/dashboard"} 
+                          href={userRole === 'super_admin' ? "/admin" : "/merchant"} 
                           className="cursor-pointer font-medium text-blue-600 focus:text-blue-600 focus:bg-blue-50"
                         >
                           <LayoutDashboard className="mr-2 h-4 w-4" /> 

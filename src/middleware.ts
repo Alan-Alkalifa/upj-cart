@@ -47,7 +47,7 @@ export async function middleware(request: NextRequest) {
     "/verify-email-sign-up",
     "/verify-email-reset-password",
   ];
-  const protectedRoutes = ["/dashboard", "/admin"];
+  const protectedRoutes = ["/merchant", "/admin"];
   const adminRoutes = ["/admin"];
 
   const isAuthRoute = authRoutes.some((route) => path.startsWith(route));
@@ -77,7 +77,7 @@ export async function middleware(request: NextRequest) {
           .maybeSingle();
 
         if (profile?.role === "super_admin") targetUrl = "/admin";
-        else if (member) targetUrl = "/dashboard";
+        else if (member) targetUrl = "/merchant";
       } catch (e) {
         // Fallback jika gagal fetch role
         console.error("Middleware Role Check Error:", e);

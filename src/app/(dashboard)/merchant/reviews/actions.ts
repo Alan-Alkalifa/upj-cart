@@ -18,6 +18,6 @@ export async function replyToReview(reviewId: string, values: z.infer<typeof rep
 
   if (error) return { error: error.message }
   
-  revalidatePath("/dashboard/reviews")
+  revalidatePath("/merchant/reviews")
   return { success: true }
 }
