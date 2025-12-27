@@ -12,11 +12,12 @@ export async function getUnreadCount(role: 'merchant' | 'admin', orgId?: string)
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return 0;
 
-  // Base query: Count messages that are NOT read and NOT sent by me
+  // FIX: Check 'is_read' instead of 'read_at'
+  // We count messages where is_read is FALSE (or NULL) and NOT sent by me
   let query = supabase
     .from('chat_messages')
     .select('id', { count: 'exact', head: true })
-    .is('read_at', null)
+    .not('is_read', 'eq', true) // Handles both false and null
     .neq('sender_id', user.id); 
 
   if (role === 'merchant' && orgId) {
@@ -59,10 +60,11 @@ export async function markRoomAsRead(roomId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
+  // FIX: Update 'is_read' to true instead of setting a timestamp
   await supabase
     .from('chat_messages')
-    .update({ read_at: new Date().toISOString() })
+    .update({ is_read: true }) 
     .eq('room_id', roomId)
-    .is('read_at', null)
+    .not('is_read', 'eq', true) // Only update unread ones to save resources
     .neq('sender_id', user.id);
 }

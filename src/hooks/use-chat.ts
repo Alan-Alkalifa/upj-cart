@@ -10,6 +10,7 @@ export interface Message {
   content: string;
   sender_id: string;
   created_at: string;
+  is_read: boolean; // [REQUIRED] Add this field
 }
 
 export function useChat(roomId: string, currentUserId: string) {
@@ -34,6 +35,7 @@ export function useChat(roomId: string, currentUserId: string) {
     // 2. Subscribe to Realtime
     const channel = supabase
       .channel(`room:${roomId}`)
+      // A. Listen for New Messages (INSERT)
       .on(
         "postgres_changes",
         {
@@ -44,13 +46,27 @@ export function useChat(roomId: string, currentUserId: string) {
         },
         (payload) => {
           const newMessage = payload.new as Message;
-          // DEDUPLICATION: Only add if it's not already in the list
           setMessages((prev) => {
-            if (prev.some((m) => m.id === newMessage.id)) {
-              return prev;
-            }
+            if (prev.some((m) => m.id === newMessage.id)) return prev;
             return [...prev, newMessage];
           });
+        }
+      )
+      // B. [CRITICAL] Listen for Read Status Updates (UPDATE)
+      // This turns the ticks blue when the other person opens the chat
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "chat_messages",
+          filter: `room_id=eq.${roomId}`,
+        },
+        (payload) => {
+          const updatedMsg = payload.new as Message;
+          setMessages((prev) => 
+            prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m))
+          );
         }
       )
       .subscribe();
@@ -60,21 +76,17 @@ export function useChat(roomId: string, currentUserId: string) {
     };
   }, [roomId]);
 
-  // 3. Send Handler (Updated)
+  // 3. Send Handler
   const send = async (content: string) => {
     if (!content.trim()) return;
 
-    // Call Server Action
     const res = await sendMessage(roomId, content);
 
     if (res?.error) {
       toast.error("Failed to send message");
     } else if (res?.data) {
-      // SUCCESS: Add to UI immediately
       const savedMessage = res.data as Message;
-      
       setMessages((prev) => {
-        // Double check for duplicates
         if (prev.some((m) => m.id === savedMessage.id)) return prev;
         return [...prev, savedMessage];
       });

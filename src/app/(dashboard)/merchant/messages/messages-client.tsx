@@ -2,20 +2,17 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { 
-  Search, 
-  MessageCircle, 
-  Store 
-} from "lucide-react";
+import { Search, MessageCircle, Store } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge"; 
 import { getMyChatRooms } from "@/app/actions/chat-list";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 import { createClient } from "@/utils/supabase/client";
 import { SupportChatButton } from "@/components/dashboard/support-chat-button"; 
 import { ActiveChatWindow } from "./active-chat-window"; 
+import { SidebarBadge } from "@/components/dashboard/sidebar-badge";
 
 export type ChatRoom = {
   id: string;
@@ -23,6 +20,7 @@ export type ChatRoom = {
   otherPartyImage: string | null;
   lastMessage: string;
   updatedAt: string;
+  unreadCount: number;
 };
 
 export function MerchantMessagesClient({ currentUserId }: { currentUserId: string }) {
@@ -43,55 +41,74 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
         .select('org_id')
         .eq('profile_id', currentUserId)
         .single();
-      
       if (data) setOrgId(data.org_id);
     };
     fetchOrg();
   }, [currentUserId]);
 
-  // 2. Fetch Rooms (Reusable)
+  // 2. Fetch Rooms Function
   const fetchRooms = async () => {
     const { rooms, error } = await getMyChatRooms();
     if (error) {
       console.error("Error fetching rooms:", error);
     } else {
       setRooms(rooms || []);
-      
+      // Handle URL param selection
       const paramId = searchParams.get('id');
-      if (paramId && rooms) {
+      if (paramId && rooms && !selectedRoom) {
         const targetRoom = rooms.find(r => r.id === paramId);
-        if (targetRoom) {
-          setSelectedRoom(targetRoom);
-        }
+        if (targetRoom) setSelectedRoom(targetRoom);
       }
     }
     setLoading(false);
   };
 
-  // Initial Load
+  // 3. Initial Load
+  useEffect(() => { fetchRooms(); }, [searchParams]);
+
+  // 4. [NEW] Refresh List on Room Change
+  // This ensures the list hits the server again when you enter OR leave a chat
   useEffect(() => {
     fetchRooms();
-  }, [searchParams]);
+  }, [selectedRoom]);
 
-  // Realtime Listener
+  // 5. REALTIME LISTENER
   useEffect(() => {
-    const channel = supabase
-      .channel('merchant_chat_list')
+    if (!currentUserId) return;
+
+    const channelName = `merchant_messages_list_${currentUserId}`;
+
+    const channel = supabase.channel(channelName)
+      // A. Message Changes (New/Read)
       .on(
-        'postgres_changes',
-        {
+        'postgres_changes', 
+        { 
           event: '*', 
-          schema: 'public',
-          table: 'chat_rooms'
-        },
-        () => fetchRooms()
+          schema: 'public', 
+          table: 'chat_messages' 
+        }, 
+        () => {
+          console.log("Realtime: Message changed, refreshing...");
+          fetchRooms();
+        }
+      )
+      // B. Room Changes (Sorting)
+      .on(
+        'postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'chat_rooms' 
+        }, 
+        () => {
+          console.log("Realtime: Room updated, refreshing...");
+          fetchRooms();
+        }
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+    return () => { supabase.removeChannel(channel); };
+  }, [currentUserId]);
 
   const filteredRooms = rooms.filter(r => 
     r.otherPartyName.toLowerCase().includes(search.toLowerCase())
@@ -101,22 +118,21 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
     <div className="flex flex-1 h-full overflow-hidden bg-background md:rounded-xl md:border md:shadow-sm">
       
       {/* --- LEFT PANEL: CHAT LIST --- */}
-      <div className={cn(
-        "w-full md:w-[320px] lg:w-[380px] flex flex-col border-r bg-muted/10 h-full",
-        selectedRoom ? "hidden md:flex" : "flex"
-      )}>
+      <div className={cn("w-full md:w-[320px] lg:w-[380px] flex flex-col border-r bg-muted/10 h-full", selectedRoom ? "hidden md:flex" : "flex")}>
+        
         {/* Header */}
         <div className="p-4 border-b space-y-3 shrink-0 bg-background/50 backdrop-blur-sm z-10">
-          <h1 className="font-bold text-xl flex items-center gap-2">
-            Pesan
-            <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-              {rooms.length}
-            </span>
-          </h1>
+          <div className="flex items-center justify-between">
+            <h1 className="font-bold text-xl flex items-center gap-2">
+              Pesan
+              <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                {rooms.length}
+              </span>
+            </h1>
+            {orgId && <SidebarBadge role="merchant" orgId={orgId} />}
+          </div>
 
-          {orgId && (
-            <SupportChatButton orgId={orgId} currentUserId={currentUserId} />
-          )}
+          {orgId && <SupportChatButton orgId={orgId} currentUserId={currentUserId} />}
 
           <div className="relative mt-2">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -129,20 +145,12 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
           </div>
         </div>
 
-        {/* List */}
+        {/* Room List */}
         <div className="flex-1 min-h-0">
           <ScrollArea className="h-full">
             {loading ? (
                <div className="p-4 space-y-4">
-                 {[1,2,3].map(i => (
-                   <div key={i} className="flex gap-3 animate-pulse">
-                     <div className="h-10 w-10 bg-muted rounded-full" />
-                     <div className="flex-1 space-y-2">
-                       <div className="h-4 w-24 bg-muted rounded" />
-                       <div className="h-3 w-full bg-muted rounded" />
-                     </div>
-                   </div>
-                 ))}
+                 {[1,2,3].map(i => <div key={i} className="h-16 bg-muted animate-pulse rounded-xl" />)}
                </div>
             ) : filteredRooms.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground text-center p-6">
@@ -161,26 +169,34 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
                     )}
                   >
                     <Avatar className="h-10 w-10 border bg-white shrink-0">
-                      {/* FIX: Use || undefined */}
                       <AvatarImage src={room.otherPartyImage || undefined} />
                       <AvatarFallback>{room.otherPartyName[0]}</AvatarFallback>
                     </Avatar>
+                    
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-baseline mb-1">
-                        <span className="font-semibold truncate text-sm">
-                          {room.otherPartyName}
-                        </span>
+                        <span className="font-semibold truncate text-sm">{room.otherPartyName}</span>
                         <span className="text-[10px] text-muted-foreground shrink-0">
-                           {/* Date Logic */}
                            {new Date(room.updatedAt).toLocaleDateString([], {month:'short', day:'numeric'}) === new Date().toLocaleDateString([], {month:'short', day:'numeric'})
                               ? new Date(room.updatedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-                              : new Date(room.updatedAt).toLocaleDateString([], {month:'short', day:'numeric'})
-                           }
+                              : new Date(room.updatedAt).toLocaleDateString([], {month:'short', day:'numeric'})}
                         </span>
                       </div>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {room.lastMessage}
-                      </p>
+                      
+                      <div className="flex justify-between items-center gap-2">
+                        <p className={cn(
+                          "text-xs truncate flex-1",
+                          room.unreadCount > 0 ? "font-semibold text-foreground" : "text-muted-foreground"
+                        )}>
+                          {room.lastMessage}
+                        </p>
+                        
+                        {room.unreadCount > 0 && (
+                          <Badge variant="destructive" className="h-5 min-w-5 rounded-full px-1.5 flex items-center justify-center text-[10px] shrink-0 animate-in zoom-in">
+                            {room.unreadCount}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </button>
                 ))}
@@ -191,28 +207,22 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
       </div>
 
       {/* --- RIGHT PANEL: ACTIVE CHAT --- */}
-      <div className={cn(
-        "flex-1 flex flex-col bg-background h-full min-w-0",
-        !selectedRoom ? "hidden md:flex" : "flex"
-      )}>
+      <div className={cn("flex-1 flex flex-col bg-background h-full min-w-0", !selectedRoom ? "hidden md:flex" : "flex")}>
         {selectedRoom ? (
           <ActiveChatWindow 
             room={selectedRoom} 
             currentUserId={currentUserId} 
             onBack={() => setSelectedRoom(null)} 
-            onMessageSent={fetchRooms} // [IMPORTANT] Updates list instantly
+            onMessageSent={fetchRooms}
           />
         ) : (
           <div className="hidden md:flex flex-col items-center justify-center h-full text-muted-foreground">
-            <div className="bg-muted/30 p-6 rounded-full mb-4">
-              <Store className="size-12 opacity-20" />
-            </div>
+            <div className="bg-muted/30 p-6 rounded-full mb-4"><Store className="size-12 opacity-20" /></div>
             <h3 className="font-semibold text-lg">UPJ Cart Messenger</h3>
             <p className="text-sm mt-1">Pilih percakapan dari daftar untuk memulai.</p>
           </div>
         )}
       </div>
-
     </div>
   );
 }

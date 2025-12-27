@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, MoreVertical, Send } from "lucide-react";
+import { ArrowLeft, MoreVertical, Send, Check, CheckCheck } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,27 +10,43 @@ import { useChat } from "@/hooks/use-chat";
 import { cn } from "@/lib/utils";
 import { markRoomAsRead } from "@/app/actions/notifications";
 
+type ChatRoom = {
+  id: string;
+  otherPartyName: string;
+  otherPartyImage: string | null;
+  lastMessage: string;
+  updatedAt: string;
+};
+
+interface ActiveChatWindowProps {
+  room: ChatRoom;
+  currentUserId: string;
+  onBack: () => void;
+  onMessageSent: () => void;
+}
+
 export function ActiveChatWindow({ 
   room, 
   currentUserId, 
   onBack,
   onMessageSent 
-}: { 
-  room: any; 
-  currentUserId: string; 
-  onBack: () => void;
-  onMessageSent: () => void;
-}) {
+}: ActiveChatWindowProps) {
   const { messages, send } = useChat(room.id, currentUserId);
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // 1. Auto-scroll
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollIntoView({ behavior: "smooth" });
+    if (scrollRef.current) {
+      scrollRef.current.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
+  // 2. Mark as Read
   useEffect(() => {
-    if (room.id) markRoomAsRead(room.id);
+    if (room.id) {
+      markRoomAsRead(room.id);
+    }
   }, [room.id, messages.length]);
 
   const handleSend = async () => {
@@ -48,24 +64,17 @@ export function ActiveChatWindow({
           <Button variant="ghost" size="icon" className="md:hidden -ml-2" onClick={onBack}>
             <ArrowLeft className="size-5" />
           </Button>
+          
           <Avatar className="h-9 w-9 border">
             <AvatarImage src={room.otherPartyImage || undefined} />
             <AvatarFallback>{room.otherPartyName[0]}</AvatarFallback>
           </Avatar>
+          
           <div>
-            <h3 className="font-semibold text-sm flex items-center gap-2">
-              {room.otherPartyName}
-              <span className="text-[10px] px-1.5 py-0.5 rounded border bg-muted font-normal text-muted-foreground">Merchant</span>
-            </h3>
-            {/* <p className="text-[10px] text-muted-foreground flex items-center gap-1.5">
-              <span className="block h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-              Online
-            </p> */}
+            <h3 className="font-semibold text-sm">{room.otherPartyName}</h3>
           </div>
         </div>
-        <Button variant="ghost" size="icon">
-          <MoreVertical className="size-4 text-muted-foreground" />
-        </Button>
+      
       </div>
 
       {/* MESSAGES */}
@@ -74,16 +83,39 @@ export function ActiveChatWindow({
           <div className="flex flex-col gap-4 max-w-3xl mx-auto min-h-full justify-end pb-2">
             {messages.map((msg) => {
               const isMe = msg.sender_id === currentUserId;
+              
               return (
-                <div key={msg.id} className={cn("flex w-full", isMe ? "justify-end" : "justify-start")}>
-                   <div className={cn(
-                    "max-w-[85%] md:max-w-[70%] px-4 py-2 text-sm shadow-sm",
-                    isMe ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm" 
-                         : "bg-white dark:bg-card text-foreground border rounded-2xl rounded-tl-sm"
-                  )}>
+                <div 
+                  key={msg.id} 
+                  className={cn("flex w-full", isMe ? "justify-end" : "justify-start")}
+                >
+                   <div
+                    className={cn(
+                      "max-w-[85%] md:max-w-[70%] px-4 py-2 text-sm shadow-sm flex flex-col gap-1",
+                      isMe 
+                        ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm" 
+                        : "bg-white dark:bg-card text-foreground border rounded-2xl rounded-tl-sm"
+                    )}
+                  >
                     <p className="leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
-                    <div className={cn("text-[9px] mt-1 text-right opacity-70", isMe ? "text-primary-foreground/90" : "text-muted-foreground")}>
-                      {new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    
+                    <div className={cn(
+                      "flex items-center gap-1.5 text-[9px]",
+                      isMe ? "justify-end text-primary-foreground/90" : "justify-end text-muted-foreground opacity-70"
+                    )}>
+                      <span>
+                        {new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                      </span>
+                      
+                      {isMe && (
+                        <span>
+                          {msg.is_read ? (
+                            <CheckCheck className="size-3.5 stroke-[2] text-blue-300" /> 
+                          ) : (
+                            <Check className="size-3.5 stroke-[2] opacity-70" />
+                          )}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -101,8 +133,9 @@ export function ActiveChatWindow({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Reply as Support..."
+            placeholder="Tulis balasan..."
             className="flex-1"
+            autoComplete="off"
           />
           <Button onClick={handleSend} disabled={!input.trim()} size="icon">
             <Send className="size-4" />
