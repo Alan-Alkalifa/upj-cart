@@ -141,7 +141,7 @@ export default async function DashboardPage() {
         <div className="flex items-center space-x-2">
           <Button asChild>
             <Link href="/merchant/products/create">
-              <Plus className="mr-2 h-4 w-4" /> Produk Baru
+              <Plus className="mr-2 h-4 w-4" /> Tambah Produk
             </Link>
           </Button>
         </div>

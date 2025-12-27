@@ -22,15 +22,27 @@ export const inviteStaffSchema = z.object({
 })
 
 export const productSchema = z.object({
-  name: z.string().min(3, "Nama produk minimal 3 karakter"),
-  description: z.string().optional(),
+  name: z.string()
+    .min(3, "Nama produk minimal 3 karakter")
+    .max(25, "Nama produk maksimal 25 karakter"), // MAX 25 CHAR
+  
+  description: z.string()
+    .max(500, "Deskripsi maksimal 500 karakter") // MAX 500 CHAR
+    .optional(),
+  
   global_category_id: z.string().min(1, "Kategori wajib dipilih"),
+  
   base_price: z.coerce.number().min(100, "Harga minimal Rp 100"),
-  weight_grams: z.coerce.number().min(1, "Berat minimal 1 gram"),
+  
+  weight_grams: z.coerce.number()
+    .min(1, "Berat minimal 1 gram")
+    .max(100000, "Berat maksimal 100 kg"), // MAX 100KG (100000g)
+  
   image_url: z.string().optional(),
   is_active: z.boolean().default(true),
+  
   variants: z.array(z.object({
-    id: z.string().optional(), // Optional for new variants
+    id: z.string().optional(),
     name: z.string().min(1, "Nama varian wajib"),
     stock: z.coerce.number().min(0, "Stok tidak boleh minus"),
     price_override: z.coerce.number().optional(),
@@ -60,3 +72,4 @@ export const organizationSchema = z.object({
   bank_account_number: z.string().optional(),
   bank_account_holder: z.string().optional(),
 })
+

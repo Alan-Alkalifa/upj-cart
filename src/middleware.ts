@@ -51,9 +51,10 @@ export async function middleware(request: NextRequest) {
   const adminRoutes = ["/admin"];
 
   const isAuthRoute = authRoutes.some((route) => path.startsWith(route));
-  const isProtectedRoute = protectedRoutes.some((route) =>
-    path.startsWith(route)
-  );
+  const isProtectedRoute =
+    protectedRoutes.some((route) => path.startsWith(route)) &&
+    !path.startsWith("/merchant-register");
+
   const isAdminRoute = adminRoutes.some((route) => path.startsWith(route));
 
   // 3. Logic: Jika User SUDAH Login

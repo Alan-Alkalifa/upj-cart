@@ -30,7 +30,7 @@ export async function Footer() {
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li><Link href="#" className="hover:text-primary transition-colors">Bantuan</Link></li>
               <li>
-                <Link href="/merchant/register" className="hover:text-primary transition-colors">
+                <Link href="/merchant-register" className="hover:text-primary transition-colors">
                   Daftar sebagai Mitra
                 </Link>
               </li>

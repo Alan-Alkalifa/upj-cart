@@ -190,7 +190,8 @@ export async function registerMerchant(
 
     // Kirim Email Kustom
     await resend.emails.send({
-      from: "UPJ Cart <onboarding@resend.dev>", // Ganti dengan domain verified Anda nanti
+      // FIXED: Menggunakan sender domain yang sudah diverifikasi (sesuai screenshot)
+      from: "UPJ CART <hi@the-candils.com>", 
       to: values.email,
       subject: "Verifikasi Email Toko Anda",
       html: `
@@ -260,7 +261,8 @@ export async function forgotPassword(
 
   try {
     await resend.emails.send({
-      from: "UPJ Cart <onboarding@resend.dev>",
+      // FIXED: Menggunakan sender domain yang sudah diverifikasi
+      from: "UPJ CART <hi@the-candils.com>",
       to: values.email,
       subject: "Reset Password UPJ Cart",
       html: `
