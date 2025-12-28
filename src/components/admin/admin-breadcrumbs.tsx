@@ -19,7 +19,7 @@ export function AdminBreadcrumbs() {
 
   // Mapping technical paths to readable labels
   const routeLabels: Record<string, string> = {
-    admin: "Admin",
+    admin: "Super Admin",
     merchants: "Merchants",
     products: "Products",
     users: "Users",
