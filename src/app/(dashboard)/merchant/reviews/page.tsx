@@ -1,9 +1,10 @@
 import { createClient } from "@/utils/supabase/server"
 import { ReviewReplyButton } from "./review-reply-button"
+import { ReviewSearch } from "./review-search" // Import komponen search
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Star, MessageSquare, MessageCircleQuestion, ThumbsUp, Reply, MessageCircle } from "lucide-react"
+import { Star, MessageSquare, MessageCircleQuestion, ThumbsUp, Reply, MessageCircle, Search } from "lucide-react"
 import {
   Pagination,
   PaginationContent,
@@ -14,12 +15,15 @@ import {
   PaginationEllipsis
 } from "@/components/ui/pagination"
 
-export default async function ReviewsPage(props: { searchParams: Promise<{ page?: string }> }) {
+export default async function ReviewsPage(props: { searchParams: Promise<{ page?: string, q?: string }> }) {
   const searchParams = await props.searchParams
   const currentPage = Number(searchParams.page) || 1
+  const queryParam = searchParams.q || "" // Ambil kata kunci pencarian
   const perPage = 10
-  const start = (currentPage - 1) * perPage
-  const end = start + perPage - 1
+  
+  // Hitung index untuk manual pagination (In-Memory)
+  const startIndex = (currentPage - 1) * perPage
+  const endIndex = startIndex + perPage
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -31,8 +35,8 @@ export default async function ReviewsPage(props: { searchParams: Promise<{ page?
   if (!member) redirect("/")
 
   // --- PARALLEL FETCHING ---
-  const [paginatedRes, statsRes] = await Promise.all([
-    // 1. Fetch Reviews (Paginated)
+  const [reviewsRes, statsRes] = await Promise.all([
+    // 1. Fetch SEMUA Reviews (untuk difilter di aplikasi)
     supabase
       .from("reviews")
       .select(`
@@ -40,31 +44,44 @@ export default async function ReviewsPage(props: { searchParams: Promise<{ page?
         profiles(full_name, avatar_url),
         orders(id),
         products!inner(name, org_id) 
-      `, { count: 'exact' })
+      `)
       .eq("products.org_id", member.org_id)
-      .order("created_at", { ascending: false })
-      .range(start, end),
+      .order("created_at", { ascending: false }),
     
-    // 2. Fetch Stats Data (Lightweight)
+    // 2. Fetch Stats Data (Global, tidak terpengaruh search)
     supabase
       .from("reviews")
       .select("rating, reply_comment, products!inner(org_id)")
       .eq("products.org_id", member.org_id)
   ])
 
-  const reviews = paginatedRes.data || []
-  const totalCount = paginatedRes.count || 0
+  let allReviews = reviewsRes.data || []
   const allStatsData = statsRes.data || []
 
+  // --- LOGIC SEARCH / FILTERING (In-Memory) ---
+  if (queryParam) {
+    const lowerQ = queryParam.toLowerCase()
+    allReviews = allReviews.filter((r: any) => {
+      const matchProduct = r.products?.name?.toLowerCase().includes(lowerQ)
+      const matchCustomer = r.profiles?.full_name?.toLowerCase().includes(lowerQ)
+      const matchComment = r.comment?.toLowerCase().includes(lowerQ)
+      return matchProduct || matchCustomer || matchComment
+    })
+  }
+
+  // --- MANUAL PAGINATION ---
+  const totalCount = allReviews.length
+  const paginatedReviews = allReviews.slice(startIndex, endIndex)
+  
   // --- STATS CALCULATION ---
-  const totalReviews = totalCount
+  const totalReviews = statsRes.data?.length || 0
   const averageRating = totalReviews > 0
     ? (allStatsData.reduce((acc, r) => acc + r.rating, 0) / allStatsData.length).toFixed(1)
     : "0.0"
   const unrepliedCount = allStatsData.filter(r => !r.reply_comment).length
   const positiveCount = allStatsData.filter(r => r.rating >= 4).length
 
-  // --- PAGINATION LOGIC ---
+  // --- PAGINATION UI LOGIC ---
   const totalPages = Math.ceil(totalCount / perPage)
   const hasNext = currentPage < totalPages
   const hasPrev = currentPage > 1
@@ -93,6 +110,14 @@ export default async function ReviewsPage(props: { searchParams: Promise<{ page?
       }
     }
     return pages
+  }
+
+  // Helper Pagination Link
+  const buildLink = (page: number) => {
+    const params = new URLSearchParams()
+    if (page > 1) params.set('page', String(page))
+    if (queryParam) params.set('q', queryParam)
+    return `/merchant/reviews?${params.toString()}`
   }
 
   return (
@@ -151,15 +176,29 @@ export default async function ReviewsPage(props: { searchParams: Promise<{ page?
         </Card>
       </div>
 
-      {/* 3. Review List (Server Rendered) */}
+      {/* 3. Search Bar (Posisi Di Atas List Ulasan) */}
+      <div className="flex justify-end">
+         <ReviewSearch />
+      </div>
+
+      {/* 4. Review List */}
       <div className="space-y-4">
-        {reviews.length === 0 ? (
+        {paginatedReviews.length === 0 ? (
            <div className="flex flex-col items-center justify-center p-12 border rounded-md border-dashed text-muted-foreground bg-card">
-              <MessageCircle className="h-10 w-10 opacity-20 mb-2" />
-              <p>Belum ada ulasan.</p>
+              {queryParam ? (
+                <>
+                  <Search className="h-10 w-10 opacity-20 mb-2" />
+                  <p>Tidak ditemukan ulasan untuk "{queryParam}".</p>
+                </>
+              ) : (
+                <>
+                  <MessageCircle className="h-10 w-10 opacity-20 mb-2" />
+                  <p>Belum ada ulasan.</p>
+                </>
+              )}
            </div>
         ) : (
-          reviews.map((r) => (
+          paginatedReviews.map((r: any) => (
             <Card key={r.id}>
               <CardHeader className="flex flex-row gap-4 space-y-0 pb-2">
                 <Avatar>
@@ -214,10 +253,10 @@ export default async function ReviewsPage(props: { searchParams: Promise<{ page?
         )}
       </div>
 
-      {/* 4. Pagination */}
+      {/* 5. Pagination */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-2">
           <div className="text-sm text-muted-foreground">
-             Menampilkan <b>{reviews.length > 0 ? start + 1 : 0}</b> - <b>{Math.min(end + 1, totalCount)}</b> dari <b>{totalCount}</b> ulasan
+             Menampilkan <b>{paginatedReviews.length > 0 ? startIndex + 1 : 0}</b> - <b>{Math.min(startIndex + paginatedReviews.length, totalCount)}</b> dari <b>{totalCount}</b> ulasan
           </div>
 
           {totalPages > 1 && (
@@ -225,7 +264,7 @@ export default async function ReviewsPage(props: { searchParams: Promise<{ page?
               <PaginationContent>
                 <PaginationItem>
                   <PaginationPrevious 
-                    href={hasPrev ? `/merchant/reviews?page=${currentPage - 1}` : "#"} 
+                    href={hasPrev ? buildLink(currentPage - 1) : "#"} 
                     className={!hasPrev ? "pointer-events-none opacity-50" : "cursor-pointer"}
                     aria-disabled={!hasPrev}
                   />
@@ -236,7 +275,7 @@ export default async function ReviewsPage(props: { searchParams: Promise<{ page?
                       <PaginationEllipsis />
                     ) : (
                       <PaginationLink 
-                        href={`/merchant/reviews?page=${page}`}
+                        href={buildLink(Number(page))}
                         isActive={currentPage === page}
                       >
                         {page}
@@ -246,7 +285,7 @@ export default async function ReviewsPage(props: { searchParams: Promise<{ page?
                 ))}
                 <PaginationItem>
                   <PaginationNext 
-                    href={hasNext ? `/merchant/reviews?page=${currentPage + 1}` : "#"}
+                    href={hasNext ? buildLink(currentPage + 1) : "#"}
                     className={!hasNext ? "pointer-events-none opacity-50" : "cursor-pointer"}
                     aria-disabled={!hasNext}
                   />

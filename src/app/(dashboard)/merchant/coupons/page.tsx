@@ -1,10 +1,11 @@
 import { createClient } from "@/utils/supabase/server"
 import { CreateCouponDialog } from "./coupon-client"
-import { CouponActions } from "./coupon-actions" // Import komponen aksi baris
+import { CouponActions } from "./coupon-actions"
+import { CouponSearch } from "./coupon-search" // Import komponen search
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { TicketPercent, CheckCircle, Repeat, Clock, Tag } from "lucide-react"
+import { TicketPercent, CheckCircle, Repeat, Clock, Tag, Search } from "lucide-react"
 import {
   Pagination,
   PaginationContent,
@@ -15,9 +16,12 @@ import {
   PaginationEllipsis
 } from "@/components/ui/pagination"
 
-export default async function CouponsPage(props: { searchParams: Promise<{ page?: string }> }) {
+// Tambahkan prop 'q' untuk menangkap query pencarian
+export default async function CouponsPage(props: { searchParams: Promise<{ page?: string, q?: string }> }) {
   const searchParams = await props.searchParams
   const currentPage = Number(searchParams.page) || 1
+  const queryParam = searchParams.q || "" // Ambil kata kunci pencarian
+  
   const perPage = 10
   const start = (currentPage - 1) * perPage
   const end = start + perPage - 1
@@ -31,17 +35,24 @@ export default async function CouponsPage(props: { searchParams: Promise<{ page?
   
   if (!member) redirect("/")
 
+  // --- QUERY BUILDER ---
+  let query = supabase
+    .from("coupons")
+    .select("*", { count: 'exact' })
+    .eq("org_id", member.org_id)
+    .order("created_at", { ascending: false })
+
+  // 1. Terapkan Filter Pencarian (Search)
+  if (queryParam) {
+    query = query.ilike('code', `%${queryParam}%`)
+  }
+
   // --- PARALLEL DATA FETCHING ---
   const [paginatedRes, statsRes] = await Promise.all([
-    // 1. Fetch Coupons (Paginated)
-    supabase
-      .from("coupons")
-      .select("*", { count: 'exact' })
-      .eq("org_id", member.org_id)
-      .order("created_at", { ascending: false })
-      .range(start, end),
+    // A. Fetch Data Tabel (sesuai halaman & filter search)
+    query.range(start, end),
     
-    // 2. Fetch All Coupons (For Stats)
+    // B. Fetch Semua Data (untuk statistik global - tidak terpengaruh search)
     supabase
       .from("coupons")
       .select("is_active, expires_at, times_used")
@@ -53,7 +64,7 @@ export default async function CouponsPage(props: { searchParams: Promise<{ page?
   const allCoupons = statsRes.data || []
 
   // --- STATS CALCULATION ---
-  const totalCoupons = totalCount
+  const totalCoupons = allCoupons.length // Total keseluruhan (bukan hasil search)
   const activeCount = allCoupons.filter(c => {
     const isNotExpired = new Date(c.expires_at) > new Date()
     return c.is_active && isNotExpired
@@ -90,6 +101,14 @@ export default async function CouponsPage(props: { searchParams: Promise<{ page?
       }
     }
     return pages
+  }
+
+  // Helper untuk membuat link pagination yang mempertahankan search query
+  const buildLink = (page: number) => {
+    const params = new URLSearchParams()
+    if (page > 1) params.set('page', String(page))
+    if (queryParam) params.set('q', queryParam)
+    return `/merchant/coupons?${params.toString()}`
   }
 
   return (
@@ -151,7 +170,12 @@ export default async function CouponsPage(props: { searchParams: Promise<{ page?
         </Card>
       </div>
 
-      {/* 3. Table Section */}
+      {/* 3. Search Bar (Ditempatkan Di Atas Table) */}
+      <div className="flex justify-end">
+          <CouponSearch />
+      </div>
+
+      {/* 4. Table Section */}
       <div className="space-y-4">
         <div className="rounded-md border bg-card">
           <Table>
@@ -169,8 +193,17 @@ export default async function CouponsPage(props: { searchParams: Promise<{ page?
                 <TableRow>
                   <TableCell colSpan={5} className="h-48">
                      <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground">
-                        <Tag className="h-10 w-10 opacity-20" />
-                        <p className="text-center font-medium">Belum ada kupon.</p>
+                        {queryParam ? (
+                            <>
+                                <Search className="h-10 w-10 opacity-20" />
+                                <p className="text-center font-medium">Kupon "{queryParam}" tidak ditemukan.</p>
+                            </>
+                        ) : (
+                            <>
+                                <Tag className="h-10 w-10 opacity-20" />
+                                <p className="text-center font-medium">Belum ada kupon.</p>
+                            </>
+                        )}
                      </div>
                   </TableCell>
                 </TableRow>
@@ -203,7 +236,7 @@ export default async function CouponsPage(props: { searchParams: Promise<{ page?
           </Table>
         </div>
 
-        {/* 4. Pagination */}
+        {/* 5. Pagination */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-2">
           <div className="text-sm text-muted-foreground">
              Menampilkan <b>{coupons.length > 0 ? start + 1 : 0}</b> - <b>{Math.min(end + 1, totalCount)}</b> dari <b>{totalCount}</b> kupon
@@ -214,7 +247,7 @@ export default async function CouponsPage(props: { searchParams: Promise<{ page?
               <PaginationContent>
                 <PaginationItem>
                   <PaginationPrevious 
-                    href={hasPrev ? `/merchant/coupons?page=${currentPage - 1}` : "#"} 
+                    href={hasPrev ? buildLink(currentPage - 1) : "#"} 
                     className={!hasPrev ? "pointer-events-none opacity-50" : "cursor-pointer"}
                     aria-disabled={!hasPrev}
                   />
@@ -225,7 +258,7 @@ export default async function CouponsPage(props: { searchParams: Promise<{ page?
                       <PaginationEllipsis />
                     ) : (
                       <PaginationLink 
-                        href={`/merchant/coupons?page=${page}`}
+                        href={buildLink(Number(page))}
                         isActive={currentPage === page}
                       >
                         {page}
@@ -235,7 +268,7 @@ export default async function CouponsPage(props: { searchParams: Promise<{ page?
                 ))}
                 <PaginationItem>
                   <PaginationNext 
-                    href={hasNext ? `/merchant/coupons?page=${currentPage + 1}` : "#"}
+                    href={hasNext ? buildLink(currentPage + 1) : "#"}
                     className={!hasNext ? "pointer-events-none opacity-50" : "cursor-pointer"}
                     aria-disabled={!hasNext}
                   />
