@@ -1,7 +1,8 @@
 import { createClient } from "@/utils/supabase/server"
 import { notFound } from "next/navigation"
 import { ProductDetailClient } from "@/components/shop/product-detail-client"
-import { ChatSheet } from "@/components/chat/chat-sheet" 
+import { FloatingChat } from "@/components/chat/floating-chat" 
+import { ShareButton } from "@/components/shop/share-button" // Import ShareButton
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
@@ -14,7 +15,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { Star, Store, MapPin, ShieldCheck, Truck, Share2 } from "lucide-react"
+import { Star, Store, MapPin, ShieldCheck, Truck, MessageCircle } from "lucide-react"
 import Link from "next/link"
 
 export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -101,7 +102,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
               {/* Floating Badge */}
               <div className="absolute top-4 left-4">
                  <Badge variant="secondary" className="backdrop-blur-md bg-white/80 text-black border-white/20 shadow-sm">
-                    Original
+                   Original
                  </Badge>
               </div>
             </div>
@@ -126,9 +127,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                 </h1>
                 {/* Wishlist & Share Buttons */}
                 <div className="flex gap-2 shrink-0">
-                   <Button variant="outline" size="icon" className="rounded-full h-10 w-10 text-muted-foreground">
-                      <Share2 className="h-5 w-5" />
-                   </Button>
+                   <ShareButton />
                 </div>
               </div>
 
@@ -273,23 +272,36 @@ function MerchantCard({
         <div className="flex items-center gap-4 mt-3">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
              <MapPin className="h-3.5 w-3.5" /> 
-             <span className="truncate max-w-[150px]">{organization.address_city || "Tangerang Selatan"}</span>
+             <span className="truncate max-w-37.5">{organization.address_city || "Tangerang Selatan"}</span>
           </div>
           <Separator orientation="vertical" className="h-3" />
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-             <Store className="h-3.5 w-3.5" /> 
-             <span>Buka 24 Jam</span>
-          </div>
         </div>
       </div>
       
       {/* Action Buttons: Chat & Visit */}
       <div className="flex flex-col sm:flex-row gap-2 shrink-0">
-        <ChatSheet 
-          orgId={organization.id} 
-          storeName={organization.name} 
-          currentUserId={currentUserId} 
-        />
+        {currentUserId ? (
+            <FloatingChat 
+                currentUserId={currentUserId}
+                orgId={organization.id}
+                storeName={organization.name}
+                storeAvatar={organization.logo_url}
+                customTrigger={
+                    <Button variant="outline" className="gap-2 font-medium">
+                        <MessageCircle className="size-4" />
+                        Chat Penjual
+                    </Button>
+                }
+            />
+        ) : (
+            <Button variant="outline" className="gap-2 font-medium" asChild>
+                <Link href={`/login?next=/products/${organization.id}`}>
+                    <MessageCircle className="size-4" />
+                    Chat Penjual
+                </Link>
+            </Button>
+        )}
+        
         <Button variant="outline" className="font-medium" asChild>
           <Link href={`/shop/${organization.slug}`}>Kunjungi</Link>
         </Button>

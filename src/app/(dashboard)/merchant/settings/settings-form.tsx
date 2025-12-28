@@ -15,9 +15,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Loader2, Upload, ImageIcon, MapPin, Globe, CreditCard } from "lucide-react"
+import { Loader2, ImageIcon, MapPin, Globe, CreditCard } from "lucide-react"
 
-export function SettingsForm({ initialData }: { initialData: any }) {
+// PERBAIKAN: Tambahkan orgId di props
+export function SettingsForm({ initialData, orgId }: { initialData: any, orgId: string }) {
   const [isPending, startTransition] = useTransition()
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [uploadingBanner, setUploadingBanner] = useState(false)
@@ -46,7 +47,7 @@ export function SettingsForm({ initialData }: { initialData: any }) {
     }
   })
 
-  // --- UPLOAD HANDLER (Reused for Logo & Banner) ---
+  // --- UPLOAD HANDLER ---
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>, fieldName: "logo_url" | "banner_url") {
     const file = e.target.files?.[0]
     if (!file) return
@@ -57,7 +58,8 @@ export function SettingsForm({ initialData }: { initialData: any }) {
 
     const supabase = createClient()
     const fileExt = file.name.split('.').pop()
-    const fileName = `${initialData.id}/${fieldName}_${Date.now()}.${fileExt}`
+    // Gunakan orgId yang valid dari props untuk path storage
+    const fileName = `${orgId}/${fieldName}_${Date.now()}.${fileExt}`
 
     const { error } = await supabase.storage.from('organizations').upload(fileName, file)
 
@@ -75,7 +77,8 @@ export function SettingsForm({ initialData }: { initialData: any }) {
 
   function onSubmit(values: z.infer<typeof organizationSchema>) {
     startTransition(async () => {
-      const res = await updateOrganization(initialData.id, values)
+      // PERBAIKAN: Gunakan orgId dari props
+      const res = await updateOrganization(orgId, values)
       if (res?.error) {
         toast.error(res.error)
       } else {
@@ -96,9 +99,7 @@ export function SettingsForm({ initialData }: { initialData: any }) {
           </CardHeader>
           <CardContent className="space-y-6">
             
-            {/* Logo & Banner Grid */}
             <div className="grid gap-6 md:grid-cols-2">
-              {/* Logo Upload */}
               <div className="flex flex-col gap-3">
                 <FormLabel>Logo Toko</FormLabel>
                 <div className="flex items-center gap-4">
@@ -118,7 +119,6 @@ export function SettingsForm({ initialData }: { initialData: any }) {
                 </div>
               </div>
 
-              {/* Banner Upload */}
               <div className="flex flex-col gap-3">
                 <FormLabel>Banner Toko</FormLabel>
                 <div className="space-y-2">

@@ -1,28 +1,26 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { Slider } from "@/components/ui/slider" // Menggunakan komponen Slider
-import { Input } from "@/components/ui/input" // Menggunakan komponen Input
-import { Label } from "@/components/ui/label" // Menggunakan komponen Label
-import { Button } from "@/components/ui/button" // Menggunakan komponen Button
+import { useRouter, useSearchParams, usePathname } from "next/navigation" // Tambahkan usePathname
+import { Slider } from "@/components/ui/slider"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
 
 export function PriceFilter() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const pathname = usePathname() // Ambil path saat ini (bisa /search atau /shop/slug)
 
-  // Konfigurasi batas harga (Sesuaikan dengan kebutuhan katalog Anda)
   const MIN_LIMIT = 0
-  const MAX_LIMIT = 10000000 // Contoh: 10 Juta
+  const MAX_LIMIT = 10000000 
 
-  // State internal untuk Slider (selalu berupa array angka)
   const [range, setRange] = useState<number[]>([
     Number(searchParams.get("min")) || MIN_LIMIT,
     Number(searchParams.get("max")) || MAX_LIMIT
   ])
 
-  // Sinkronisasi state saat URL berubah (misal tombol reset ditekan)
   useEffect(() => {
     setRange([
       Number(searchParams.get("min")) || MIN_LIMIT,
@@ -33,23 +31,26 @@ export function PriceFilter() {
   const applyFilter = () => {
     const params = new URLSearchParams(searchParams.toString())
     
-    // Set min jika lebih besar dari batas bawah
+    // Reset pagination ke page 1 saat filter berubah
+    params.delete("page")
+
     if (range[0] > MIN_LIMIT) params.set("min", range[0].toString())
     else params.delete("min")
     
-    // Set max jika lebih kecil dari batas atas
     if (range[1] < MAX_LIMIT) params.set("max", range[1].toString())
     else params.delete("max")
 
-    router.push(`/search?${params.toString()}`)
+    // Gunakan pathname dinamis
+    router.push(`${pathname}?${params.toString()}`, { scroll: false })
   }
 
   const resetPrice = () => {
     const params = new URLSearchParams(searchParams.toString())
     params.delete("min")
     params.delete("max")
+    params.delete("page")
     setRange([MIN_LIMIT, MAX_LIMIT])
-    router.push(`/search?${params.toString()}`)
+    router.push(`${pathname}?${params.toString()}`, { scroll: false })
   }
 
   return (
@@ -67,13 +68,12 @@ export function PriceFilter() {
       </div>
       
       <div className="px-2">
-        {/* Implementasi Slider */}
         <Slider
           defaultValue={[MIN_LIMIT, MAX_LIMIT]}
           value={range}
           min={MIN_LIMIT}
           max={MAX_LIMIT}
-          step={50000} // Kelipatan 50rb
+          step={50000}
           onValueChange={(value) => setRange(value)}
           className="py-4"
         />
@@ -81,7 +81,6 @@ export function PriceFilter() {
 
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-2">
-          {/* Input Harga Minimum */}
           <div className="space-y-1">
             <span className="text-[10px] text-muted-foreground ml-1">Minimum</span>
             <div className="relative">
@@ -94,7 +93,6 @@ export function PriceFilter() {
               />
             </div>
           </div>
-          {/* Input Harga Maksimum */}
           <div className="space-y-1">
             <span className="text-[10px] text-muted-foreground ml-1">Maksimum</span>
             <div className="relative">
@@ -112,7 +110,7 @@ export function PriceFilter() {
         <Button 
           onClick={applyFilter} 
           className="w-full h-8 text-xs font-semibold" 
-          variant="secondary" // Konsisten dengan design sebelumnya
+          variant="secondary"
         >
           Terapkan Harga
         </Button>

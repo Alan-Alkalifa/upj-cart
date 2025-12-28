@@ -1,6 +1,6 @@
 "use client"
 
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams, usePathname } from "next/navigation" // Tambahkan usePathname
 import {
   Select,
   SelectContent,
@@ -12,18 +12,19 @@ import {
 export function ProductSort() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const pathname = usePathname() // Ambil path saat ini
 
-  // Default ke "newest" jika tidak ada parameter sort
   const currentSort = searchParams.get("sort") || "newest"
 
   const handleSortChange = (value: string) => {
     const params = new URLSearchParams(searchParams.toString())
     params.set("sort", value)
     
-    // Reset pagination ke halaman 1 jika ada sorting baru (opsional, jika nanti ada pagination)
-    // params.delete("page") 
+    // Reset pagination saat sorting berubah agar user tidak bingung
+    params.delete("page") 
 
-    router.push(`/search?${params.toString()}`, { scroll: false })
+    // Gunakan pathname dinamis
+    router.push(`${pathname}?${params.toString()}`, { scroll: false })
   }
 
   return (
@@ -32,7 +33,7 @@ export function ProductSort() {
         Urutkan:
       </span>
       <Select value={currentSort} onValueChange={handleSortChange}>
-        <SelectTrigger className="h-9 w-[160px] text-xs">
+        <SelectTrigger className="h-9 w-[160px] text-xs bg-background">
           <SelectValue placeholder="Urutkan..." />
         </SelectTrigger>
         <SelectContent>

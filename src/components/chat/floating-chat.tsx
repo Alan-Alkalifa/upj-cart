@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { useChat } from "@/hooks/use-chat"; 
 import { getMyChatRooms } from "@/app/actions/chat-list";
 import { getUnreadCount, markRoomAsRead } from "@/app/actions/notifications";
+import { startBuyerChat } from "@/app/actions/chat"; // Import chat initiator
 import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -155,7 +156,7 @@ function ActiveChatView({
     if (scrollRef.current) scrollRef.current.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // 2. Mark as Read Logic (Updated)
+  // 2. Mark as Read Logic
   useEffect(() => {
     if (room.id) {
       markRoomAsRead(room.id);
@@ -258,7 +259,21 @@ function ActiveChatView({
 }
 
 // --- MAIN COMPONENT: GLOBAL FLOATING BUTTON ---
-export function FloatingChat({ currentUserId }: { currentUserId: string }) {
+interface FloatingChatProps {
+  currentUserId: string;
+  orgId?: string;       // Optional: Target Org to chat with
+  storeName?: string;   // Optional: Target Store Name
+  storeAvatar?: string; // Optional: Target Store Avatar
+  customTrigger?: React.ReactNode; // Optional: Custom trigger button
+}
+
+export function FloatingChat({ 
+  currentUserId,
+  orgId,
+  storeName,
+  storeAvatar,
+  customTrigger 
+}: FloatingChatProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [activeRoom, setActiveRoom] = useState<ChatRoom | null>(null);
@@ -270,23 +285,19 @@ export function FloatingChat({ currentUserId }: { currentUserId: string }) {
   // 1. Hide on Dashboard Pages (Prevent Duplicate UI)
   const isRestrictedPath = pathname.startsWith("/merchant") || pathname.startsWith("/admin");
 
-  // 2. Data Fetcher Logic (Reused from dashboard logic)
+  // 2. Data Fetcher Logic
   const refreshAllData = async () => {
-    // A. Check Context
     const { data: member } = await supabase
         .from("organization_members")
         .select("org_id")
         .eq("profile_id", currentUserId)
         .maybeSingle();
 
-    // B. Fetch Unread Count
     const count = await getUnreadCount('merchant', member?.org_id);
     setUnreadCount(count || 0);
 
-    // C. Fetch Rooms
     const { rooms: fetchedRooms } = await getMyChatRooms();
     setRooms(fetchedRooms || []);
-    
     setLoading(false);
   };
 
@@ -296,34 +307,12 @@ export function FloatingChat({ currentUserId }: { currentUserId: string }) {
 
     refreshAllData();
 
-    // LISTEN TO MESSAGE CHANGES (Insert & Update)
     const badgeChannel = supabase.channel(`fc_badge_${currentUserId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*', 
-          schema: 'public',
-          table: 'chat_messages'
-        },
-        () => {
-          refreshAllData();
-        }
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_messages' }, () => refreshAllData())
       .subscribe();
 
-    // LISTEN TO ROOM CHANGES (Sorting)
     const listChannel = supabase.channel(`fc_list_${currentUserId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*', 
-          schema: 'public',
-          table: 'chat_rooms'
-        },
-        () => {
-          refreshAllData();
-        }
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_rooms' }, () => refreshAllData())
       .subscribe();
 
     return () => {
@@ -332,33 +321,65 @@ export function FloatingChat({ currentUserId }: { currentUserId: string }) {
     };
   }, [currentUserId, isRestrictedPath]);
 
+  // Handle Sheet Open/Close with Org Logic
+  const handleOpenChange = async (val: boolean) => {
+    setOpen(val);
+    
+    // When opening, if orgId is present, we DIRECTLY initialize the specific room
+    if (val && orgId && storeName) {
+      setLoading(true);
+      const res = await startBuyerChat(orgId);
+      
+      if (res.roomId) {
+        // Set the active room immediately so the view switches to chat
+        setActiveRoom({
+          id: res.roomId,
+          otherPartyName: storeName,
+          otherPartyImage: storeAvatar || null,
+          lastMessage: "",
+          updatedAt: new Date().toISOString(),
+          unreadCount: 0
+        });
+        await refreshAllData(); // Sync background list
+      }
+      setLoading(false);
+    } 
+    // When closing, reset active room
+    else if (!val) {
+      setActiveRoom(null);
+    }
+  };
+
   if (!currentUserId || isRestrictedPath) return null;
 
   return (
-    <Sheet open={open} onOpenChange={(val) => { setOpen(val); if(!val) setActiveRoom(null); }}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>
-        <div className="fixed bottom-6 right-6 z-50">
-          <Button 
-            size="lg" 
-            className="h-14 w-14 rounded-full shadow-xl p-0 hover:scale-110 active:scale-95 transition-all duration-300 bg-primary group"
-          >
-            <MessageCircle className="size-7 fill-white text-white group-hover:rotate-12 transition-transform" />
-            
-            {/* Unread Badge */}
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-5 w-5 z-50">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-5 w-5 bg-red-500 border-2 border-background text-[10px] text-white items-center justify-center font-bold shadow-sm">
-                  {unreadCount > 9 ? '9+' : unreadCount}
+        {customTrigger ? (
+          // Render custom trigger (e.g., from MerchantCard)
+          customTrigger
+        ) : (
+          // Render Default FAB
+          <div className="fixed bottom-6 right-6 z-50">
+            <Button 
+              size="lg" 
+              className="h-14 w-14 rounded-full shadow-xl p-0 hover:scale-110 active:scale-95 transition-all duration-300 bg-primary group"
+            >
+              <MessageCircle className="size-7 fill-white text-white group-hover:rotate-12 transition-transform" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-5 w-5 z-50">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-5 w-5 bg-red-500 border-2 border-background text-[10px] text-white items-center justify-center font-bold shadow-sm">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
                 </span>
-              </span>
-            )}
-          </Button>
-        </div>
+              )}
+            </Button>
+          </div>
+        )}
       </SheetTrigger>
       
       <SheetContent side="right" className="w-full sm:w-[400px] p-0 flex flex-col h-full border-l shadow-2xl overflow-hidden rounded-l-2xl my-2 mr-2 max-h-[calc(100vh-16px)]">
-        {/* Sheet Header */}
         <div className="px-4 py-3 border-b flex items-center justify-between bg-muted/20 shrink-0">
           <SheetTitle className="text-base font-bold flex items-center gap-2">
             <Store className="size-4 text-primary" />
@@ -366,7 +387,6 @@ export function FloatingChat({ currentUserId }: { currentUserId: string }) {
           </SheetTitle>
         </div>
         
-        {/* Content Switcher: List vs Active Chat */}
         <div className="flex-1 min-h-0 bg-background">
           {activeRoom ? (
             <ActiveChatView 

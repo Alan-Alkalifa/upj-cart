@@ -1,6 +1,8 @@
 import { createClient } from "@/utils/supabase/server"
 import { notFound } from "next/navigation"
 import { ProductCard } from "@/components/shop/product-card"
+import { FloatingChat } from "@/components/chat/floating-chat"
+import { ShareButton } from "@/components/shop/share-button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -15,20 +17,38 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { Store, MapPin, Calendar, Star, MessageCircle, Share2, ShieldCheck, Filter, ShoppingBag, Clock, Info, Instagram, Facebook, Globe, Twitter, X, ExternalLink } from "lucide-react"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { MapPin, Calendar, Star, MessageCircle, Share2, ShieldCheck, ShoppingBag, Clock, Info, Instagram, Globe, SlidersHorizontal, SearchX } from "lucide-react"
 import Link from "next/link"
 import { JumpToProductsBtn } from "@/components/shop/jump-to-product"
-import { ShopSearch } from "@/components/shop/shop-search" // Import the new component
+import { ShopSearch } from "@/components/shop/shop-search"
+import { PriceFilter } from "@/components/shop/price-filter"
+import { ProductSort } from "@/components/shop/product-sort"
+import { Label } from "@/components/ui/label"
+
+const PRODUCTS_PER_PAGE = 12
 
 export default async function MerchantPage(props: { 
   params: Promise<{ slug: string }>,
-  searchParams: Promise<{ q?: string }> // Add searchParams
+  searchParams: Promise<{ q?: string; min?: string; max?: string; sort?: string; page?: string }> 
 }) {
   const { slug } = await props.params
   const searchParams = await props.searchParams
-  const queryParam = searchParams.q
   const supabase = await createClient()
 
+  // 1. Fetch User Data (Required for Chat)
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // 2. Fetch Merchant Info
   const { data: merchant } = await supabase
     .from("organizations")
     .select("*")
@@ -37,7 +57,40 @@ export default async function MerchantPage(props: {
 
   if (!merchant) return notFound()
 
-  // Build Query
+  // 3. Fetch Shop Statistics (Dynamic Rating & Review Count)
+  const { data: shopReviews } = await supabase
+    .from("reviews")
+    .select("rating, products!inner(org_id)")
+    .eq("products.org_id", merchant.id)
+
+  const totalReviews = shopReviews?.length || 0
+  const averageRating = totalReviews > 0
+    ? (shopReviews!.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(1)
+    : "Baru"
+
+  // 4. Setup Query Parameters for Products
+  const currentPage = parseInt(searchParams.page || "1")
+  const start = (currentPage - 1) * PRODUCTS_PER_PAGE
+  const end = start + PRODUCTS_PER_PAGE - 1
+  const queryParam = searchParams.q
+
+  // 5. Build Query untuk Total Count Produk (Tanpa Pagination)
+  let countQuery = supabase
+    .from("products")
+    .select("id", { count: 'exact', head: true })
+    .eq("org_id", merchant.id)
+    .eq("is_active", true)
+    .is("deleted_at", null)
+
+  if (queryParam) countQuery = countQuery.ilike('name', `%${queryParam}%`)
+  if (searchParams.min) countQuery = countQuery.gte("base_price", parseInt(searchParams.min))
+  if (searchParams.max) countQuery = countQuery.lte("base_price", parseInt(searchParams.max))
+
+  const { count } = await countQuery
+  const totalProducts = count || 0
+  const totalPages = Math.ceil(totalProducts / PRODUCTS_PER_PAGE)
+
+  // 6. Build Query untuk Data Produk (Dengan Pagination & Sort)
   let productQuery = supabase
     .from("products")
     .select(`
@@ -49,39 +102,48 @@ export default async function MerchantPage(props: {
     .eq("org_id", merchant.id)
     .eq("is_active", true)
     .is("deleted_at", null)
-    .order("created_at", { ascending: false })
+    .range(start, end)
 
-  // Apply Search Filter if 'q' exists
-  if (queryParam) {
-    productQuery = productQuery.ilike('name', `%${queryParam}%`)
+  // Apply Filters
+  if (queryParam) productQuery = productQuery.ilike('name', `%${queryParam}%`)
+  if (searchParams.min) productQuery = productQuery.gte("base_price", parseInt(searchParams.min))
+  if (searchParams.max) productQuery = productQuery.lte("base_price", parseInt(searchParams.max))
+
+  // Apply Sort
+  const sort = searchParams.sort || 'newest'
+  switch (sort) {
+    case 'price_asc': productQuery = productQuery.order('base_price', { ascending: true }); break
+    case 'price_desc': productQuery = productQuery.order('base_price', { ascending: false }); break
+    case 'name_asc': productQuery = productQuery.order('name', { ascending: true }); break
+    case 'newest': default: productQuery = productQuery.order('created_at', { ascending: false }); break
   }
 
   const { data: products } = await productQuery
 
-  const totalProducts = products?.length || 0
-  
-  // Calculate stats from all products (fetched or separate query would be better for performance, but this works for MVP)
-  // Note: If searching, this rating might only reflect searched products. 
-  // Ideally, stats should be a separate query if we want them consistent regardless of search.
-  // For now, let's keep it simple.
-  let totalRating = 0
-  let totalReviews = 0
-  products?.forEach((p: any) => {
-    if (p.reviews && p.reviews.length > 0) {
-      p.reviews.forEach((r: any) => {
-        totalRating += r.rating
-        totalReviews++
-      })
-    }
-  })
-  const shopRating = totalReviews > 0 ? (totalRating / totalReviews).toFixed(1) : "Baru"
+  // Format Join Date
   const joinDate = new Date(merchant.created_at).toLocaleDateString("id-ID", { month: 'long', year: 'numeric' })
+
+  // Helper untuk URL Pagination
+  const buildUrl = (updates: Record<string, string | undefined>) => {
+    const p = new URLSearchParams()
+    if (searchParams.q) p.set("q", searchParams.q)
+    if (searchParams.min) p.set("min", searchParams.min)
+    if (searchParams.max) p.set("max", searchParams.max)
+    if (searchParams.sort) p.set("sort", searchParams.sort)
+    if (searchParams.page && searchParams.page !== "1") p.set("page", searchParams.page)
+
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value) p.set(key, value)
+      else p.delete(key)
+    })
+    return `/shop/${slug}?${p.toString()}`
+  }
 
   return (
     <div className="bg-muted/5 min-h-screen pb-20">
       
-      {/* 1. BREADCRUMB & HEADER WRAPPER */}
-      <div className="bg-background border-b">
+      {/* HEADER SECTION (Banner & Info) */}
+      <div className="bg-background border-b shadow-sm">
         <div className="container mx-auto px-4 py-3 border-b border-dashed">
           <Breadcrumb>
             <BreadcrumbList>
@@ -100,7 +162,7 @@ export default async function MerchantPage(props: {
           </Breadcrumb>
         </div>
 
-        {/* Banner Image from DB */}
+        {/* Banner */}
         {merchant.banner_url ? (
           <div className="h-32 md:h-52 w-full relative overflow-hidden bg-muted">
             <img 
@@ -134,7 +196,7 @@ export default async function MerchantPage(props: {
               )}
             </div>
 
-            {/* Text Info */}
+            {/* Merchant Details & Actions */}
             <div className="flex-1 space-y-4 mt-2 md:mt-16 w-full">
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div className="space-y-3">
@@ -151,8 +213,8 @@ export default async function MerchantPage(props: {
                       {merchant.description || "Toko mahasiswa Universitas Pembangunan Jaya."}
                     </p>
                   </div>
-
-                  {/* SOCIAL MEDIA LINKS */}
+                  
+                  {/* Social Links */}
                   <div className="flex items-center gap-2 pt-1">
                     {merchant.instagram_url && (
                       <a href={merchant.instagram_url} target="_blank" rel="noreferrer" className="group relative">
@@ -161,15 +223,6 @@ export default async function MerchantPage(props: {
                           </div>
                       </a>
                     )}
-                    
-                    {merchant.tiktok_url && ( // Fixed from social_facebook to match logic or updated column name
-                      <a href={merchant.tiktok_url} target="_blank" rel="noreferrer" className="group relative">
-                          <div className="p-2 rounded-full bg-muted/50 hover:bg-blue-50 transition-colors border border-transparent hover:border-blue-200">
-                             <X className="h-4 w-4 text-muted-foreground group-hover:text-blue-600 transition-colors" />
-                          </div>
-                      </a>
-                    )}
-                    
                     {merchant.website_url && (
                       <a href={merchant.website_url} target="_blank" rel="noreferrer" className="group relative">
                           <div className="p-2 rounded-full bg-muted/50 hover:bg-emerald-50 transition-colors border border-transparent hover:border-emerald-200">
@@ -177,21 +230,38 @@ export default async function MerchantPage(props: {
                           </div>
                       </a>
                     )}
-                    
-                    {!merchant.instagram_url && !merchant.tiktok_url && !merchant.website_url && (
-                       <span className="text-xs text-muted-foreground italic">Kontak sosial media belum tersedia</span>
-                    )}
                   </div>
                 </div>
                 
-                {/* Action Buttons */}
+                {/* ACTION BUTTONS: CHAT & SHARE */}
                 <div className="flex gap-3 w-full md:w-auto shrink-0 mt-2 pt-4 md:mt-0">
-                  <Button className="flex-1 md:flex-none gap-2 font-semibold shadow-sm">
-                      <MessageCircle className="h-4 w-4" /> Chat
-                  </Button>
-                  <Button variant="outline" className="flex-1 md:flex-none gap-2 shadow-sm">
-                      <Share2 className="h-4 w-4" /> Share
-                  </Button>
+                  {user ? (
+                    <FloatingChat
+                      currentUserId={user.id}
+                      orgId={merchant.id}
+                      storeName={merchant.name}
+                      storeAvatar={merchant.logo_url}
+                      customTrigger={
+                        <Button className="flex-1 md:flex-none gap-2 font-semibold shadow-sm">
+                          <MessageCircle className="h-4 w-4" /> Chat Penjual
+                        </Button>
+                      }
+                    />
+                  ) : (
+                    <Button className="flex-1 md:flex-none gap-2 font-semibold shadow-sm" asChild>
+                      <Link href={`/login?next=/shop/${slug}`}>
+                         <MessageCircle className="h-4 w-4" /> Chat Penjual
+                      </Link>
+                    </Button>
+                  )}
+
+                  <ShareButton 
+                    variant="outline" 
+                    size="default" 
+                    className="flex-1 md:flex-none gap-2 shadow-sm"
+                  >
+                    <Share2 className="h-4 w-4" /> Share
+                  </ShareButton>
                 </div>
               </div>
 
@@ -199,17 +269,17 @@ export default async function MerchantPage(props: {
               <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-sm text-muted-foreground border-t pt-4">
                 <div className="flex items-center gap-2">
                   <div className="bg-yellow-100 p-1.5 rounded-full text-yellow-600">
-                     <Star className="h-4 w-4 fill-yellow-600" />
+                      <Star className="h-4 w-4 fill-yellow-600" />
                   </div>
                   <div>
-                    <span className="font-bold text-foreground block">{shopRating}</span>
+                    <span className="font-bold text-foreground block">{averageRating}</span>
                     <span className="text-xs">Rating</span>
                   </div>
                 </div>
                 <Separator orientation="vertical" className="h-8 hidden sm:block" />
                 <div className="flex items-center gap-2">
                   <div className="bg-blue-100 p-1.5 rounded-full text-blue-600">
-                     <ShoppingBag className="h-4 w-4" />
+                      <ShoppingBag className="h-4 w-4" />
                   </div>
                   <div>
                     <span className="font-bold text-foreground block">{totalProducts}</span>
@@ -217,21 +287,11 @@ export default async function MerchantPage(props: {
                   </div>
                 </div>
                 <Separator orientation="vertical" className="h-8 hidden sm:block" />
-                <div className="flex items-center gap-2">
-                  <div className="bg-green-100 p-1.5 rounded-full text-green-600">
-                     <MapPin className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <span className="font-bold text-foreground block truncate max-w-[150px]">{merchant.address_city || "Tangerang Selatan"}</span>
-                    <span className="text-xs">Lokasi</span>
-                  </div>
-                </div>
-                <Separator orientation="vertical" className="h-8 hidden sm:block" />
                 <div className="hidden sm:flex items-center gap-2">
-                   <div className="bg-purple-100 p-1.5 rounded-full text-purple-600">
-                     <Calendar className="h-4 w-4" />
-                   </div>
-                   <div>
+                    <div className="bg-purple-100 p-1.5 rounded-full text-purple-600">
+                      <Calendar className="h-4 w-4" />
+                    </div>
+                    <div>
                     <span className="font-bold text-foreground block">{joinDate}</span>
                     <span className="text-xs">Bergabung</span>
                   </div>
@@ -242,69 +302,153 @@ export default async function MerchantPage(props: {
         </div>
       </div>
 
-      {/* 2. STICKY TABS & CONTENT */}
+      {/* CONTENT TABS */}
       <div className="container mx-auto px-4 py-8">
         <Tabs defaultValue="products" className="space-y-8">
           
           <div className="sticky top-16 z-30 bg-muted/5 backdrop-blur-md pb-4 pt-2 px-4 md:static md:bg-transparent md:p-0">
              <TabsList className="h-12 w-full sm:w-auto p-1 bg-background/80 border shadow-sm rounded-xl">
-               <TabsTrigger 
-                 id="products-trigger" 
-                 value="products" 
-                 className="flex-1 sm:flex-none h-full px-6 rounded-lg data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-medium transition-all"
-               >
-                 Etalase
-               </TabsTrigger>
-               
-               <TabsTrigger value="about" className="flex-1 sm:flex-none h-full px-6 rounded-lg data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-medium transition-all">
-                 Profil Toko
-               </TabsTrigger>
-               <TabsTrigger value="reviews" className="flex-1 sm:flex-none h-full px-6 rounded-lg data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-medium transition-all">
-                 Ulasan <Badge variant="secondary" className="ml-2 h-5 min-w-[20px] px-1 bg-muted-foreground/10 text-muted-foreground">{totalReviews}</Badge>
+               <TabsTrigger value="products" className="flex-1 sm:flex-none h-full px-6 rounded-lg data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-medium">Etalase</TabsTrigger>
+               <TabsTrigger value="about" className="flex-1 sm:flex-none h-full px-6 rounded-lg data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-medium">Profil Toko</TabsTrigger>
+               <TabsTrigger value="reviews" className="flex-1 sm:flex-none h-full px-6 rounded-lg data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-medium">
+                 Ulasan 
+                 {/* Badge Dynamic */}
+                 <Badge variant="secondary" className="ml-2 h-5 min-w-[20px] px-1 bg-muted-foreground/10 text-muted-foreground">{totalReviews}</Badge>
                </TabsTrigger>
              </TabsList>
           </div>
 
-          {/* TAB: PRODUCTS */}
-          <TabsContent value="products" className="space-y-6 mt-0 animate-in slide-in-from-bottom-2 duration-500">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-               <h2 className="font-bold text-lg flex items-center gap-2 shrink-0">
-                 Semua Produk <span className="text-muted-foreground font-normal text-sm">({totalProducts})</span>
-               </h2>
-               
-               {/* Search Component Added Here */}
-               <div className="flex items-center gap-2 w-full sm:w-auto">
-                 <ShopSearch />
-                 <Button variant="outline" size="icon" className="shrink-0 h-9 w-9 rounded-full bg-background" title="Filter (Coming Soon)">
-                   <Filter className="h-3.5 w-3.5" />
-                 </Button>
-               </div>
-            </div>
-
-            {products && products.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {products.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-24 bg-background rounded-2xl border border-dashed">
-                <div className="bg-muted p-4 rounded-full mb-4">
-                  <ShoppingBag className="h-8 w-8 text-muted-foreground/50" />
+          {/* === TAB: PRODUCTS (WITH FILTERS) === */}
+          <TabsContent value="products" className="mt-0 animate-in slide-in-from-bottom-2 duration-500">
+            <div className="flex flex-col md:flex-row gap-6 md:gap-8">
+              
+              {/* DESKTOP SIDEBAR FILTER */}
+              <aside className="w-64 hidden md:block space-y-6 sticky top-24 h-fit">
+                 <div className="space-y-3">
+                   <Label className="font-bold text-sm uppercase tracking-widest">Cari di Toko</Label>
+                   <ShopSearch />
                 </div>
-                <h3 className="font-semibold text-lg">
-                  {queryParam ? `Tidak ada produk "${queryParam}"` : "Belum ada produk"}
-                </h3>
-                <p className="text-muted-foreground text-sm mt-1 max-w-xs text-center">
-                  {queryParam ? "Coba kata kunci lain atau hapus pencarian." : "Toko ini sedang menyiapkan produk terbaiknya. Cek kembali nanti!"}
-                </p>
-                {queryParam && (
-                   <Button variant="link" asChild className="mt-2">
-                     <Link href={`/shop/${slug}`}>Hapus Pencarian</Link>
-                   </Button>
+                <Separator className="opacity-50" />
+                <PriceFilter />
+                <Separator className="opacity-50" />
+                <Card className="bg-primary/5 border-primary/10 shadow-none">
+                  <CardContent className="p-4 text-xs text-muted-foreground leading-relaxed">
+                    <Info className="h-4 w-4 mb-2 text-primary" />
+                    Gunakan filter harga untuk menemukan produk sesuai budget Anda di toko ini.
+                  </CardContent>
+                </Card>
+              </aside>
+
+              {/* PRODUCT GRID & MOBILE CONTROLS */}
+              <div className="flex-1">
+                <div className="flex flex-col gap-4 mb-6">
+                   <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                      <div className="space-y-1">
+                        <h2 className="text-xl font-bold tracking-tight">
+                          {queryParam ? `Hasil: "${queryParam}"` : "Semua Produk"}
+                        </h2>
+                        <p className="text-sm text-muted-foreground">
+                          Menampilkan {products?.length || 0} dari {totalProducts} produk
+                        </p>
+                      </div>
+                      
+                      <div className="flex items-center gap-2 self-start sm:self-auto w-full sm:w-auto justify-between sm:justify-end">
+                         <ProductSort />
+                         
+                         {/* Mobile Filter Sheet */}
+                         <Sheet>
+                           <SheetTrigger asChild>
+                             <Button variant="outline" size="icon" className="md:hidden rounded-full border-2 h-9 w-9 shrink-0">
+                               <SlidersHorizontal className="h-4 w-4" />
+                             </Button>
+                           </SheetTrigger>
+                           <SheetContent side="bottom" className="h-[85vh] rounded-t-[20px] p-0">
+                             <SheetHeader className="p-6 border-b">
+                               <SheetTitle className="text-left">Filter Produk Toko</SheetTitle>
+                             </SheetHeader>
+                             <div className="p-6 space-y-8">
+                               <section className="space-y-3">
+                                 <Label>Cari Nama</Label>
+                                 <ShopSearch />
+                               </section>
+                               <Separator />
+                               <section>
+                                 <PriceFilter />
+                               </section>
+                             </div>
+                           </SheetContent>
+                         </Sheet>
+                      </div>
+                   </div>
+                   
+                   {/* Mobile Search Bar (If needed visible outside) */}
+                   <div className="md:hidden"><ShopSearch /></div>
+                </div>
+
+                {/* GRID */}
+                {products && products.length > 0 ? (
+                  <>
+                    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6 mb-12">
+                      {products.map((product) => (
+                        <ProductCard key={product.id} product={product} />
+                      ))}
+                    </div>
+
+                    {/* PAGINATION */}
+                    {totalPages > 1 && (
+                      <Pagination>
+                        <PaginationContent>
+                          <PaginationItem>
+                            <PaginationPrevious 
+                              href={currentPage > 1 ? buildUrl({ page: (currentPage - 1).toString() }) : "#"} 
+                              aria-disabled={currentPage <= 1}
+                              className={currentPage <= 1 ? "pointer-events-none opacity-50" : ""}
+                            />
+                          </PaginationItem>
+                          
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
+                             if (p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1)) {
+                               return (
+                                 <PaginationItem key={p}>
+                                   <PaginationLink href={buildUrl({ page: p.toString() })} isActive={p === currentPage}>
+                                     {p}
+                                   </PaginationLink>
+                                 </PaginationItem>
+                               )
+                             }
+                             if ((p === currentPage - 2 && p > 1) || (p === currentPage + 2 && p < totalPages)) {
+                               return <PaginationItem key={p}><PaginationEllipsis /></PaginationItem>
+                             }
+                             return null
+                          })}
+
+                          <PaginationItem>
+                            <PaginationNext 
+                              href={currentPage < totalPages ? buildUrl({ page: (currentPage + 1).toString() }) : "#"}
+                              aria-disabled={currentPage >= totalPages}
+                              className={currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}
+                            />
+                          </PaginationItem>
+                        </PaginationContent>
+                      </Pagination>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-20 bg-muted/10 rounded-3xl border-2 border-dashed border-muted">
+                    <div className="bg-background p-6 rounded-full shadow-sm mb-4">
+                      <SearchX className="h-10 w-10 text-muted-foreground/50" />
+                    </div>
+                    <h3 className="font-bold text-lg">Produk tidak ditemukan</h3>
+                    <p className="text-muted-foreground mb-6 text-sm max-w-xs text-center">
+                      Coba atur ulang filter harga atau kata kunci pencarian Anda.
+                    </p>
+                    <Button asChild variant="outline" className="rounded-full">
+                      <Link href={`/shop/${slug}`}>Reset Filter</Link>
+                    </Button>
+                  </div>
                 )}
               </div>
-            )}
+            </div>
           </TabsContent>
 
           {/* TAB: ABOUT */}
@@ -370,12 +514,13 @@ export default async function MerchantPage(props: {
                  </div>
                  <h3 className="text-lg font-semibold text-foreground">Ulasan Toko</h3>
                  <p className="max-w-md mt-2 text-sm text-muted-foreground leading-relaxed">
-                   Saat ini ulasan ditampilkan per produk. Silakan kunjungi halaman produk untuk melihat ulasan pembeli.
+                   Lihat ulasan spesifik pada halaman detail produk. Total ada <b>{totalReviews}</b> ulasan untuk toko ini dengan rata-rata rating <b>{averageRating}</b>.
                  </p>
                  <JumpToProductsBtn />
               </CardContent>
             </Card>
           </TabsContent>
+
         </Tabs>
       </div>
     </div>

@@ -22,10 +22,11 @@ export function ProductCard({ product }: ProductCardProps) {
 
   return (
     <Link href={`/products/${product.id}`} className="group block h-full select-none">
-      <Card className="h-full border-border/40 shadow-none hover:border-primary/50 hover:shadow-md transition-all duration-300 flex flex-col bg-card/50 hover:bg-card">
+      <Card className="h-full border-border/40 shadow-none hover:border-primary/50 hover:shadow-md transition-all duration-300 flex flex-col bg-card/50 hover:bg-card overflow-hidden">
         
         {/* Image Container */}
-        <div className="aspect-square relative overflow-hidden rounded-t-lg bg-secondary/10">
+        {/* Removed rounded-t-lg so it follows the Card's overflow-hidden */}
+        <div className="aspect-square relative bg-secondary/10">
           {product.image_url ? (
             <img 
               src={product.image_url} 

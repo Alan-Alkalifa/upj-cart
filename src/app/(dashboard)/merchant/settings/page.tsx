@@ -10,16 +10,24 @@ export default async function SettingsPage() {
 
   if (!user) redirect("/login")
 
-  // 1. Get Org Data & CURRENT USER ROLE
+  // 1. Ambil Data Member & Organisasi
   const { data: member } = await supabase
     .from("organization_members")
-    .select("role, org_id, organizations(*)") // Ensure 'role' is selected
+    .select("role, org_id, organizations(*)")
     .eq("profile_id", user.id)
     .single()
 
   if (!member) redirect("/")
 
-  // 2. Get Staff List
+  // Normalisasi data organisasi (Jaga-jaga jika return array)
+  const orgData = Array.isArray(member.organizations) 
+    ? member.organizations[0] 
+    : member.organizations
+
+  // Validasi jika data org tidak ada
+  if (!orgData) return <div>Data toko tidak ditemukan.</div>
+
+  // 2. Ambil Staff List
   const { data: staffMembers } = await supabase
     .from("organization_members")
     .select(`
@@ -44,11 +52,11 @@ export default async function SettingsPage() {
         </TabsList>
 
         <TabsContent value="general" className="space-y-4">
-          <SettingsForm initialData={member.organizations} />
+          {/* PERBAIKAN: Kirim orgId secara eksplisit */}
+          <SettingsForm initialData={orgData} orgId={member.org_id} />
         </TabsContent>
 
         <TabsContent value="staff" className="space-y-4">
-           {/* PASS THE ROLE HERE */}
            <StaffList 
              members={staffMembers || []} 
              orgId={member.org_id} 
