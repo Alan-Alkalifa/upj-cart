@@ -84,7 +84,7 @@ export async function signup(values: z.infer<typeof registerSchema>) {
   // SignUp standar
   const { error } = await supabase.auth.signUp({
     email: values.email,
-    password: values.password, 
+    password: values.password,
     options: {
       data: { full_name: values.fullName },
       emailRedirectTo: `${origin}/callback`,
@@ -148,7 +148,7 @@ export async function registerMerchant(
     }
     return { error: authError.message };
   }
-  
+
   if (!authData.user) return { error: "Gagal membuat user." };
 
   // 3. RPC Transaction (Atomic: User + Org + Member)
@@ -191,7 +191,7 @@ export async function registerMerchant(
     // Kirim Email Kustom
     await resend.emails.send({
       // FIXED: Menggunakan sender domain yang sudah diverifikasi (sesuai screenshot)
-      from: "UPJ CART <hi@the-candils.com>", 
+      from: "UPJ CART <hi@the-candils.com>",
       to: values.email,
       subject: "Verifikasi Email Toko Anda",
       html: `
@@ -299,12 +299,12 @@ export async function updatePassword(
   values: z.infer<typeof updatePasswordSchema>
 ) {
   const supabase = await createClient();
-  
+
   // Update password untuk user yang sedang login
   const { error } = await supabase.auth.updateUser({
     password: values.password,
   });
-  
+
   if (error) return { error: error.message };
   return { success: true };
 }
