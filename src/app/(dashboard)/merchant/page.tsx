@@ -1,5 +1,5 @@
 import { createClient } from "@/utils/supabase/server"
-import { getPlatformSettings } from "@/utils/get-settings" // Import Settings
+import { getPlatformSettings } from "@/utils/get-settings"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils" // Pastikan import utility cn
 import { 
   DollarSign, 
   ShoppingBag, 
@@ -15,12 +16,21 @@ import {
   ArrowRight, 
   Plus, 
   TrendingUp,
-  Info
+  Info,
+  CalendarDays
 } from "lucide-react"
 
-export default async function DashboardPage() {
+// Helper format tanggal pendek (misal: 1 Jan)
+const formatDateShort = (date: Date) => {
+  return new Intl.DateTimeFormat("id-ID", { day: 'numeric', month: 'short' }).format(date)
+}
+
+export default async function DashboardPage(props: { searchParams: Promise<{ trend?: string }> }) {
+  const searchParams = await props.searchParams
+  const trendFilter = searchParams.trend || "week" // default: week
+
   const supabase = await createClient()
-  const settings = await getPlatformSettings() // Get Fee Configuration
+  const settings = await getPlatformSettings()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/login")
@@ -35,28 +45,68 @@ export default async function DashboardPage() {
   if (!member) redirect("/")
 
   const orgId = member.org_id
-
-  // Normalize Organization Data
   const rawOrg = member.organizations
   const orgData: any = Array.isArray(rawOrg) ? rawOrg[0] : rawOrg
   const orgName = orgData?.name || "Toko Saya"
 
+  // --- LOGIC: DATE RANGE & GROUPING ---
+  const now = new Date()
+  let startDate = new Date()
+  let dateFormat: "day" | "month" = "day"
+  let chartLabels: string[] = []
+  let dateRangeLabel = ""
+
+  if (trendFilter === "year") {
+    // Tahun Ini (Jan - Dec)
+    startDate = new Date(now.getFullYear(), 0, 1) // 1 Jan tahun ini
+    dateFormat = "month"
+    dateRangeLabel = `Tahun ${now.getFullYear()}`
+    
+    chartLabels = Array.from({ length: 12 }, (_, i) => {
+       const d = new Date(now.getFullYear(), i, 1)
+       return d.toISOString().slice(0, 7) // YYYY-MM
+    })
+  } else if (trendFilter === "month") {
+    // 30 Hari Terakhir
+    startDate.setDate(now.getDate() - 29) 
+    startDate.setHours(0,0,0,0)
+    dateFormat = "day"
+    dateRangeLabel = `${formatDateShort(startDate)} - ${formatDateShort(now)} ${now.getFullYear()}`
+
+    chartLabels = Array.from({ length: 30 }, (_, i) => {
+       const d = new Date(startDate)
+       d.setDate(d.getDate() + i)
+       return d.toISOString().split('T')[0] 
+    })
+  } else {
+    // Default: 7 Hari Terakhir
+    startDate.setDate(now.getDate() - 6)
+    startDate.setHours(0,0,0,0)
+    dateFormat = "day"
+    dateRangeLabel = `${formatDateShort(startDate)} - ${formatDateShort(now)} ${now.getFullYear()}`
+
+    chartLabels = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(startDate)
+      d.setDate(d.getDate() + i)
+      return d.toISOString().split('T')[0]
+    })
+  }
+
   // 2. Fetch Data Parallel
-  const [productsRes, ordersRes, recentOrdersRes] = await Promise.all([
-    // A. Fetch Products
+  const [productsRes, revenueItemsRes, recentOrdersRes] = await Promise.all([
     supabase
       .from("products")
-      .select("id, name, is_active, image_url, base_price, product_variants(stock)")
+      .select("id, name, is_active, is_active, product_variants(stock)")
       .eq("org_id", orgId)
       .is("deleted_at", null),
 
-    // B. Fetch All Orders (For Revenue)
     supabase
       .from("order_items")
-      .select("price_at_purchase, quantity, orders!inner(status, created_at, total_amount)")
-      .eq("product_variants.products.org_id", orgId), 
+      .select("price_at_purchase, quantity, orders!inner(status, created_at)")
+      .eq("product_variants.products.org_id", orgId)
+      .eq("orders.status", "completed")
+      .gte("orders.created_at", startDate.toISOString()), 
 
-    // C. Fetch Recent Orders (Limit 5)
     supabase
       .from("order_items")
       .select(`
@@ -70,9 +120,16 @@ export default async function DashboardPage() {
       .order("created_at", { ascending: false, referencedTable: "orders" })
       .limit(5)
   ])
+  
+  // Pending Orders Count
+  const { count: pendingOrdersCount } = await supabase
+     .from("order_items")
+     .select("orders!inner(status)", { count: 'exact', head: true })
+     .eq("product_variants.products.org_id", orgId)
+     .in("orders.status", ['paid', 'packed'])
 
   const products = productsRes.data || []
-  const allOrderItems = ordersRes.data || []
+  const revenueItems = revenueItemsRes.data || []
   
   // Deduplicate Recent Orders
   const uniqueRecentOrders = new Map()
@@ -81,48 +138,36 @@ export default async function DashboardPage() {
   })
   const recentOrders = Array.from(uniqueRecentOrders.values()).slice(0, 5)
 
-  // --- STATS CALCULATION (NEW LOGIC) ---
-  
-  // 1. Revenue Calculation (Net = Gross - Fee)
-  const grossRevenue = allOrderItems
-    .filter((item: any) => item.orders.status === 'completed')
-    .reduce((acc, item) => acc + (item.price_at_purchase * item.quantity), 0)
-
+  // --- STATS CALCULATION ---
   const feePercent = Number(settings.transaction_fee_percent) || 0
+
+  const grossRevenue = revenueItems.reduce((acc, item) => acc + (item.price_at_purchase * item.quantity), 0)
   const platformFee = Math.round(grossRevenue * (feePercent / 100))
   const netRevenue = grossRevenue - platformFee
 
-  // 2. Pesanan Baru
-  const pendingItems = allOrderItems.filter((item: any) => ['paid', 'packed'].includes(item.orders.status))
-  const pendingOrdersCount = new Set(pendingItems.map((i:any) => i.orders)).size 
-
-  // 3. Produk Stats
   const activeProductsCount = products.filter(p => p.is_active).length
   const lowStockProducts = products.filter(p => {
     const totalStock = p.product_variants.reduce((acc: number, v: any) => acc + v.stock, 0)
     return totalStock < 5
   })
 
-  // 4. Chart Data (Net Revenue per Day)
-  const last7Days = [...Array(7)].map((_, i) => {
-    const d = new Date()
-    d.setDate(d.getDate() - i)
-    return d.toISOString().split('T')[0]
-  }).reverse()
+  // Chart Data
+  const chartData = chartLabels.map(labelKey => {
+    const matchingItems = revenueItems.filter((item: any) => {
+      const itemDate = item.orders.created_at
+      return dateFormat === 'month' ? itemDate.startsWith(labelKey) : itemDate.startsWith(labelKey)
+    })
 
-  const chartData = last7Days.map(date => {
-    const dailyGross = allOrderItems
-      .filter((item: any) => 
-        item.orders.status === 'completed' && 
-        item.orders.created_at.startsWith(date)
-      )
-      .reduce((acc, item) => acc + (item.price_at_purchase * item.quantity), 0)
-    
-    // Calculate Daily Net
-    const dailyFee = Math.round(dailyGross * (feePercent / 100))
-    const dailyNet = dailyGross - dailyFee
+    const dailyGross = matchingItems.reduce((acc, item) => acc + (item.price_at_purchase * item.quantity), 0)
+    const dailyNet = dailyGross - Math.round(dailyGross * (feePercent / 100))
 
-    return { date, value: dailyNet }
+    return { 
+      date: labelKey, 
+      value: dailyNet,
+      displayLabel: dateFormat === 'month' 
+        ? new Intl.DateTimeFormat("id-ID", { month: 'short' }).format(new Date(labelKey + "-01"))
+        : new Intl.DateTimeFormat("id-ID", { weekday: trendFilter === 'month' ? undefined : 'short', day: 'numeric' }).format(new Date(labelKey))
+    }
   })
   
   const maxChartValue = Math.max(...chartData.map(d => d.value), 100) 
@@ -131,7 +176,7 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       
       {/* HEADER */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
           <p className="text-muted-foreground">
@@ -149,9 +194,7 @@ export default async function DashboardPage() {
 
       {/* STATS CARDS */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        
-        {/* CARD 1: NET REVENUE */}
-        <Card className="border-l-4 border-l-green-500">
+        <Card className="border-l-4 border-l-green-500 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               Pendapatan Bersih
@@ -161,7 +204,7 @@ export default async function DashboardPage() {
                     <Info className="h-3 w-3 text-muted-foreground cursor-help" />
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Total penjualan dikurangi biaya admin ({feePercent}%)</p>
+                    <p>Total penjualan bersih (dikurangi biaya admin) dalam periode ini.</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -169,27 +212,26 @@ export default async function DashboardPage() {
             <DollarSign className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">Rp {netRevenue.toLocaleString("id-ID")}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Gross: Rp {grossRevenue.toLocaleString("id-ID")}
-            </p>
+            <div className="text-2xl font-bold text-green-700">Rp {netRevenue.toLocaleString("id-ID")}</div>
+            <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+              <CalendarDays className="h-3 w-3" />
+              <span>{dateRangeLabel}</span>
+            </div>
           </CardContent>
         </Card>
         
-        {/* CARD 2: NEW ORDERS */}
-        <Card>
+        <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pesanan Baru</CardTitle>
             <ShoppingBag className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{pendingOrdersCount}</div>
+            <div className="text-2xl font-bold">{pendingOrdersCount || 0}</div>
             <p className="text-xs text-muted-foreground">Perlu dikirim segera</p>
           </CardContent>
         </Card>
 
-        {/* CARD 3: ACTIVE PRODUCTS */}
-        <Card>
+        <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Produk Aktif</CardTitle>
             <Package className="h-4 w-4 text-blue-600" />
@@ -200,8 +242,7 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* CARD 4: LOW STOCK */}
-        <Card>
+        <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Stok Menipis</CardTitle>
             <AlertTriangle className="h-4 w-4 text-red-600" />
@@ -215,142 +256,139 @@ export default async function DashboardPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         
-        {/* LEFT COLUMN: REVENUE CHART & RECENT ORDERS */}
+        {/* REVENUE CHART */}
         <div className="col-span-4 space-y-4">
-          
-          {/* Simple CSS Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Tren Pendapatan Bersih (7 Hari)</CardTitle>
+          <Card className="shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div className="space-y-1">
+                <CardTitle className="text-base">Tren Pendapatan</CardTitle>
+                <CardDescription className="text-xs">
+                   {dateRangeLabel}
+                </CardDescription>
+              </div>
+              
+              {/* SEGMENTED CONTROL FILTER */}
+              <div className="flex items-center p-1 bg-muted/80 rounded-lg border">
+                <FilterTab 
+                  active={trendFilter === 'week'} 
+                  href="/merchant?trend=week" 
+                  label="Mingguan" 
+                />
+                <FilterTab 
+                  active={trendFilter === 'month'} 
+                  href="/merchant?trend=month" 
+                  label="Bulanan" 
+                />
+                <FilterTab 
+                  active={trendFilter === 'year'} 
+                  href="/merchant?trend=year" 
+                  label="Tahunan" 
+                />
+              </div>
             </CardHeader>
-            <CardContent className="pl-2">
-              <div className="flex h-50 items-end justify-between gap-2 px-4">
+            <CardContent className="pl-2 pt-4">
+              <div className="flex h-64 items-end justify-between gap-2 px-4">
                 {chartData.map((d) => (
-                  <div key={d.date} className="group relative flex w-full flex-col items-center gap-2">
+                  <div key={d.date} className="group relative flex w-full flex-col items-center gap-2 h-full justify-end">
+                    {/* Bar */}
                     <div 
-                      className="w-full rounded-t-md bg-green-500/80 transition-all hover:bg-green-600"
-                      style={{ height: `${(d.value / maxChartValue) * 100}%` }}
+                      className={cn(
+                        "w-full rounded-t-sm transition-all duration-500 ease-out min-h-[4px]",
+                        d.value > 0 ? "bg-green-500 hover:bg-green-600" : "bg-muted"
+                      )}
+                      style={{ height: `${d.value > 0 ? (d.value / maxChartValue) * 100 : 2}%` }}
                     ></div>
-                    <span className="text-[10px] text-muted-foreground">
-                      {new Date(d.date).toLocaleDateString("id-ID", { weekday: 'short' })}
+                    
+                    {/* Label Sumbu X */}
+                    <span className={cn(
+                      "text-[10px] text-muted-foreground truncate w-full text-center",
+                      trendFilter === 'month' && parseInt(d.date.split('-')[2]) % 3 !== 0 ? 'hidden sm:block opacity-50' : 'block'
+                    )}>
+                      {d.displayLabel}
                     </span>
-                    {/* Tooltip */}
-                    <div className="absolute -top-8 hidden rounded bg-black px-2 py-1 text-xs text-white group-hover:block z-10 whitespace-nowrap">
-                      Rp {d.value.toLocaleString("id-ID")}
+
+                    {/* Tooltip Hover */}
+                    <div className="absolute bottom-full mb-2 hidden flex-col items-center rounded-md bg-popover px-2 py-1 text-xs shadow-md border group-hover:flex z-10 whitespace-nowrap">
+                      <span className="font-semibold text-foreground">Rp {d.value.toLocaleString("id-ID")}</span>
+                      <span className="text-[10px] text-muted-foreground">{d.date}</span>
+                      <div className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-popover border-b border-r"></div>
                     </div>
                   </div>
                 ))}
               </div>
             </CardContent>
           </Card>
+        </div>
 
-          {/* Recent Orders */}
-          <Card>
+        {/* RIGHT COLUMN */}
+        <div className="col-span-3 space-y-4">
+          <Card className="shadow-sm">
             <CardHeader>
               <CardTitle>Pesanan Terbaru</CardTitle>
               <CardDescription>
-                5 transaksi terakhir yang masuk ke toko Anda.
+                5 transaksi terakhir yang masuk.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-8">
+              <div className="space-y-6">
                 {recentOrders.length === 0 && (
-                  <div className="text-center text-sm text-muted-foreground py-4">Belum ada pesanan.</div>
+                  <div className="text-center text-sm text-muted-foreground py-8 border border-dashed rounded-lg">
+                    Belum ada pesanan masuk.
+                  </div>
                 )}
                 {recentOrders.map((order: any) => (
-                  <div key={order.id} className="flex items-center">
-                    <Avatar className="h-9 w-9">
-                      <AvatarImage src={order.profiles?.avatar_url} alt="Avatar" />
-                      <AvatarFallback>{order.profiles?.full_name?.[0] || "U"}</AvatarFallback>
-                    </Avatar>
-                    <div className="ml-4 space-y-1">
-                      <p className="text-sm font-medium leading-none">{order.profiles?.full_name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Order #{order.id.slice(0,8)}
-                      </p>
+                  <div key={order.id} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-9 w-9 border">
+                        <AvatarImage src={order.profiles?.avatar_url} />
+                        <AvatarFallback>{order.profiles?.full_name?.[0] || "U"}</AvatarFallback>
+                      </Avatar>
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium leading-none">{order.profiles?.full_name}</p>
+                        <p className="text-xs text-muted-foreground">#{order.id.slice(0,8)}</p>
+                      </div>
                     </div>
-                    <div className="ml-auto font-medium text-sm">
-                      +Rp {order.total_amount.toLocaleString("id-ID")}
+                    <div className="text-right">
+                      <div className="text-sm font-medium">+Rp {order.total_amount.toLocaleString("id-ID")}</div>
+                      <Badge variant="outline" className={cn(
+                        "text-[10px] h-5 px-1.5 capitalize mt-1",
+                        order.status === 'paid' && "bg-green-50 text-green-700 border-green-200",
+                        order.status === 'completed' && "bg-blue-50 text-blue-700 border-blue-200"
+                      )}>
+                        {order.status}
+                      </Badge>
                     </div>
-                    <Badge variant="outline" className={`ml-4 capitalize ${
-                      order.status === 'paid' ? 'bg-green-50 text-green-700 border-green-200' : ''
-                    }`}>
-                      {order.status}
-                    </Badge>
                   </div>
                 ))}
               </div>
-              <div className="mt-6">
-                <Button asChild variant="outline" className="w-full">
+              <div className="mt-6 pt-4 border-t">
+                <Button asChild variant="ghost" className="w-full text-xs text-muted-foreground hover:text-foreground">
                   <Link href="/merchant/orders">
-                    Lihat Semua Pesanan <ArrowRight className="ml-2 h-4 w-4" />
+                    Lihat Semua Pesanan <ArrowRight className="ml-2 h-3 w-3" />
                   </Link>
                 </Button>
               </div>
             </CardContent>
           </Card>
         </div>
-
-        {/* RIGHT COLUMN: QUICK ACTIONS & ALERTS */}
-        <div className="col-span-3 space-y-4">
-          
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Aksi Cepat</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-2">
-               <Button asChild variant="secondary" className="justify-start">
-                 <Link href="/merchant/products/create"><Plus className="mr-2 h-4 w-4" /> Tambah Produk</Link>
-               </Button>
-               <Button asChild variant="secondary" className="justify-start">
-                 <Link href="/merchant/orders"><ShoppingBag className="mr-2 h-4 w-4" /> Proses Pesanan</Link>
-               </Button>
-               <Button asChild variant="secondary" className="justify-start">
-                 <Link href="/merchant/finance"><TrendingUp className="mr-2 h-4 w-4" /> Keuangan & Penarikan</Link>
-               </Button>
-            </CardContent>
-          </Card>
-
-          {/* Low Stock Alerts */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-red-600">
-                 <AlertTriangle className="h-5 w-5" /> Perhatian Stok
-              </CardTitle>
-              <CardDescription>Produk berikut memiliki stok rendah.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {lowStockProducts.length === 0 ? (
-                   <div className="text-sm text-green-600 flex items-center gap-2">
-                      <Package className="h-4 w-4" /> Stok aman terkendali.
-                   </div>
-                ) : (
-                  lowStockProducts.slice(0, 5).map(p => (
-                    <div key={p.id} className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0">
-                       <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8 rounded-md border">
-                             <AvatarImage src={p.image_url} />
-                             <AvatarFallback>IMG</AvatarFallback>
-                          </Avatar>
-                          <div className="space-y-1">
-                             <p className="text-sm font-medium leading-none">{p.name}</p>
-                             <p className="text-xs text-muted-foreground">Harga: Rp {p.base_price.toLocaleString("id-ID")}</p>
-                          </div>
-                       </div>
-                       <Button asChild size="sm" variant="ghost">
-                          <Link href={`/merchant/products/${p.id}`}>Edit</Link>
-                       </Button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-        </div>
       </div>
     </div>
+  )
+}
+
+// Komponen Kecil untuk Tab Filter (UX Improvement)
+function FilterTab({ active, href, label }: { active: boolean, href: string, label: string }) {
+  return (
+    <Link 
+      href={href}
+      className={cn(
+        "px-3 py-1 text-xs font-medium rounded-md transition-all duration-200",
+        active 
+          ? "bg-background text-foreground shadow-sm ring-1 ring-black/5" 
+          : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+      )}
+    >
+      {label}
+    </Link>
   )
 }

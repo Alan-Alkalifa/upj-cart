@@ -1,10 +1,26 @@
 import { createClient } from "@/utils/supabase/server"
-import { ReviewClient } from "./review-client"
+import { ReviewReplyButton } from "./review-reply-button"
 import { redirect } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card" // Import Card
-import { Star, MessageSquare, MessageCircleQuestion, ThumbsUp } from "lucide-react" // Import Icons
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Star, MessageSquare, MessageCircleQuestion, ThumbsUp, Reply, MessageCircle } from "lucide-react"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis
+} from "@/components/ui/pagination"
 
-export default async function ReviewsPage() {
+export default async function ReviewsPage(props: { searchParams: Promise<{ page?: string }> }) {
+  const searchParams = await props.searchParams
+  const currentPage = Number(searchParams.page) || 1
+  const perPage = 10
+  const start = (currentPage - 1) * perPage
+  const end = start + perPage - 1
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -14,33 +30,70 @@ export default async function ReviewsPage() {
   
   if (!member) redirect("/")
 
-  // Fetch Reviews
-  const { data: reviews } = await supabase
-    .from("reviews")
-    .select(`
-      *,
-      profiles(full_name, avatar_url),
-      orders(id),
-      products!inner(name, org_id) 
-    `)
-    .eq("products.org_id", member.org_id)
-    .order("created_at", { ascending: false })
+  // --- PARALLEL FETCHING ---
+  const [paginatedRes, statsRes] = await Promise.all([
+    // 1. Fetch Reviews (Paginated)
+    supabase
+      .from("reviews")
+      .select(`
+        *,
+        profiles(full_name, avatar_url),
+        orders(id),
+        products!inner(name, org_id) 
+      `, { count: 'exact' })
+      .eq("products.org_id", member.org_id)
+      .order("created_at", { ascending: false })
+      .range(start, end),
+    
+    // 2. Fetch Stats Data (Lightweight)
+    supabase
+      .from("reviews")
+      .select("rating, reply_comment, products!inner(org_id)")
+      .eq("products.org_id", member.org_id)
+  ])
 
-  const safeReviews = reviews || []
+  const reviews = paginatedRes.data || []
+  const totalCount = paginatedRes.count || 0
+  const allStatsData = statsRes.data || []
 
   // --- STATS CALCULATION ---
-  const totalReviews = safeReviews.length
-
-  // Rata-rata Rating
+  const totalReviews = totalCount
   const averageRating = totalReviews > 0
-    ? (safeReviews.reduce((acc, r) => acc + r.rating, 0) / totalReviews).toFixed(1)
+    ? (allStatsData.reduce((acc, r) => acc + r.rating, 0) / allStatsData.length).toFixed(1)
     : "0.0"
+  const unrepliedCount = allStatsData.filter(r => !r.reply_comment).length
+  const positiveCount = allStatsData.filter(r => r.rating >= 4).length
 
-  // Perlu Dibalas (Belum ada reply_comment)
-  const unrepliedCount = safeReviews.filter(r => !r.reply_comment).length
+  // --- PAGINATION LOGIC ---
+  const totalPages = Math.ceil(totalCount / perPage)
+  const hasNext = currentPage < totalPages
+  const hasPrev = currentPage > 1
 
-  // Ulasan Positif (Bintang 4 & 5)
-  const positiveCount = safeReviews.filter(r => r.rating >= 4).length
+  const getPageNumbers = () => {
+    const pages = []
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i)
+    } else {
+      if (currentPage <= 3) {
+        for (let i = 1; i <= 4; i++) pages.push(i)
+        pages.push("ellipsis")
+        pages.push(totalPages)
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1)
+        pages.push("ellipsis")
+        for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i)
+      } else {
+        pages.push(1)
+        pages.push("ellipsis")
+        pages.push(currentPage - 1)
+        pages.push(currentPage)
+        pages.push(currentPage + 1)
+        pages.push("ellipsis")
+        pages.push(totalPages)
+      }
+    }
+    return pages
+  }
 
   return (
     <div className="space-y-6">
@@ -51,7 +104,7 @@ export default async function ReviewsPage() {
         <p className="text-muted-foreground">Pantau reputasi toko dan respon feedback pelanggan.</p>
       </div>
 
-      {/* 2. Stats Cards Section (New) */}
+      {/* 2. Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -98,8 +151,110 @@ export default async function ReviewsPage() {
         </Card>
       </div>
 
-      {/* 3. Interactive List (Client Component) */}
-      <ReviewClient reviews={safeReviews} />
+      {/* 3. Review List (Server Rendered) */}
+      <div className="space-y-4">
+        {reviews.length === 0 ? (
+           <div className="flex flex-col items-center justify-center p-12 border rounded-md border-dashed text-muted-foreground bg-card">
+              <MessageCircle className="h-10 w-10 opacity-20 mb-2" />
+              <p>Belum ada ulasan.</p>
+           </div>
+        ) : (
+          reviews.map((r) => (
+            <Card key={r.id}>
+              <CardHeader className="flex flex-row gap-4 space-y-0 pb-2">
+                <Avatar>
+                   <AvatarImage src={r.profiles?.avatar_url} />
+                   <AvatarFallback>{r.profiles?.full_name?.[0] || "U"}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start">
+                      <div>
+                         <h4 className="font-semibold text-sm">{r.profiles?.full_name || "Pembeli"}</h4>
+                         <p className="text-xs text-muted-foreground">
+                            Order #{r.orders?.id.slice(0,8)} • {new Date(r.created_at).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' })}
+                         </p>
+                      </div>
+                      <div className="flex text-yellow-500 mt-1 sm:mt-0">
+                         {[...Array(5)].map((_, i) => (
+                            <Star key={i} className={`h-4 w-4 ${i < r.rating ? "fill-current" : "text-muted/30"}`} />
+                         ))}
+                      </div>
+                   </div>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-2 space-y-4">
+                <div className="bg-muted/30 p-3 rounded-md text-sm">
+                   <div className="font-medium text-xs text-muted-foreground mb-1">Produk: {r.products?.name}</div>
+                   <p>{r.comment || "Tidak ada komentar."}</p>
+                   {r.image_url && (
+                      <img src={r.image_url} alt="Review" className="mt-2 h-20 w-20 object-cover rounded-md border" />
+                   )}
+                </div>
+
+                {/* Logic Tampilan Balasan vs Tombol Balas */}
+                {r.reply_comment ? (
+                   <div className="ml-8 pl-4 border-l-2 border-primary/20 space-y-1">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-primary">
+                         <Reply className="h-3 w-3" /> Balasan Toko
+                      </div>
+                      <p className="text-sm text-muted-foreground">{r.reply_comment}</p>
+                   </div>
+                ) : (
+                   <div className="flex justify-end">
+                      <ReviewReplyButton 
+                        reviewId={r.id} 
+                        customerName={r.profiles?.full_name || "Pembeli"} 
+                        comment={r.comment || ""} 
+                      />
+                   </div>
+                )}
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
+
+      {/* 4. Pagination */}
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-2">
+          <div className="text-sm text-muted-foreground">
+             Menampilkan <b>{reviews.length > 0 ? start + 1 : 0}</b> - <b>{Math.min(end + 1, totalCount)}</b> dari <b>{totalCount}</b> ulasan
+          </div>
+
+          {totalPages > 1 && (
+            <Pagination className="justify-center md:justify-end w-auto mx-0">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious 
+                    href={hasPrev ? `/merchant/reviews?page=${currentPage - 1}` : "#"} 
+                    className={!hasPrev ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    aria-disabled={!hasPrev}
+                  />
+                </PaginationItem>
+                {getPageNumbers().map((page, i) => (
+                  <PaginationItem key={i}>
+                    {page === "ellipsis" ? (
+                      <PaginationEllipsis />
+                    ) : (
+                      <PaginationLink 
+                        href={`/merchant/reviews?page=${page}`}
+                        isActive={currentPage === page}
+                      >
+                        {page}
+                      </PaginationLink>
+                    )}
+                  </PaginationItem>
+                ))}
+                <PaginationItem>
+                  <PaginationNext 
+                    href={hasNext ? `/merchant/reviews?page=${currentPage + 1}` : "#"}
+                    className={!hasNext ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    aria-disabled={!hasNext}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
+        </div>
     </div>
   )
 }

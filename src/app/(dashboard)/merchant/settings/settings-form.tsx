@@ -17,7 +17,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Loader2, ImageIcon, MapPin, Globe, CreditCard } from "lucide-react"
 
-// PERBAIKAN: Tambahkan orgId di props
 export function SettingsForm({ initialData, orgId }: { initialData: any, orgId: string }) {
   const [isPending, startTransition] = useTransition()
   const [uploadingLogo, setUploadingLogo] = useState(false)
@@ -58,7 +57,6 @@ export function SettingsForm({ initialData, orgId }: { initialData: any, orgId: 
 
     const supabase = createClient()
     const fileExt = file.name.split('.').pop()
-    // Gunakan orgId yang valid dari props untuk path storage
     const fileName = `${orgId}/${fieldName}_${Date.now()}.${fileExt}`
 
     const { error } = await supabase.storage.from('organizations').upload(fileName, file)
@@ -77,7 +75,6 @@ export function SettingsForm({ initialData, orgId }: { initialData: any, orgId: 
 
   function onSubmit(values: z.infer<typeof organizationSchema>) {
     startTransition(async () => {
-      // PERBAIKAN: Gunakan orgId dari props
       const res = await updateOrganization(orgId, values)
       if (res?.error) {
         toast.error(res.error)
@@ -148,12 +145,20 @@ export function SettingsForm({ initialData, orgId }: { initialData: any, orgId: 
 
             <div className="grid gap-4 md:grid-cols-2">
               <FormField control={form.control} name="name" render={({ field }) => (
-                <FormItem><FormLabel>Nama Toko</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>Nama Toko</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Contoh: Toko Serba Ada" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )} />
               <FormField control={form.control} name="slug" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Slug (Link Toko)</FormLabel>
-                  <FormControl><Input {...field} disabled /></FormControl>
+                  <FormControl>
+                    <Input placeholder="slug-toko-anda" {...field} disabled />
+                  </FormControl>
                   <FormDescription>Slug dibuat saat registrasi dan tidak bisa diubah.</FormDescription>
                 </FormItem>
               )} />
@@ -162,7 +167,11 @@ export function SettingsForm({ initialData, orgId }: { initialData: any, orgId: 
             <FormField control={form.control} name="description" render={({ field }) => (
               <FormItem>
                 <FormLabel>Deskripsi Singkat</FormLabel>
-                <FormControl><Textarea placeholder="Ceritakan tentang toko Anda..." className="min-h-[100px]" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormControl>
+                  <Textarea placeholder="Ceritakan tentang toko Anda, produk unggulan, atau jam operasional..." className="min-h-[100px]" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
             )} />
           </CardContent>
         </Card>
@@ -175,17 +184,41 @@ export function SettingsForm({ initialData, orgId }: { initialData: any, orgId: 
           </CardHeader>
           <CardContent className="space-y-4">
              <FormField control={form.control} name="address_street" render={({ field }) => (
-                <FormItem><FormLabel>Alamat Lengkap (Jalan, No. Rumah)</FormLabel><FormControl><Textarea placeholder="Jl. Contoh No. 123..." {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>Alamat Lengkap (Jalan, No. Rumah)</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Jl. Merpati No. 123, RT 01/RW 02..." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
              )} />
              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormField control={form.control} name="address_district" render={({ field }) => (
-                  <FormItem><FormLabel>Kecamatan</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem>
+                    <FormLabel>Kecamatan</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Contoh: Setiabudi" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )} />
                 <FormField control={form.control} name="address_city" render={({ field }) => (
-                  <FormItem><FormLabel>Kota/Kabupaten</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem>
+                    <FormLabel>Kota/Kabupaten</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Contoh: Jakarta Selatan" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )} />
                 <FormField control={form.control} name="address_postal_code" render={({ field }) => (
-                  <FormItem><FormLabel>Kode Pos</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem>
+                    <FormLabel>Kode Pos</FormLabel>
+                    <FormControl>
+                      <Input placeholder="12910" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )} />
              </div>
           </CardContent>
@@ -199,13 +232,31 @@ export function SettingsForm({ initialData, orgId }: { initialData: any, orgId: 
            </CardHeader>
            <CardContent className="grid gap-4 md:grid-cols-3">
               <FormField control={form.control} name="instagram_url" render={({ field }) => (
-                 <FormItem><FormLabel>Instagram URL</FormLabel><FormControl><Input placeholder="https://instagram.com/..." {...field} /></FormControl><FormMessage /></FormItem>
+                 <FormItem>
+                   <FormLabel>Instagram URL</FormLabel>
+                   <FormControl>
+                     <Input placeholder="https://instagram.com/username" {...field} />
+                   </FormControl>
+                   <FormMessage />
+                 </FormItem>
               )} />
               <FormField control={form.control} name="tiktok_url" render={({ field }) => (
-                 <FormItem><FormLabel>TikTok URL</FormLabel><FormControl><Input placeholder="https://tiktok.com/@..." {...field} /></FormControl><FormMessage /></FormItem>
+                 <FormItem>
+                   <FormLabel>TikTok URL</FormLabel>
+                   <FormControl>
+                     <Input placeholder="https://tiktok.com/@username" {...field} />
+                   </FormControl>
+                   <FormMessage />
+                 </FormItem>
               )} />
               <FormField control={form.control} name="website_url" render={({ field }) => (
-                 <FormItem><FormLabel>Website / LinkTree</FormLabel><FormControl><Input placeholder="https://..." {...field} /></FormControl><FormMessage /></FormItem>
+                 <FormItem>
+                   <FormLabel>Website / LinkTree</FormLabel>
+                   <FormControl>
+                     <Input placeholder="https://tokoanda.com" {...field} />
+                   </FormControl>
+                   <FormMessage />
+                 </FormItem>
               )} />
            </CardContent>
         </Card>
@@ -218,13 +269,31 @@ export function SettingsForm({ initialData, orgId }: { initialData: any, orgId: 
            </CardHeader>
            <CardContent className="grid gap-4 md:grid-cols-3">
               <FormField control={form.control} name="bank_name" render={({ field }) => (
-                 <FormItem><FormLabel>Nama Bank</FormLabel><FormControl><Input placeholder="BCA / Mandiri / BNI" {...field} /></FormControl><FormMessage /></FormItem>
+                 <FormItem>
+                   <FormLabel>Nama Bank</FormLabel>
+                   <FormControl>
+                     <Input placeholder="BCA / Mandiri / BNI" {...field} />
+                   </FormControl>
+                   <FormMessage />
+                 </FormItem>
               )} />
               <FormField control={form.control} name="bank_account_number" render={({ field }) => (
-                 <FormItem><FormLabel>Nomor Rekening</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                 <FormItem>
+                   <FormLabel>Nomor Rekening</FormLabel>
+                   <FormControl>
+                     <Input type="number" placeholder="Contoh: 1234567890" {...field} />
+                   </FormControl>
+                   <FormMessage />
+                 </FormItem>
               )} />
               <FormField control={form.control} name="bank_account_holder" render={({ field }) => (
-                 <FormItem><FormLabel>Atas Nama</FormLabel><FormControl><Input placeholder="Nama Pemilik Rekening" {...field} /></FormControl><FormMessage /></FormItem>
+                 <FormItem>
+                   <FormLabel>Atas Nama</FormLabel>
+                   <FormControl>
+                     <Input placeholder="Nama Pemilik Rekening" {...field} />
+                   </FormControl>
+                   <FormMessage />
+                 </FormItem>
               )} />
            </CardContent>
         </Card>
