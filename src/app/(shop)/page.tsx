@@ -161,7 +161,7 @@ export default async function ShopPage() {
             </p>
             <div className="pt-6">
               <Button size="lg" className="rounded-full px-8 shadow-xl shadow-primary/20 text-base font-bold" asChild>
-                <Link href="/merchant/register">Buka Toko Gratis</Link>
+                <Link href="/merchant-register">Buka Toko Gratis</Link>
               </Button>
             </div>
           </div>
