@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -81,7 +81,7 @@ export async function middleware(request: NextRequest) {
         else if (member) targetUrl = "/merchant";
       } catch (e) {
         // Fallback jika gagal fetch role
-        console.error("Middleware Role Check Error:", e);
+        console.error("Proxy Role Check Error:", e);
       }
 
       // PENTING: Gunakan URL object untuk redirect

@@ -439,7 +439,7 @@ export function FloatingChat({
 
       <SheetContent
         side="right"
-        className="w-full sm:w-[400px] p-0 flex flex-col h-full border-l shadow-2xl overflow-hidden rounded-l-2xl my-2 mr-2 max-h-[calc(100vh-16px)]"
+        className="w-full h-[100dvh] sm:h-full sm:w-[400px] p-0 flex flex-col border-l shadow-2xl overflow-hidden sm:rounded-l-2xl sm:my-2 sm:mr-2 sm:max-h-[calc(100vh-16px)]"
       >
         <div className="px-4 py-3 border-b flex items-center justify-between bg-muted/20 shrink-0">
           <SheetTitle className="text-base font-bold flex items-center gap-2">
