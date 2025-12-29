@@ -3,7 +3,7 @@ import { createClient } from "@/utils/supabase/server"
 import { notFound } from "next/navigation"
 import { ProductDetailClient } from "@/components/shop/product-detail-client"
 import { FloatingChat } from "@/components/chat/floating-chat" 
-import { ShareButton } from "@/components/shop/share-button" // Import ShareButton
+import { ShareButton } from "@/components/shop/share-button" 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
@@ -127,7 +127,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                <MerchantCard 
                  organization={product.organizations} 
                  currentUserId={user?.id || null} 
-                 isRestricted={isRestricted} // PASS PROP
+                 isRestricted={isRestricted} 
                />
             </div>
           </div>
@@ -165,7 +165,6 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
             <Separator />
 
             {/* Price & Cart Actions (Client Component) */}
-            {/* PASS PROP isRestricted */}
             <ProductDetailClient product={product} isRestricted={isRestricted} />
 
             {/* Trust Signals */}
@@ -204,7 +203,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
               <MerchantCard 
                 organization={product.organizations} 
                 currentUserId={user?.id || null}
-                isRestricted={isRestricted} // PASS PROP
+                isRestricted={isRestricted} 
               />
             </div>
 
@@ -266,42 +265,49 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 }
 
 // Sub-component for Merchant Card
+// UPDATED: Fixed layout for mobile devices (flex-col on mobile, flex-row on desktop)
 function MerchantCard({ 
   organization, 
   currentUserId,
-  isRestricted = false // ACCEPT PROP
+  isRestricted = false 
 }: { 
   organization: any;
   currentUserId: string | null;
   isRestricted?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-4 p-5 bg-card rounded-xl border hover:border-primary/50 transition-colors shadow-sm group">
-      <Avatar className="h-16 w-16 border bg-white shadow-sm group-hover:scale-105 transition-transform">
-        <AvatarImage src={organization.logo_url} className="object-cover" />
-        <AvatarFallback>TK</AvatarFallback>
-      </Avatar>
-      <div className="flex-1 min-w-0">
-        <h4 className="font-bold text-base truncate flex items-center gap-2">
-          {organization.name}
-          <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-blue-50 text-blue-700 border-blue-200">Verified</Badge>
-        </h4>
-        <p className="text-sm text-muted-foreground truncate mt-1">
-          {organization.description || "Toko mahasiswa terpercaya di UPJ."}
-        </p>
-        <div className="flex items-center gap-4 mt-3">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-             <MapPin className="h-3.5 w-3.5" /> 
-             <span className="truncate max-w-37.5">{organization.address_city || "Tangerang Selatan"}</span>
+    <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-5 bg-card rounded-xl border hover:border-primary/50 transition-colors shadow-sm group">
+      
+      {/* 1. Wrapper for Avatar + Text (Keeps them side-by-side on all screens) */}
+      <div className="flex items-center gap-4 flex-1 w-full">
+        <Avatar className="h-14 w-14 sm:h-16 sm:w-16 border bg-white shadow-sm group-hover:scale-105 transition-transform shrink-0">
+          <AvatarImage src={organization.logo_url} className="object-cover" />
+          <AvatarFallback>TK</AvatarFallback>
+        </Avatar>
+        
+        <div className="flex-1 min-w-0">
+          <h4 className="font-bold text-base truncate flex items-center gap-2">
+            {organization.name}
+            <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-blue-50 text-blue-700 border-blue-200 shrink-0">
+              Verified
+            </Badge>
+          </h4>
+          <p className="text-sm text-muted-foreground truncate mt-1">
+            {organization.description || "Toko mahasiswa terpercaya di UPJ."}
+          </p>
+          <div className="flex items-center gap-4 mt-2 sm:mt-3">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+               <MapPin className="h-3.5 w-3.5" /> 
+               <span className="truncate max-w-[150px]">{organization.address_city || "Tangerang Selatan"}</span>
+            </div>
+            <Separator orientation="vertical" className="h-3" />
           </div>
-          <Separator orientation="vertical" className="h-3" />
         </div>
       </div>
       
-      {/* Action Buttons: Chat & Visit */}
-      <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+      {/* 2. Action Buttons (Full width grid on mobile, Flex row on Desktop) */}
+      <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 w-full sm:w-auto shrink-0 mt-2 sm:mt-0">
         
-        {/* LOGIC UPDATE: HIDE CHAT IF RESTRICTED */}
         {!isRestricted && (
             currentUserId ? (
                 <FloatingChat 
@@ -310,23 +316,24 @@ function MerchantCard({
                     storeName={organization.name}
                     storeAvatar={organization.logo_url}
                     customTrigger={
-                        <Button variant="outline" className="gap-2 font-medium">
+                        /* Added w-full so it fills the grid column on mobile */
+                        <Button variant="outline" className="gap-2 font-medium w-full sm:w-auto">
                             <MessageCircle className="size-4" />
-                            Chat Penjual
+                            <span className="truncate">Chat</span>
                         </Button>
                     }
                 />
             ) : (
-                <Button variant="outline" className="gap-2 font-medium" asChild>
+                <Button variant="outline" className="gap-2 font-medium w-full sm:w-auto" asChild>
                     <Link href={`/login?next=/products/${organization.id}`}>
                         <MessageCircle className="size-4" />
-                        Chat Penjual
+                        Chat
                     </Link>
                 </Button>
             )
         )}
         
-        <Button variant="outline" className="font-medium" asChild>
+        <Button variant="outline" className="font-medium w-full sm:w-auto" asChild>
           <Link href={`/shop/${organization.slug}`}>Kunjungi</Link>
         </Button>
       </div>

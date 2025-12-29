@@ -61,7 +61,7 @@ export function ProductGrid({ initialProducts, searchParams }: ProductGridProps)
           <SearchX className="h-10 w-10 text-muted-foreground/50" />
         </div>
         <h3 className="font-bold text-lg md:text-xl text-foreground">Produk tidak ditemukan</h3>
-        <p className="text-muted-foreground mb-8 text-sm max-w-[250px] md:max-w-xs text-center">
+        <p className="text-muted-foreground mb-8 text-sm max-w-62.5 md:max-w-xs text-center">
           Kami tidak menemukan hasil untuk kriteria pencarian Anda.
         </p>
         <Button asChild className="rounded-full px-8 shadow-lg shadow-primary/20">
