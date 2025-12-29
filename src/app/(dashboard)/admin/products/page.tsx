@@ -77,7 +77,7 @@ export default async function AdminProductsPage(props: {
       { count: "exact" }
     )
     .order("created_at", { ascending: false });
-
+console.log(mainQuery)
   // 1. Filter Tab (Active vs Deleted)
   if (currentTab === "active") {
     mainQuery = mainQuery.is("deleted_at", null);
