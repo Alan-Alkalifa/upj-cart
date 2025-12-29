@@ -4,13 +4,20 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { ShoppingCart, Search, Menu, User, LogOut, Package, Store, LayoutDashboard } from "lucide-react"
-import { toast } from "sonner" // 1. IMPORT TOAST
+import { toast } from "sonner"
 
 // UI Components
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { 
+  Sheet, 
+  SheetContent, 
+  SheetTrigger, 
+  SheetHeader, 
+  SheetTitle,
+  SheetDescription // 1. Import Description
+} from "@/components/ui/sheet"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,7 +49,6 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
     }
   }
 
-  // 2. UPDATE FUNGSI LOGOUT
   const handleLogout = async () => {
     const supabase = createClient()
     const { error } = await supabase.auth.signOut()
@@ -50,7 +56,7 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
     if (error) {
       toast.error("Gagal keluar: " + error.message)
     } else {
-      toast.success("Berhasil Logout!") // Tampilkan Toast Sukses
+      toast.success("Berhasil Logout!")
       router.refresh()
       router.push("/login")
     }
@@ -62,37 +68,7 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
         
         {/* 1. LOGO & MOBILE MENU */}
         <div className="flex items-center gap-2">
-          {/* Mobile Sidebar */}
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left">
-              <SheetHeader>
-                <SheetTitle className="text-left flex items-center gap-2">
-                  <Store className="h-5 w-5" /> Menu
-                </SheetTitle>
-              </SheetHeader>
-              <div className="flex flex-col gap-4 mt-6">
-                <Link href="/" className="text-sm font-medium hover:text-primary transition-colors">Beranda</Link>
-                
-                {/* Menu Khusus Buyer (Mobile) */}
-                {!isRestrictedUser && (
-                   <Link href="/search" className="text-sm font-medium hover:text-primary transition-colors">Semua Produk</Link>
-                )}
-
-                {/* Menu Khusus Admin/Merchant (Mobile) */}
-                {isRestrictedUser && (
-                  <Link href={userRole === 'super_admin' ? "/admin" : "/merchant"} className="text-sm font-medium text-blue-600">
-                    Dashboard
-                  </Link>
-                )}
-              </div>
-            </SheetContent>
-          </Sheet>
-          
+          {/* Mobile Sidebar */}          
           <Link href="/" className="flex items-center gap-2 group">
             <div className="bg-primary text-primary-foreground p-1.5 rounded-lg group-hover:bg-primary/90 transition-colors">
               <Store className="h-5 w-5" />
