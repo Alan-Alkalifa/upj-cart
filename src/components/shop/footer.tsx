@@ -14,7 +14,7 @@ export async function Footer() {
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <div className="bg-primary text-primary-foreground p-1 rounded-md">
-                <Store className="h-5 w-5" />
+                <Store className="h-6 w-6" />
               </div>
               <h3 className="font-bold text-lg tracking-tight">{settings.platform_name}</h3>
             </div>
