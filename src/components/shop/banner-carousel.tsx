@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton" // 1. Import Skeleton
 import {
   Carousel,
   CarouselContent,
@@ -40,6 +41,11 @@ const BANNERS = [
 export function BannerCarousel() {
   const [api, setApi] = React.useState<CarouselApi>()
   const [current, setCurrent] = React.useState(0)
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
 
   React.useEffect(() => {
     if (!api) return
@@ -56,6 +62,11 @@ export function BannerCarousel() {
 
     return () => clearInterval(interval)
   }, [api])
+
+  // Optional: Prevent hydration mismatch or show skeleton on initial client load if needed
+  if (!mounted) {
+    return <BannerCarouselSkeleton />
+  }
 
   return (
     <div className="relative group">
@@ -102,6 +113,32 @@ export function BannerCarousel() {
             onClick={() => api?.scrollTo(index)}
           />
         ))}
+      </div>
+    </div>
+  )
+}
+
+// --- NEW SKELETON COMPONENT ---
+export function BannerCarouselSkeleton() {
+  return (
+    <div className="w-full rounded-2xl overflow-hidden shadow-xl relative aspect-[2/1] md:aspect-[3/1] lg:aspect-[3.5/1]">
+      {/* Background Image Placeholder */}
+      <Skeleton className="w-full h-full bg-muted/50" />
+      
+      {/* Overlay Content Placeholder */}
+      <div className="absolute inset-0 flex items-end p-6 md:p-12">
+        <div className="max-w-2xl w-full space-y-4">
+          {/* Title Line */}
+          <Skeleton className="h-8 md:h-12 w-3/4 max-w-[300px] bg-white/20" />
+          
+          {/* Subtitle Line */}
+          <Skeleton className="h-4 md:h-6 w-1/2 max-w-[400px] bg-white/20" />
+          
+          {/* Button Placeholder */}
+          <div className="pt-2">
+            <Skeleton className="h-10 w-40 rounded-full bg-white/30" />
+          </div>
+        </div>
       </div>
     </div>
   )

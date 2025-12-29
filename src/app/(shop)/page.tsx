@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowRight, Sparkles, Tag } from "lucide-react"
 import { BannerCarousel } from "@/components/shop/banner-carousel"
 import { ProductCard } from "@/components/shop/product-card"
+import { ProductGrid } from "@/components/shop/product-grid"
 
 export default async function ShopPage() {
   const supabase = await createClient()
@@ -15,12 +16,12 @@ export default async function ShopPage() {
   const { data: featuredCategories } = await supabase
     .from("global_categories")
     .select("*")
-    .limit(3)
+    .limit(6) // Increased limit to show scrolling effect
     .order("name")
 
   // 2. Fetch Produk per Kategori
   const categorySections = await Promise.all(
-    (featuredCategories || []).map(async (cat) => {
+    (featuredCategories?.slice(0, 3) || []).map(async (cat) => {
       const { data: products } = await supabase
         .from("products")
         .select(`
@@ -49,12 +50,13 @@ export default async function ShopPage() {
       *,
       organizations (name, slug, logo_url),
       product_variants (price_override, stock),
-      reviews (rating)
+      reviews (rating),
+      global_categories (id, name)
     `)
     .eq("is_active", true)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
-    .limit(8)
+    .limit(10) 
 
   return (
     <div className="space-y-12 pb-20">
@@ -72,17 +74,22 @@ export default async function ShopPage() {
             <Link href="/search">Lihat Semua</Link>
           </Button>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        
+        {/* UPDATE: Responsive Container 
+            - Mobile: Flex + Horizontal Scroll + No Scrollbar + Snap
+            - Desktop: Grid
+        */}
+        <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory no-scrollbar md:grid md:grid-cols-4 lg:grid-cols-6 md:overflow-visible md:pb-0">
           {featuredCategories?.map((cat) => (
             <Link 
               key={cat.id} 
               href={`/search?category=${cat.id}`}
-              className="group flex flex-col items-center justify-center p-6 rounded-xl border bg-card hover:bg-accent/50 hover:border-primary/50 transition-all text-center gap-4 shadow-sm hover:shadow-md"
+              className="group flex flex-col items-center justify-center p-6 rounded-xl border bg-card hover:bg-accent/50 hover:border-primary/50 transition-all text-center gap-4 shadow-sm hover:shadow-md min-w-[140px] snap-center"
             >
               <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 group-hover:bg-primary group-hover:text-white transition-all duration-300">
                 <Tag className="h-6 w-6" />
               </div>
-              <span className="text-sm font-medium group-hover:text-primary transition-colors">{cat.name}</span>
+              <span className="text-sm font-medium group-hover:text-primary transition-colors whitespace-nowrap">{cat.name}</span>
             </Link>
           ))}
         </div>
@@ -107,18 +114,10 @@ export default async function ShopPage() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4 md:gap-6">
-          {bestSellers && bestSellers.length > 0 ? (
-            // PERBAIKAN: Menambahkan tipe : any pada parameter map
-            bestSellers.map((product: any) => (
-              <ProductCard key={product.id} product={product} />
-            ))
-          ) : (
-            <div className="col-span-full py-12 text-center text-muted-foreground bg-muted/30 rounded-xl border border-dashed">
-              Belum ada produk unggulan saat ini.
-            </div>
-          )}
-        </div>
+        <ProductGrid 
+          initialProducts={bestSellers || []} 
+          searchParams={{ sort: 'newest' }} 
+        />
       </section>
 
       {/* 4. PRODUK PER KATEGORI */}
@@ -141,8 +140,7 @@ export default async function ShopPage() {
               </Button>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4 md:gap-6">
-              {/* PERBAIKAN: Menambahkan tipe : any pada parameter map */}
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
               {section.products.map((product: any) => (
                 <ProductCard key={product.id} product={product} />
               ))}

@@ -1,58 +1,27 @@
 import { createClient } from "@/utils/supabase/server"
-import { ProductCard } from "@/components/shop/product-card"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { Badge } from "@/components/ui/badge"
-import { SlidersHorizontal, SearchX, Tag } from "lucide-react"
+import { SlidersHorizontal, Tag } from "lucide-react"
 import Link from "next/link"
 import { PriceFilter } from "@/components/shop/price-filter"
 import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ShopSearch } from "@/components/shop/shop-search"
 import { ProductSort } from "@/components/shop/product-sort"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
+import { ProductGrid } from "@/components/shop/product-grid" // IMPORT BARU
 
-const PRODUCTS_PER_PAGE = 12
+const PRODUCTS_PER_PAGE = 10 // Changed from 12 to 10 as requested
 
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category?: string; min?: string; max?: string; sort?: string; page?: string }>
+  searchParams: Promise<{ q?: string; category?: string; min?: string; max?: string; sort?: string }>
 }) {
   const params = await searchParams
   const supabase = await createClient()
   
-  // Hitung Range Pagination
-  const currentPage = parseInt(params.page || "1")
-  const start = (currentPage - 1) * PRODUCTS_PER_PAGE
-  const end = start + PRODUCTS_PER_PAGE - 1
-
-  // 1. Build Query (Count dulu untuk total halaman)
-  let baseQuery = supabase
-    .from("products")
-    .select(`*`, { count: 'exact', head: true }) // Ambil jumlah total data saja
-    .eq("is_active", true)
-    .is("deleted_at", null)
-
-  // Terapkan filter yang sama ke baseQuery untuk hitung total
-  if (params.q) baseQuery = baseQuery.ilike("name", `%${params.q}%`)
-  if (params.category) baseQuery = baseQuery.eq("global_category_id", params.category)
-  if (params.min) baseQuery = baseQuery.gte("base_price", parseInt(params.min))
-  if (params.max) baseQuery = baseQuery.lte("base_price", parseInt(params.max))
-
-  const { count } = await baseQuery
-  const totalPages = count ? Math.ceil(count / PRODUCTS_PER_PAGE) : 0
-
-  // 2. Query Data Produk Sebenarnya
+  // 1. Initial Query (Halaman 1)
   let query = supabase
     .from("products")
     .select(`
@@ -64,9 +33,9 @@ export default async function SearchPage({
     `)
     .eq("is_active", true)
     .is("deleted_at", null)
-    .range(start, end) // << PAGINATION LOGIC
+    .range(0, PRODUCTS_PER_PAGE - 1) // Fetch first 10 items
 
-  // Apply Filter lagi ke query data
+  // Apply Filter
   if (params.q) query = query.ilike("name", `%${params.q}%`)
   if (params.category) query = query.eq("global_category_id", params.category)
   if (params.min) query = query.gte("base_price", parseInt(params.min))
@@ -87,15 +56,12 @@ export default async function SearchPage({
   // Helper URL Builder
   const buildUrl = (updates: Record<string, string | undefined>) => {
     const p = new URLSearchParams()
-    // Masukkan params yang ada
     if (params.q) p.set("q", params.q)
     if (params.category) p.set("category", params.category)
     if (params.min) p.set("min", params.min)
     if (params.max) p.set("max", params.max)
     if (params.sort) p.set("sort", params.sort)
-    if (params.page && params.page !== "1") p.set("page", params.page)
 
-    // Timpa dengan updates
     Object.entries(updates).forEach(([key, value]) => {
       if (value) p.set(key, value)
       else p.delete(key)
@@ -103,31 +69,30 @@ export default async function SearchPage({
     return `/search?${p.toString()}`
   }
 
-  const getCategoryUrl = (catId?: string) => buildUrl({ category: catId, page: "1" }) // Reset page saat ganti kategori
+  const getCategoryUrl = (catId?: string) => buildUrl({ category: catId })
 
   return (
     <div className="container mx-auto px-4 py-6 md:py-8">
       <div className="flex flex-col md:flex-row gap-6 md:gap-8">
         
-        {/* SIDEBAR (Kode sama seperti sebelumnya...) */}
+        {/* SIDEBAR (Hidden on Mobile) */}
         <aside className="w-64 hidden md:block space-y-8 sticky top-24 h-fit">
-           {/* ... Isi Sidebar sama ... */}
            <div className="space-y-3">
-             <Label className="font-bold text-sm uppercase tracking-widest">Cari Produk</Label>
+             <Label className="font-bold text-sm uppercase tracking-widest text-muted-foreground">Cari Produk</Label>
              <ShopSearch />
           </div>
           <Separator className="opacity-50" />
           
           <div className="space-y-4">
-            <h3 className="font-bold text-sm uppercase tracking-widest flex items-center gap-2">
+            <h3 className="font-bold text-sm uppercase tracking-widest flex items-center gap-2 text-muted-foreground">
               <Tag className="h-4 w-4" /> Kategori
             </h3>
             <div className="flex flex-col gap-1">
-              <Link href={getCategoryUrl()} className={`text-sm px-3 py-2 rounded-lg transition-all ${!params.category ? "bg-primary text-primary-foreground font-bold shadow-md" : "text-muted-foreground hover:bg-muted"}`}>
+              <Link href={getCategoryUrl()} className={`text-sm px-3 py-2 rounded-lg transition-all font-medium ${!params.category ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}>
                 Semua Produk
               </Link>
               {categories?.map((cat) => (
-                <Link key={cat.id} href={getCategoryUrl(cat.id)} className={`text-sm px-3 py-2 rounded-lg transition-all ${params.category === cat.id ? "bg-primary text-primary-foreground font-bold shadow-md" : "text-muted-foreground hover:bg-muted"}`}>
+                <Link key={cat.id} href={getCategoryUrl(cat.id)} className={`text-sm px-3 py-2 rounded-lg transition-all font-medium ${params.category === cat.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}>
                   {cat.name}
                 </Link>
               ))}
@@ -139,31 +104,29 @@ export default async function SearchPage({
 
         {/* MAIN CONTENT */}
         <div className="flex-1">
-          {/* Header Area (Kode sama seperti sebelumnya...) */}
+          {/* Header Area */}
           <div className="flex flex-col gap-4 mb-6 md:mb-8">
              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                 <div className="space-y-1">
-                  <h1 className="text-xl md:text-2xl font-black tracking-tight">
-                    {params.q ? `Hasil: "${params.q}"` : "Katalog Produk"}
+                  <h1 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">
+                    {params.q ? `Hasil: "${params.q}"` : 
+                     params.category ? categories?.find(c => c.id === params.category)?.name || "Kategori" : 
+                     "Semua Produk"}
                   </h1>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-muted-foreground font-medium bg-muted px-2 py-0.5 rounded">
-                      {count || 0} Barang {/* Tampilkan Total Count */}
-                    </span>
-                    {/* ... Badges ... */}
-                  </div>
+                  <p className="text-sm text-muted-foreground">
+                     Menampilkan produk terbaik untuk Anda
+                  </p>
                 </div>
+                
                 <div className="flex items-center gap-2 self-start sm:self-auto w-full sm:w-auto justify-between sm:justify-end">
                    <ProductSort />
                    <Sheet>
-                      {/* ... Mobile Filter Sheet Content (Sama) ... */}
                       <SheetTrigger asChild>
-                        <Button variant="outline" size="icon" className="md:hidden rounded-full border-2 h-9 w-9 shrink-0">
+                        <Button variant="outline" size="icon" className="md:hidden rounded-full border-2 h-10 w-10 shrink-0">
                           <SlidersHorizontal className="h-4 w-4" />
                         </Button>
                       </SheetTrigger>
                       <SheetContent side="bottom" className="h-[85vh] rounded-t-[20px] p-0">
-                        {/* ... Isi Mobile Filter (Sama, gunakan PriceFilter & Loop Categories) ... */}
                         <SheetHeader className="p-6 border-b">
                           <SheetTitle className="text-left">Filter & Kategori</SheetTitle>
                         </SheetHeader>
@@ -191,83 +154,12 @@ export default async function SearchPage({
              <div className="md:hidden"><ShopSearch /></div>
           </div>
 
-          {/* Product Grid */}
-          {products && products.length > 0 ? (
-            <>
-              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6 mb-12">
-                {products.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
-
-              {/* PAGINATION COMPONENT */}
-              {totalPages > 1 && (
-                <Pagination>
-                  <PaginationContent>
-                    {/* Prev Button */}
-                    <PaginationItem>
-                      <PaginationPrevious 
-                        href={currentPage > 1 ? buildUrl({ page: (currentPage - 1).toString() }) : "#"} 
-                        aria-disabled={currentPage <= 1}
-                        className={currentPage <= 1 ? "pointer-events-none opacity-50" : ""}
-                      />
-                    </PaginationItem>
-                    
-                    {/* Page Numbers */}
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
-                      // Logic sederhana untuk menampilkan halaman (bisa dibuat lebih kompleks dengan Ellipsis)
-                      if (
-                        p === 1 || 
-                        p === totalPages || 
-                        (p >= currentPage - 1 && p <= currentPage + 1)
-                      ) {
-                        return (
-                          <PaginationItem key={p}>
-                            <PaginationLink 
-                              href={buildUrl({ page: p.toString() })} 
-                              isActive={p === currentPage}
-                            >
-                              {p}
-                            </PaginationLink>
-                          </PaginationItem>
-                        )
-                      }
-                      if (
-                        (p === currentPage - 2 && p > 1) || 
-                        (p === currentPage + 2 && p < totalPages)
-                      ) {
-                        return <PaginationItem key={p}><PaginationEllipsis /></PaginationItem>
-                      }
-                      return null
-                    })}
-
-                    {/* Next Button */}
-                    <PaginationItem>
-                      <PaginationNext 
-                        href={currentPage < totalPages ? buildUrl({ page: (currentPage + 1).toString() }) : "#"}
-                        aria-disabled={currentPage >= totalPages}
-                        className={currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-              )}
-            </>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-20 md:py-32 bg-muted/10 rounded-3xl border-2 border-dashed border-muted">
-              {/* ... Empty State ... */}
-              <div className="bg-background p-6 rounded-full shadow-sm mb-4">
-                <SearchX className="h-10 w-10 text-muted-foreground/50" />
-              </div>
-              <h3 className="font-bold text-lg md:text-xl">Produk tidak ditemukan</h3>
-              <p className="text-muted-foreground mb-8 text-sm max-w-[250px] md:max-w-xs text-center">
-                Kami tidak menemukan hasil untuk kriteria pencarian Anda.
-              </p>
-              <Button asChild className="rounded-full px-8 shadow-lg shadow-primary/20">
-                <Link href="/search">Reset Semua Filter</Link>
-              </Button>
-            </div>
-          )}
+          {/* Product Grid with Load More */}
+          <ProductGrid 
+            initialProducts={products || []} 
+            searchParams={params} 
+          />
+          
         </div>
       </div>
     </div>
