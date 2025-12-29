@@ -1,3 +1,5 @@
+// File: src/app/(shop)/page.tsx
+
 import Link from "next/link"
 import { createClient } from "@/utils/supabase/server"
 
@@ -12,11 +14,11 @@ import { ProductGrid } from "@/components/shop/product-grid"
 export default async function ShopPage() {
   const supabase = await createClient()
 
-  // 1. Fetch Kategori Global (Ambil 3 Kategori Utama)
+  // 1. Fetch Kategori Global (Ambil 6 Kategori untuk scroll)
   const { data: featuredCategories } = await supabase
     .from("global_categories")
     .select("*")
-    .limit(6) // Increased limit to show scrolling effect
+    .limit(6)
     .order("name")
 
   // 2. Fetch Produk per Kategori
@@ -43,7 +45,7 @@ export default async function ShopPage() {
     })
   )
 
-  // 3. Fetch Produk Terlaris / Terbaru
+  // 3. Fetch Produk Terlaris / Terbaru (LIMIT 12)
   const { data: bestSellers } = await supabase
     .from("products")
     .select(`
@@ -56,7 +58,7 @@ export default async function ShopPage() {
     .eq("is_active", true)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
-    .limit(10) 
+    .limit(12) // Updated from 10 to 12
 
   return (
     <div className="space-y-12 pb-20">
@@ -70,15 +72,12 @@ export default async function ShopPage() {
       <section className="container mx-auto px-4">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl md:text-2xl font-bold tracking-tight">Kategori Pilihan</h2>
-          <Button variant="link" asChild className="text-primary p-0 h-auto">
-            <Link href="/search">Lihat Semua</Link>
+          {/* UPDATED: Consistent Style with Sedang Hangat */}
+          <Button asChild variant="ghost" size="sm" className="hover:bg-transparent hover:text-primary">
+            <Link href="/search">Lihat Semua <ArrowRight className="ml-1 h-4 w-4" /></Link>
           </Button>
         </div>
         
-        {/* UPDATE: Responsive Container 
-            - Mobile: Flex + Horizontal Scroll + No Scrollbar + Snap
-            - Desktop: Grid
-        */}
         <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory no-scrollbar md:grid md:grid-cols-4 lg:grid-cols-6 md:overflow-visible md:pb-0">
           {featuredCategories?.map((cat) => (
             <Link 
@@ -109,6 +108,7 @@ export default async function ShopPage() {
               Hot Item 🔥
             </Badge>
           </div>
+          {/* UPDATED: Consistent Style */}
           <Button asChild variant="ghost" size="sm" className="hover:bg-transparent hover:text-primary">
             <Link href="/search?sort=newest">Lihat Semua <ArrowRight className="ml-1 h-4 w-4" /></Link>
           </Button>

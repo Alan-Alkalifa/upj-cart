@@ -1,14 +1,16 @@
+// File: src/components/shop/product-detail-client.tsx
 "use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
-import { ShoppingCart, Minus, Plus, Loader2, CheckCircle2 } from "lucide-react"
+import { ShoppingCart, Minus, Plus, Loader2, CheckCircle2, Ban } from "lucide-react" // Added Ban icon
 import { addToCart } from "./actions"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 
-export function ProductDetailClient({ product }: { product: any }) {
+// Added isRestricted prop
+export function ProductDetailClient({ product, isRestricted = false }: { product: any, isRestricted?: boolean }) {
   const router = useRouter()
   
   // Cari varian default yang stoknya tersedia
@@ -31,6 +33,7 @@ export function ProductDetailClient({ product }: { product: any }) {
   }, [displayPrice])
 
   const handleAddToCart = async () => {
+    if (isRestricted) return; // Guard clause
     if (!selectedVariantId) return toast.error("Silakan pilih varian terlebih dahulu")
     if (quantity > maxStock) return toast.error("Stok tidak mencukupi")
 
@@ -121,7 +124,7 @@ export function ProductDetailClient({ product }: { product: any }) {
         <div className="flex items-center gap-4">
             
             {/* Quantity Input */}
-            <div className="flex items-center border-2 border-muted rounded-lg p-1 shrink-0">
+            <div className={cn("flex items-center border-2 border-muted rounded-lg p-1 shrink-0", isRestricted && "opacity-50 pointer-events-none")}>
               <Button 
                 variant="ghost" size="icon" className="h-9 w-9 rounded-md hover:bg-muted"
                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
@@ -149,15 +152,23 @@ export function ProductDetailClient({ product }: { product: any }) {
         <Button 
           size="lg" 
           className="w-full text-base font-bold shadow-lg shadow-primary/20 h-12"
-          disabled={isOutOfStock || !selectedVariantId || isPending}
+          disabled={isOutOfStock || !selectedVariantId || isPending || isRestricted}
           onClick={handleAddToCart}
         >
           {isPending ? (
             <Loader2 className="animate-spin mr-2 h-5 w-5" />
+          ) : isRestricted ? (
+            <Ban className="mr-2 h-5 w-5" />
           ) : (
             <ShoppingCart className="mr-2 h-5 w-5" />
           )}
-          {isOutOfStock ? "Stok Habis" : "Masukkan Keranjang"}
+          
+          {isRestricted 
+            ? "Akun Merchant/Admin Tidak Bisa Beli" 
+            : isOutOfStock 
+              ? "Stok Habis" 
+              : "Masukkan Keranjang"
+          }
         </Button>
       </div>
     </div>

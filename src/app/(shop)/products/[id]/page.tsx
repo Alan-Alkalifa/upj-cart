@@ -1,3 +1,4 @@
+// File: src/app/(shop)/products/[id]/page.tsx
 import { createClient } from "@/utils/supabase/server"
 import { notFound } from "next/navigation"
 import { ProductDetailClient } from "@/components/shop/product-detail-client"
@@ -22,10 +23,24 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   const { id } = await params
   const supabase = await createClient()
 
-  // 1. Fetch User Data (Required for Chat)
+  // 1. Fetch User Data (Required for Chat & Role Check)
   const { data: { user } } = await supabase.auth.getUser()
 
-  // 2. Fetch Product Data with Relations
+  // 2. Cek Role User (Untuk Batasi Fitur Beli/Chat)
+  let userRole = null;
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single()
+    userRole = profile?.role
+  }
+
+  // Merchant dan Admin tidak boleh beli / chat
+  const isRestricted = userRole === 'merchant' || userRole === 'super_admin';
+
+  // 3. Fetch Product Data with Relations
   const { data: product } = await supabase
     .from("products")
     .select(`
@@ -112,6 +127,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                <MerchantCard 
                  organization={product.organizations} 
                  currentUserId={user?.id || null} 
+                 isRestricted={isRestricted} // PASS PROP
                />
             </div>
           </div>
@@ -149,22 +165,23 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
             <Separator />
 
             {/* Price & Cart Actions (Client Component) */}
-            <ProductDetailClient product={product} />
+            {/* PASS PROP isRestricted */}
+            <ProductDetailClient product={product} isRestricted={isRestricted} />
 
             {/* Trust Signals */}
             <div className="grid grid-cols-2 gap-3">
                <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 border">
                   <ShieldCheck className="h-5 w-5 text-green-600 mt-0.5" />
                   <div className="text-sm">
-                     <p className="font-medium text-foreground">Jaminan Aman</p>
-                     <p className="text-muted-foreground text-xs mt-0.5">Uang kembali jika pesanan tidak sesuai.</p>
+                      <p className="font-medium text-foreground">Jaminan Aman</p>
+                      <p className="text-muted-foreground text-xs mt-0.5">Uang kembali jika pesanan tidak sesuai.</p>
                   </div>
                </div>
                <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 border">
                   <Store className="h-5 w-5 text-blue-600 mt-0.5" />
                   <div className="text-sm">
-                     <p className="font-medium text-foreground">Verified Merchant</p>
-                     <p className="text-muted-foreground text-xs mt-0.5">Penjual terverifikasi dari civitas UPJ.</p>
+                      <p className="font-medium text-foreground">Verified Merchant</p>
+                      <p className="text-muted-foreground text-xs mt-0.5">Penjual terverifikasi dari civitas UPJ.</p>
                   </div>
                </div>
             </div>
@@ -186,7 +203,8 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
               <h3 className="font-bold text-lg mb-4">Informasi Penjual</h3>
               <MerchantCard 
                 organization={product.organizations} 
-                currentUserId={user?.id || null} 
+                currentUserId={user?.id || null}
+                isRestricted={isRestricted} // PASS PROP
               />
             </div>
 
@@ -250,10 +268,12 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 // Sub-component for Merchant Card
 function MerchantCard({ 
   organization, 
-  currentUserId 
+  currentUserId,
+  isRestricted = false // ACCEPT PROP
 }: { 
   organization: any;
   currentUserId: string | null;
+  isRestricted?: boolean;
 }) {
   return (
     <div className="flex items-center gap-4 p-5 bg-card rounded-xl border hover:border-primary/50 transition-colors shadow-sm group">
@@ -280,26 +300,30 @@ function MerchantCard({
       
       {/* Action Buttons: Chat & Visit */}
       <div className="flex flex-col sm:flex-row gap-2 shrink-0">
-        {currentUserId ? (
-            <FloatingChat 
-                currentUserId={currentUserId}
-                orgId={organization.id}
-                storeName={organization.name}
-                storeAvatar={organization.logo_url}
-                customTrigger={
-                    <Button variant="outline" className="gap-2 font-medium">
+        
+        {/* LOGIC UPDATE: HIDE CHAT IF RESTRICTED */}
+        {!isRestricted && (
+            currentUserId ? (
+                <FloatingChat 
+                    currentUserId={currentUserId}
+                    orgId={organization.id}
+                    storeName={organization.name}
+                    storeAvatar={organization.logo_url}
+                    customTrigger={
+                        <Button variant="outline" className="gap-2 font-medium">
+                            <MessageCircle className="size-4" />
+                            Chat Penjual
+                        </Button>
+                    }
+                />
+            ) : (
+                <Button variant="outline" className="gap-2 font-medium" asChild>
+                    <Link href={`/login?next=/products/${organization.id}`}>
                         <MessageCircle className="size-4" />
                         Chat Penjual
-                    </Button>
-                }
-            />
-        ) : (
-            <Button variant="outline" className="gap-2 font-medium" asChild>
-                <Link href={`/login?next=/products/${organization.id}`}>
-                    <MessageCircle className="size-4" />
-                    Chat Penjual
-                </Link>
-            </Button>
+                    </Link>
+                </Button>
+            )
         )}
         
         <Button variant="outline" className="font-medium" asChild>

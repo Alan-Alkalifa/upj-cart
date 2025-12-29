@@ -179,8 +179,7 @@ function onSubmit(values: z.infer<typeof loginSchema>) {
               />
 
               <Button type="submit" className="w-full" disabled={isPending}>
-                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Masuk
+                {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Masuk"}
               </Button>
             </form>
           </Form>

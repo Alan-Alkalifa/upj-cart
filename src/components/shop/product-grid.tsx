@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ProductCard, ProductCardSkeleton } from "@/components/shop/product-card" // Import Skeleton
+import { ProductCard, ProductCardSkeleton } from "@/components/shop/product-card"
 import { Button } from "@/components/ui/button"
 import { Loader2, SearchX } from "lucide-react"
 import { getMoreProducts } from "@/app/(shop)/search/actions"
@@ -9,33 +9,39 @@ import Link from "next/link"
 
 interface ProductGridProps {
   initialProducts: any[]
-  searchParams: { q?: string; category?: string; min?: string; max?: string; sort?: string }
+  // UPDATED: Added merchant_id to the type definition
+  searchParams: { 
+    q?: string; 
+    category?: string; 
+    min?: string; 
+    max?: string; 
+    sort?: string;
+    merchant_id?: string; 
+  }
 }
 
 export function ProductGrid({ initialProducts, searchParams }: ProductGridProps) {
   const [products, setProducts] = useState(initialProducts)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
-  const [hasMore, setHasMore] = useState(initialProducts.length === 10)
+  const [hasMore, setHasMore] = useState(initialProducts.length === 12)
 
   // Reset state when filters change
   useEffect(() => {
     setProducts(initialProducts)
     setPage(1)
-    setHasMore(initialProducts.length === 10)
+    setHasMore(initialProducts.length === 12)
   }, [initialProducts])
 
   const loadMore = async () => {
     setLoading(true)
-    // Delay sedikit agar skeleton terlihat (opsional, untuk UX yang lebih halus)
-    // await new Promise(resolve => setTimeout(resolve, 500)) 
     
     const nextPage = page + 1
     
     try {
       const newProducts = await getMoreProducts(nextPage, searchParams)
       
-      if (newProducts.length < 10) {
+      if (newProducts.length < 12) {
         setHasMore(false)
       }
       
@@ -69,14 +75,12 @@ export function ProductGrid({ initialProducts, searchParams }: ProductGridProps)
     <div className="space-y-10">
       {/* Product Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
-        {/* Existing Products */}
         {products.map((product: any, index: number) => (
           <div key={`${product.id}-${index}`} className="animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both" style={{ animationDelay: `${index * 50}ms` }}>
             <ProductCard product={product} />
           </div>
         ))}
 
-        {/* Loading Skeletons (Appended) */}
         {loading && (
           <>
             {Array.from({ length: 4 }).map((_, i) => (
@@ -88,7 +92,6 @@ export function ProductGrid({ initialProducts, searchParams }: ProductGridProps)
         )}
       </div>
 
-      {/* Load More Button */}
       {hasMore && !loading && (
         <div className="flex justify-center pt-4">
           <Button 
@@ -102,7 +105,6 @@ export function ProductGrid({ initialProducts, searchParams }: ProductGridProps)
         </div>
       )}
       
-      {/* Loading Indicator (Jika tombol disembunyikan saat loading) */}
       {loading && (
          <div className="flex justify-center pt-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary/50" />

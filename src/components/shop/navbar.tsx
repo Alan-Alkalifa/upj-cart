@@ -1,24 +1,14 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useRouter, usePathname } from "next/navigation" // Import usePathname
 import { ShoppingCart, Search, Menu, User, LogOut, Package, Store, LayoutDashboard } from "lucide-react"
 import { toast } from "sonner"
+import { ShopSearch } from "@/components/shop/shop-search" 
 
-// UI Components
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { 
-  Sheet, 
-  SheetContent, 
-  SheetTrigger, 
-  SheetHeader, 
-  SheetTitle,
-  SheetDescription // 1. Import Description
-} from "@/components/ui/sheet"
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -36,18 +26,18 @@ interface NavbarProps {
 
 export function Navbar({ user, cartCount = 0 }: NavbarProps) {
   const router = useRouter()
-  const [searchQuery, setSearchQuery] = useState("")
-
-  // --- LOGIKA ROLE ---
+  const pathname = usePathname() // Ambil path saat ini
+  
   const userRole = user?.app_metadata?.role || user?.role
+  
   const isRestrictedUser = userRole === 'super_admin' || userRole === 'merchant'
+  const isSuperAdmin = userRole === 'super_admin'
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (searchQuery.trim()) {
-      router.push(`/search?q=${encodeURIComponent(searchQuery)}`)
-    }
-  }
+  // LOGIKA: Sembunyikan search bar navbar jika:
+  // 1. User adalah Super Admin (sesuai request sebelumnya)
+  // 2. Sedang di halaman /search (karena sudah ada search bar di page)
+  // 3. Sedang di halaman /shop/... (karena kita akan pakai search lokal toko)
+  const isSearchHidden = isSuperAdmin || pathname === '/search' || pathname?.startsWith('/shop/')
 
   const handleLogout = async () => {
     const supabase = createClient()
@@ -57,8 +47,7 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
       toast.error("Gagal keluar: " + error.message)
     } else {
       toast.success("Berhasil Logout!")
-      router.refresh()
-      router.push("/login")
+      window.location.href = "/login"
     }
   }
 
@@ -66,48 +55,34 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
         
-        {/* 1. LOGO & MOBILE MENU */}
+        {/* 1. LOGO */}
         <div className="flex items-center gap-2">
-          {/* Mobile Sidebar */}          
           <Link href="/" className="flex items-center gap-2 group">
             <div className="bg-primary text-primary-foreground p-1.5 rounded-lg group-hover:bg-primary/90 transition-colors">
               <Store className="h-5 w-5" />
             </div>
-            <span className="font-bold text-xl hidden sm:inline-block tracking-tight">UPJ Cart</span>
+            <span className="font-bold text-xl hidden sm:inline-block tracking-tight">UPJ MARKETPLACE</span>
           </Link>
         </div>
 
-        {/* 2. SEARCH BAR (Desktop) */}
-        {!isRestrictedUser && (
-          <form onSubmit={handleSearch} className="flex-1 max-w-xl relative hidden md:flex items-center">
-            <Input 
-              placeholder="Cari produk mahasiswa..." 
-              className="pr-10 rounded-full bg-muted/50 focus-visible:bg-background transition-colors" 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            <Button 
-              type="submit" 
-              size="icon" 
-              variant="ghost" 
-              className="absolute right-1 h-8 w-8 rounded-full hover:bg-transparent text-muted-foreground"
-            >
-              <Search className="h-4 w-4" />
-            </Button>
-          </form>
+        {/* 2. SEARCH BAR (Desktop) - Conditional Rendering */}
+        {!isSearchHidden && (
+          <div className="flex-1 max-w-xl hidden md:block">
+            {/* Navbar selalu menggunakan global search ke /search */}
+            <ShopSearch baseUrl="/search" />
+          </div>
         )}
 
         {/* 3. ACTIONS */}
         <div className="flex items-center gap-1 sm:gap-2">
           
-          {/* Mobile Search - Hide for Admin/Merchant */}
-          {!isRestrictedUser && (
+          {/* Mobile Search - Conditional */}
+          {!isSearchHidden && (
             <Button variant="ghost" size="icon" className="md:hidden" onClick={() => router.push('/search')}>
                <Search className="h-5 w-5" />
             </Button>
           )}
 
-          {/* Cart Icon - Hide for Admin/Merchant */}
           {!isRestrictedUser && (
             <Button asChild variant="ghost" size="icon" className="relative">
               <Link href="/cart">
@@ -155,7 +130,6 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 
-                {/* --- MENU BUYER --- */}
                 {!isRestrictedUser && (
                   <>
                     <DropdownMenuItem asChild>
@@ -172,7 +146,6 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
                   </>
                 )}
 
-                {/* --- MENU MERCHANT/ADMIN --- */}
                 {isRestrictedUser && (
                     <>
                       <DropdownMenuItem asChild>
@@ -188,7 +161,6 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
                     </>
                 )}
 
-                {/* LOGOUT BUTTON */}
                 <DropdownMenuItem onClick={handleLogout} className="text-red-600 cursor-pointer focus:text-red-600 focus:bg-red-50">
                   <LogOut className="mr-2 h-4 w-4" /> Keluar
                 </DropdownMenuItem>

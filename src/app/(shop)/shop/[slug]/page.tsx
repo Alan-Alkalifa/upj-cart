@@ -7,7 +7,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs" // Hapus import 'Tabs'
+import { ShopTabsWrapper } from "@/components/shop/shop-tabs-wrapper" // Import Wrapper Baru
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Breadcrumb,
@@ -45,10 +46,8 @@ export default async function MerchantPage(props: {
   const searchParams = await props.searchParams
   const supabase = await createClient()
 
-  // 1. Fetch User Data (Required for Chat)
   const { data: { user } } = await supabase.auth.getUser()
 
-  // 2. Fetch Merchant Info
   const { data: merchant } = await supabase
     .from("organizations")
     .select("*")
@@ -57,7 +56,6 @@ export default async function MerchantPage(props: {
 
   if (!merchant) return notFound()
 
-  // 3. Fetch Shop Statistics (Dynamic Rating & Review Count)
   const { data: shopReviews } = await supabase
     .from("reviews")
     .select("rating, products!inner(org_id)")
@@ -68,13 +66,11 @@ export default async function MerchantPage(props: {
     ? (shopReviews!.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(1)
     : "Baru"
 
-  // 4. Setup Query Parameters for Products
   const currentPage = parseInt(searchParams.page || "1")
   const start = (currentPage - 1) * PRODUCTS_PER_PAGE
   const end = start + PRODUCTS_PER_PAGE - 1
   const queryParam = searchParams.q
 
-  // 5. Build Query untuk Total Count Produk (Tanpa Pagination)
   let countQuery = supabase
     .from("products")
     .select("id", { count: 'exact', head: true })
@@ -90,7 +86,6 @@ export default async function MerchantPage(props: {
   const totalProducts = count || 0
   const totalPages = Math.ceil(totalProducts / PRODUCTS_PER_PAGE)
 
-  // 6. Build Query untuk Data Produk (Dengan Pagination & Sort)
   let productQuery = supabase
     .from("products")
     .select(`
@@ -104,12 +99,10 @@ export default async function MerchantPage(props: {
     .is("deleted_at", null)
     .range(start, end)
 
-  // Apply Filters
   if (queryParam) productQuery = productQuery.ilike('name', `%${queryParam}%`)
   if (searchParams.min) productQuery = productQuery.gte("base_price", parseInt(searchParams.min))
   if (searchParams.max) productQuery = productQuery.lte("base_price", parseInt(searchParams.max))
 
-  // Apply Sort
   const sort = searchParams.sort || 'newest'
   switch (sort) {
     case 'price_asc': productQuery = productQuery.order('base_price', { ascending: true }); break
@@ -120,10 +113,8 @@ export default async function MerchantPage(props: {
 
   const { data: products } = await productQuery
 
-  // Format Join Date
   const joinDate = new Date(merchant.created_at).toLocaleDateString("id-ID", { month: 'long', year: 'numeric' })
 
-  // Helper untuk URL Pagination
   const buildUrl = (updates: Record<string, string | undefined>) => {
     const p = new URLSearchParams()
     if (searchParams.q) p.set("q", searchParams.q)
@@ -233,7 +224,7 @@ export default async function MerchantPage(props: {
                   </div>
                 </div>
                 
-                {/* ACTION BUTTONS: CHAT & SHARE */}
+                {/* ACTION BUTTONS */}
                 <div className="flex gap-3 w-full md:w-auto shrink-0 mt-2 pt-4 md:mt-0">
                   {user ? (
                     <FloatingChat
@@ -304,29 +295,33 @@ export default async function MerchantPage(props: {
 
       {/* CONTENT TABS */}
       <div className="container mx-auto px-4 py-8">
-        <Tabs defaultValue="products" className="space-y-8">
+        {/* PENGGUNAAN WRAPPER BARU */}
+        <ShopTabsWrapper defaultTab="products" className="space-y-8">
           
           <div className="sticky top-16 z-30 bg-muted/5 backdrop-blur-md pb-4 pt-2 px-4 md:static md:bg-transparent md:p-0">
              <TabsList className="h-12 w-full sm:w-auto p-1 bg-background/80 border shadow-sm rounded-xl">
-               <TabsTrigger value="products" className="flex-1 sm:flex-none h-full px-6 rounded-lg data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-medium">Etalase</TabsTrigger>
+               <TabsTrigger 
+                 id="products-trigger" 
+                 value="products" 
+                 className="flex-1 sm:flex-none h-full px-6 rounded-lg data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-medium"
+               >
+                 Etalase
+               </TabsTrigger>
+               
                <TabsTrigger value="about" className="flex-1 sm:flex-none h-full px-6 rounded-lg data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-medium">Profil Toko</TabsTrigger>
                <TabsTrigger value="reviews" className="flex-1 sm:flex-none h-full px-6 rounded-lg data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-medium">
                  Ulasan 
-                 {/* Badge Dynamic */}
                  <Badge variant="secondary" className="ml-2 h-5 min-w-[20px] px-1 bg-muted-foreground/10 text-muted-foreground">{totalReviews}</Badge>
                </TabsTrigger>
              </TabsList>
           </div>
 
-          {/* === TAB: PRODUCTS (WITH FILTERS) === */}
           <TabsContent value="products" className="mt-0 animate-in slide-in-from-bottom-2 duration-500">
             <div className="flex flex-col md:flex-row gap-6 md:gap-8">
-              
-              {/* DESKTOP SIDEBAR FILTER */}
               <aside className="w-64 hidden md:block space-y-6 sticky top-24 h-fit">
                  <div className="space-y-3">
                    <Label className="font-bold text-sm uppercase tracking-widest">Cari di Toko</Label>
-                   <ShopSearch />
+                   <ShopSearch baseUrl={`/shop/${slug}`} placeholder={`Cari di ${merchant.name}...`} />
                 </div>
                 <Separator className="opacity-50" />
                 <PriceFilter />
@@ -339,7 +334,6 @@ export default async function MerchantPage(props: {
                 </Card>
               </aside>
 
-              {/* PRODUCT GRID & MOBILE CONTROLS */}
               <div className="flex-1">
                 <div className="flex flex-col gap-4 mb-6">
                    <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
@@ -351,11 +345,8 @@ export default async function MerchantPage(props: {
                           Menampilkan {products?.length || 0} dari {totalProducts} produk
                         </p>
                       </div>
-                      
                       <div className="flex items-center gap-2 self-start sm:self-auto w-full sm:w-auto justify-between sm:justify-end">
                          <ProductSort />
-                         
-                         {/* Mobile Filter Sheet */}
                          <Sheet>
                            <SheetTrigger asChild>
                              <Button variant="outline" size="icon" className="md:hidden rounded-full border-2 h-9 w-9 shrink-0">
@@ -369,7 +360,7 @@ export default async function MerchantPage(props: {
                              <div className="p-6 space-y-8">
                                <section className="space-y-3">
                                  <Label>Cari Nama</Label>
-                                 <ShopSearch />
+                                 <ShopSearch baseUrl={`/shop/${slug}`} placeholder={`Cari di ${merchant.name}...`} />
                                </section>
                                <Separator />
                                <section>
@@ -380,12 +371,11 @@ export default async function MerchantPage(props: {
                          </Sheet>
                       </div>
                    </div>
-                   
-                   {/* Mobile Search Bar (If needed visible outside) */}
-                   <div className="md:hidden"><ShopSearch /></div>
+                   <div className="md:hidden">
+                      <ShopSearch baseUrl={`/shop/${slug}`} placeholder={`Cari di ${merchant.name}...`} />
+                   </div>
                 </div>
 
-                {/* GRID */}
                 {products && products.length > 0 ? (
                   <>
                     <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6 mb-12">
@@ -393,8 +383,6 @@ export default async function MerchantPage(props: {
                         <ProductCard key={product.id} product={product} />
                       ))}
                     </div>
-
-                    {/* PAGINATION */}
                     {totalPages > 1 && (
                       <Pagination>
                         <PaginationContent>
@@ -405,7 +393,6 @@ export default async function MerchantPage(props: {
                               className={currentPage <= 1 ? "pointer-events-none opacity-50" : ""}
                             />
                           </PaginationItem>
-                          
                           {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
                              if (p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1)) {
                                return (
@@ -421,7 +408,6 @@ export default async function MerchantPage(props: {
                              }
                              return null
                           })}
-
                           <PaginationItem>
                             <PaginationNext 
                               href={currentPage < totalPages ? buildUrl({ page: (currentPage + 1).toString() }) : "#"}
@@ -451,7 +437,6 @@ export default async function MerchantPage(props: {
             </div>
           </TabsContent>
 
-          {/* TAB: ABOUT */}
           <TabsContent value="about" className="mt-0 animate-in slide-in-from-bottom-2 duration-500">
              <div className="grid md:grid-cols-3 gap-6">
                <Card className="md:col-span-2 shadow-sm border-muted">
@@ -466,7 +451,6 @@ export default async function MerchantPage(props: {
                    </p>
                  </CardContent>
                </Card>
-
                <div className="space-y-6">
                  <Card className="shadow-sm border-muted">
                     <CardHeader>
@@ -483,7 +467,6 @@ export default async function MerchantPage(props: {
                       <p className="text-muted-foreground">{merchant.address_postal_code}</p>
                     </CardContent>
                  </Card>
-
                  <Card className="shadow-sm border-muted">
                     <CardHeader>
                       <CardTitle className="text-base flex items-center gap-2">
@@ -505,7 +488,6 @@ export default async function MerchantPage(props: {
              </div>
           </TabsContent>
 
-          {/* TAB: REVIEWS */}
           <TabsContent value="reviews" className="mt-0 animate-in slide-in-from-bottom-2 duration-500">
             <Card className="border-muted bg-muted/5">
               <CardContent className="py-20 flex flex-col items-center text-center">
@@ -521,7 +503,7 @@ export default async function MerchantPage(props: {
             </Card>
           </TabsContent>
 
-        </Tabs>
+        </ShopTabsWrapper>
       </div>
     </div>
   )
