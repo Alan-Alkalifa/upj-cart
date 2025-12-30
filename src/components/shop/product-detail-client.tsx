@@ -1,15 +1,15 @@
-// File: src/components/shop/product-detail-client.tsx
 "use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
-import { ShoppingCart, Minus, Plus, Loader2, CheckCircle2, Ban } from "lucide-react" // Added Ban icon
+import { ShoppingCart, Minus, Plus, Loader2, CheckCircle2, Ban } from "lucide-react"
 import { addToCart } from "./actions"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
+// [ANALYTICS] Import Helper
+import { trackEvent } from "@/lib/analytics"
 
-// Added isRestricted prop
 export function ProductDetailClient({ product, isRestricted = false }: { product: any, isRestricted?: boolean }) {
   const router = useRouter()
   
@@ -32,6 +32,13 @@ export function ProductDetailClient({ product, isRestricted = false }: { product
     setPriceKey(prev => prev + 1)
   }, [displayPrice])
 
+  // [ANALYTICS] 1. Track View Item saat komponen di-mount
+  useEffect(() => {
+    if (product) {
+      trackEvent.viewItem(product)
+    }
+  }, [product])
+
   const handleAddToCart = async () => {
     if (isRestricted) return; // Guard clause
     if (!selectedVariantId) return toast.error("Silakan pilih varian terlebih dahulu")
@@ -51,6 +58,15 @@ export function ProductDetailClient({ product, isRestricted = false }: { product
       }
     } else {
       toast.success("Berhasil!", { description: `${product.name} (${quantity}x) masuk keranjang.` })
+      
+      // [ANALYTICS] 2. Track Add To Cart Sukses
+      trackEvent.addToCart({
+        product: product,
+        variantName: selectedVariant?.name || "Default",
+        quantity: quantity,
+        finalPrice: displayPrice
+      })
+
       router.refresh()
     }
   }

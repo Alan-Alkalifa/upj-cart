@@ -8,6 +8,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Store, ArrowRight, ShieldCheck, ShoppingBag } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+// [ANALYTICS] Import Helper
+import { trackEvent } from "@/lib/analytics"
 
 // Helper untuk unwrap data array/object dari Supabase
 const unwrap = (data: any) => Array.isArray(data) ? data[0] : data
@@ -45,6 +47,22 @@ export function CartPageClient({ cartItems }: { cartItems: any[] }) {
     }
     groupedCart[orgId].items.push(normalizedItem)
   })
+
+  // [ANALYTICS] 1. Track View Cart saat halaman dimuat
+  useEffect(() => {
+    if (cartItems.length > 0) {
+      // Hitung total value cart
+      const totalCartValue = cartItems.reduce((acc, i) => {
+        const v = unwrap(i.product_variants);
+        const p = v?.products;
+        const price = v?.price_override || p?.base_price || 0;
+        return acc + (price * i.quantity);
+      }, 0);
+
+      // Helper analytics akan mengurus unwrap data untuk GA4
+      trackEvent.viewCart(cartItems, totalCartValue);
+    }
+  }, [cartItems]);
 
   // HELPER: Toggle per Item
   const toggleItem = (id: string, checked: boolean) => {
@@ -99,6 +117,15 @@ export function CartPageClient({ cartItems }: { cartItems: any[] }) {
         </Button>
       </div>
     )
+  }
+
+  const handleCheckout = () => {
+    // [ANALYTICS] 2. Track Begin Checkout
+    // Kirim data hanya item yang DIPILIH (selectedItems)
+    trackEvent.beginCheckout(selectedItems, totalPrice);
+
+    // Redirect ke checkout dengan membawa ID items yang dipilih
+    router.push(`/checkout?items=${selectedIds.join(',')}`)
   }
 
   return (
@@ -179,10 +206,7 @@ export function CartPageClient({ cartItems }: { cartItems: any[] }) {
               className="w-full text-base py-6 font-bold shadow-lg shadow-primary/20" 
               size="lg" 
               disabled={selectedIds.length === 0}
-              onClick={() => {
-                // Redirect ke checkout dengan membawa ID items yang dipilih
-                router.push(`/checkout?items=${selectedIds.join(',')}`)
-              }}
+              onClick={handleCheckout}
             >
               Checkout <ArrowRight className="ml-2 h-5 w-5" />
             </Button>

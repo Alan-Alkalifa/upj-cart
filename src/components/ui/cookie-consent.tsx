@@ -10,7 +10,7 @@ export function CookieConsent() {
   const [isClosing, setIsClosing] = useState(false);
 
   useEffect(() => {
-    // Cek apakah user sudah pernah berinteraksi (accept/reject)
+    // Cek apakah user sudah pernah memilih
     const consent = localStorage.getItem("cookie-consent");
     if (!consent) {
       const timer = setTimeout(() => setIsVisible(true), 1000);
@@ -18,19 +18,21 @@ export function CookieConsent() {
     }
   }, []);
 
-  // Handler untuk MENERIMA
+  // Fungsi helper untuk simpan status & kabari komponen lain
+  const updateConsentStatus = (status: "true" | "false") => {
+    localStorage.setItem("cookie-consent", status);
+    window.dispatchEvent(new Event("cookie-consent-change"));
+  };
+
   const acceptCookies = () => {
     setIsClosing(true);
-    localStorage.setItem("cookie-consent", "true");
+    updateConsentStatus("true");
     setTimeout(() => setIsVisible(false), 300);
   };
 
-  // Handler untuk MENOLAK
   const declineCookies = () => {
     setIsClosing(true);
-    // Simpan status 'false' agar banner tidak muncul lagi,
-    // tapi secara logika aplikasi tahu user menolak tracking.
-    localStorage.setItem("cookie-consent", "false"); 
+    updateConsentStatus("false");
     setTimeout(() => setIsVisible(false), 300);
   };
 
@@ -44,46 +46,25 @@ export function CookieConsent() {
       )}
     >
       <div className="flex flex-col gap-4 rounded-lg border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-5 shadow-lg ring-1 ring-black/5 dark:bg-card dark:ring-white/10">
-        {/* Header & Icon */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
               <Cookie className="h-4 w-4" />
             </div>
-            <h3 className="font-semibold leading-none tracking-tight">
-              Pilihan Cookies
-            </h3>
+            <h3 className="font-semibold leading-none tracking-tight">Pilihan Cookies</h3>
           </div>
-          {/* Tombol X (Close) bisa dianggap sebagai Decline atau Dismiss */}
-          <button
-            onClick={declineCookies}
-            className="text-muted-foreground hover:text-foreground"
-            aria-label="Close"
-          >
+          <button onClick={declineCookies} className="text-muted-foreground hover:text-foreground">
             <X className="h-4 w-4" />
           </button>
         </div>
-
-        {/* Content */}
         <p className="text-sm text-muted-foreground">
-          Kami menggunakan cookies esensial agar website dapat berjalan. Kami juga ingin menggunakan cookies tambahan untuk meningkatkan pengalaman Anda.
+          Kami menggunakan cookies untuk meningkatkan pengalaman Anda dan menganalisis trafik website.
         </p>
-
-        {/* Actions */}
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-          <Button 
-            onClick={declineCookies} 
-            variant="outline" 
-            size="sm" 
-            className="w-full sm:w-auto"
-          >
+          <Button onClick={declineCookies} variant="outline" size="sm" className="w-full sm:w-auto">
             Tolak Semua
           </Button>
-          <Button 
-            onClick={acceptCookies} 
-            size="sm" 
-            className="w-full sm:w-auto"
-          >
+          <Button onClick={acceptCookies} size="sm" className="w-full sm:w-auto">
             Izinkan Semua
           </Button>
         </div>

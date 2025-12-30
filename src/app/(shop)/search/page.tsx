@@ -14,6 +14,9 @@ import { getStorePreview, getProductPreview } from "./actions"
 import { SearchPreviewCard } from "@/components/shop/search-preview-card"
 import { Metadata } from "next"
 
+// [ANALYTICS] Import Tracker Component
+import { SearchTracker } from "@/components/shop/search-tracker"
+
 const PRODUCTS_PER_PAGE = 10
 
 // --- 1. GENERATE METADATA ---
@@ -129,8 +132,21 @@ export default async function SearchPage({
 
   const getCategoryUrl = (catId?: string) => buildUrl({ category: catId })
 
+  // [ANALYTICS HELPER] Ambil nama kategori untuk keperluan tracking
+  const currentCategoryName = categories?.find(c => c.id === params.category)?.name
+
   return (
     <div className="container mx-auto px-4 py-6 md:py-8 min-h-screen">
+      
+      {/* [ANALYTICS] INTEGRATION START */}
+      <SearchTracker 
+        query={params.q}
+        categoryName={currentCategoryName}
+        storeName={storePreviewData?.name}
+        products={products || []}
+      />
+      {/* [ANALYTICS] INTEGRATION END */}
+
       <div className="flex flex-col md:flex-row gap-6 md:gap-8">
         
         {/* SIDEBAR (Desktop) */}

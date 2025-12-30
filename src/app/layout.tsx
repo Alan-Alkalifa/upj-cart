@@ -7,6 +7,7 @@ import { createClient } from "@/utils/supabase/server";
 import { Wrench, Mail } from "lucide-react";
 import { FloatingChat } from "@/components/chat/floating-chat";
 import { CookieConsent } from "@/components/ui/cookie-consent";
+import { GoogleAnalyticsConsent } from "@/components/analytics/google-analytics-consent";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -125,6 +126,7 @@ export default async function RootLayout({
         {children}
         <Toaster />
         <CookieConsent />
+        <GoogleAnalyticsConsent />
         {user && <FloatingChat currentUserId={user.id} />}
       </body>
     </html>

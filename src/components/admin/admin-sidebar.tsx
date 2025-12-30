@@ -12,6 +12,7 @@ import {
   ChevronsUpDown,
   Wallet,
   MessageCircle,
+  LineChart, // [NEW] Import icon untuk Analytics
 } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
@@ -120,6 +121,17 @@ export function AppSidebar({ user }: { user: any }) {
         <SidebarGroup>
           <SidebarGroupLabel>Monitoring</SidebarGroupLabel>
           <SidebarMenu>
+            
+            {/* [NEW] MENU ANALYTICS */}
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/admin/analytics")} tooltip="Analytics">
+                <a href="/admin/analytics">
+                  <LineChart />
+                  <span>Analytics</span>
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname.startsWith("/admin/finance")} tooltip="Finance">
                 <a href="/admin/finance">

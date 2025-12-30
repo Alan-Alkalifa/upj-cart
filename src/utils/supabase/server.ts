@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { Database } from '@/types/supabase'
 
 export async function createClient() {
   const cookieStore = await cookies()
@@ -26,4 +27,31 @@ export async function createClient() {
       },
     }
   )
+}
+
+export async function checkRole(requiredRole: Database["public"]["Enums"]["user_role"]) {
+  const supabase = await createClient()
+
+  // 1. Cek User Login
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error("Unauthorized: Anda belum login.")
+  }
+
+  // 2. Cek Profile Role di Database
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single()
+
+  // 3. Validasi
+  if (!profile || profile.role !== requiredRole) {
+    throw new Error(`Forbidden: Anda tidak memiliki akses sebagai ${requiredRole}.`)
+  }
+
+  return { user, profile }
 }
