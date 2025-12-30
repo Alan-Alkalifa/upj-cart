@@ -7,21 +7,24 @@ import { createClient } from "@/utils/supabase/server";
  * - For Merchants: specific to their Organization
  * - For Admins: counts all 'store_to_admin' tickets
  */
-export async function getUnreadCount(role: 'merchant' | 'admin', orgId?: string) {
+export async function getUnreadCount(
+  role: "merchant" | "admin" | "buyer", 
+  orgId?: string
+) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  
   if (!user) return 0;
 
-  // FIX: Check 'is_read' instead of 'read_at'
-  // We count messages where is_read is FALSE (or NULL) and NOT sent by me
+  // Base Query: Count messages NOT read AND NOT sent by the current user
   let query = supabase
     .from('chat_messages')
     .select('id', { count: 'exact', head: true })
     .not('is_read', 'eq', true) // Handles both false and null
     .neq('sender_id', user.id); 
 
+  // --- 1. MERCHANT LOGIC ---
   if (role === 'merchant' && orgId) {
-    // 1. Get Room IDs for this Organization
     const { data: rooms } = await supabase
       .from('chat_rooms')
       .select('id')
@@ -31,14 +34,30 @@ export async function getUnreadCount(role: 'merchant' | 'admin', orgId?: string)
       const roomIds = rooms.map(r => r.id);
       query = query.in('room_id', roomIds);
     } else {
-      return 0; // No rooms = No messages
+      return 0; 
     }
-  } else if (role === 'admin') {
-    // 1. Get Room IDs for Support Tickets
+  } 
+  // --- 2. ADMIN LOGIC ---
+  else if (role === 'admin') {
     const { data: rooms } = await supabase
       .from('chat_rooms')
       .select('id')
       .eq('type', 'store_to_admin');
+
+    if (rooms && rooms.length > 0) {
+      const roomIds = rooms.map(r => r.id);
+      query = query.in('room_id', roomIds);
+    } else {
+      return 0;
+    }
+  }
+  // --- 3. BUYER LOGIC (NEW) ---
+  else if (role === 'buyer') {
+    // Get rooms where the current user is the customer
+    const { data: rooms } = await supabase
+      .from('chat_rooms')
+      .select('id')
+      .eq('customer_id', user.id);
 
     if (rooms && rooms.length > 0) {
       const roomIds = rooms.map(r => r.id);
@@ -60,11 +79,10 @@ export async function markRoomAsRead(roomId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
-  // FIX: Update 'is_read' to true instead of setting a timestamp
   await supabase
     .from('chat_messages')
     .update({ is_read: true }) 
     .eq('room_id', roomId)
-    .not('is_read', 'eq', true) // Only update unread ones to save resources
+    .not('is_read', 'eq', true)
     .neq('sender_id', user.id);
 }

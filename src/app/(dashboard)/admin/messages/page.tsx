@@ -1,5 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
-import { AdminMessagesClient } from "./messages-client";
+import { MerchantMessagesClient } from "./messages-client";
 import { redirect } from "next/navigation";
 
 export default async function AdminMessagesPage() {
@@ -11,7 +11,7 @@ export default async function AdminMessagesPage() {
   return (
     // Fixed height container for consistent scrolling layout
     <div className="h-[calc(100vh-4rem)] md:h-[calc(100vh-2rem)] flex flex-col">
-       <AdminMessagesClient currentUserId={user.id} />
+       <MerchantMessagesClient currentUserId={user.id} />
     </div>
   );
 }

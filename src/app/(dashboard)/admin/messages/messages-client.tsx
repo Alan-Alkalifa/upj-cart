@@ -1,15 +1,17 @@
+//
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { Search, MessageCircle, Store } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge"; 
-import { getAdminChatRooms } from "@/app/actions/chat-list"; //
+import { getMyChatRooms } from "@/app/actions/chat-list";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/client";
+import { SupportChatButton } from "@/components/dashboard/support-chat-button"; 
 import { ActiveChatWindow } from "./active-chat-window"; 
 import { SidebarBadge } from "@/components/dashboard/sidebar-badge";
 
@@ -22,77 +24,104 @@ export type ChatRoom = {
   unreadCount: number;
 };
 
-export function AdminMessagesClient({ currentUserId }: { currentUserId: string }) {
+export function MerchantMessagesClient({ currentUserId }: { currentUserId: string }) {
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<ChatRoom | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [orgId, setOrgId] = useState<string | null>(null);
 
   const searchParams = useSearchParams();
-  const supabase = createClient();
+  
+  // [FIX 1] Gunakan useState untuk inisialisasi client HANYA SEKALI
+  // Ini mencegah objek supabase berubah-ubah setiap render yang memicu re-subscribe
+  const [supabase] = useState(() => createClient());
 
-  // 1. Fetch Rooms (Refreshes List & Unread Counts)
-  const fetchRooms = async () => {
-    // Admin specific fetcher
-    const { rooms, error } = await getAdminChatRooms();
+  // Ref untuk melacak apakah ini mount pertama
+  const isInitialMount = useRef(true);
+
+  // 1. Fetch Org ID
+  useEffect(() => {
+    const fetchOrg = async () => {
+      const { data } = await supabase
+        .from('organization_members')
+        .select('org_id')
+        .eq('profile_id', currentUserId)
+        .single();
+      if (data) setOrgId(data.org_id);
+    };
+    fetchOrg();
+  }, [currentUserId, supabase]);
+
+  // 2. Fetch Rooms Stabil
+  const fetchRooms = useCallback(async () => {
+    const { rooms: fetchedRooms, error } = await getMyChatRooms();
     if (error) {
       console.error("Error fetching rooms:", error);
     } else {
-      setRooms(rooms || []);
-      const paramId = searchParams.get('id');
-      if (paramId && rooms) {
-        const targetRoom = rooms.find(r => r.id === paramId);
-        if (targetRoom) setSelectedRoom(targetRoom);
-      }
+      setRooms(fetchedRooms || []);
     }
     setLoading(false);
-  };
+    return fetchedRooms || [];
+  }, []); 
 
-  // Initial Load
-  useEffect(() => { fetchRooms(); }, [searchParams]);
-
-  // 2. Refresh on Room Change (Clear badges immediately when leaving)
+  // 3. Initial Load & Logic URL Param
   useEffect(() => {
-    if (rooms.length > 0) fetchRooms();
-  }, [selectedRoom]);
+    const init = async () => {
+      const fetchedRooms = await fetchRooms();
+      
+      if (isInitialMount.current) {
+        const paramId = searchParams.get('id');
+        if (paramId && fetchedRooms.length > 0) {
+          const target = fetchedRooms.find(r => r.id === paramId);
+          if (target) setSelectedRoom(target);
+        }
+        isInitialMount.current = false;
+      }
+    };
+    init();
+  }, [fetchRooms, searchParams]);
 
-  // 3. REALTIME LISTENER
+  // 4. Refresh saat ganti Selected Room (agar unread count hilang di list)
+  useEffect(() => {
+    if (!loading && rooms.length > 0) {
+      fetchRooms();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRoom?.id]); 
+
+  // 5. REALTIME LISTENER (FIXED)
   useEffect(() => {
     if (!currentUserId) return;
 
-    const channelName = `admin_messages_list_${currentUserId}`;
-
-    const channel = supabase.channel(channelName)
-      // A. Message Changes (New Message / Read Status)
+    // Nama channel statis agar tidak membuat channel baru terus menerus
+    const channel = supabase.channel('merchant_global_chat_list')
       .on(
-        'postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
+        'postgres_changes',
+        {
+          event: '*', // Dengarkan SEMUA event (INSERT/UPDATE/DELETE)
+          schema: 'public',
           table: 'chat_messages' 
-        }, 
+        },
         () => {
-          console.log("Admin Realtime: Message changed, refreshing...");
+          console.log("🔔 Realtime: List Pesan Diperbarui!");
+          // Panggil fetchRooms untuk refresh data list
           fetchRooms();
         }
       )
-      // B. Room Changes (Re-sorting)
-      .on(
-        'postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'chat_rooms' 
-        }, 
-        () => {
-          console.log("Admin Realtime: Room updated, refreshing...");
-          fetchRooms();
-        }
-      )
-      .subscribe();
+      .subscribe((status) => {
+         if (status === 'SUBSCRIBED') {
+            console.log("✅ Chat List Connected to Realtime");
+         }
+      });
 
-    return () => { supabase.removeChannel(channel); };
-  }, [currentUserId]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // [FIX 2] HAPUS 'supabase' dari dependency array atau gunakan state supabase yang stabil.
+    // Karena kita sudah pakai useState(() => createClient()) di atas, 'supabase' sekarang stabil.
+    // 'fetchRooms' juga sudah di-wrap useCallback dengan deps kosong.
+  }, [currentUserId, fetchRooms, supabase]);
 
   const filteredRooms = rooms.filter(r => 
     r.otherPartyName.toLowerCase().includes(search.toLowerCase())
@@ -101,26 +130,29 @@ export function AdminMessagesClient({ currentUserId }: { currentUserId: string }
   return (
     <div className="flex flex-1 h-full overflow-hidden bg-background md:rounded-xl md:border md:shadow-sm">
       
-      {/* --- LEFT PANEL: LIST --- */}
+      {/* --- LEFT PANEL --- */}
       <div className={cn("w-full md:w-[320px] lg:w-[380px] flex flex-col border-r bg-muted/10 h-full", selectedRoom ? "hidden md:flex" : "flex")}>
         
         {/* Header */}
         <div className="p-4 border-b space-y-3 shrink-0 bg-background/50 backdrop-blur-sm z-10">
           <div className="flex items-center justify-between">
             <h1 className="font-bold text-xl flex items-center gap-2">
-              Support Tickets
+              Pesan
               <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                 {rooms.length}
               </span>
             </h1>
-            {/* Admin Global Badge */}
-            <SidebarBadge role="admin" />
+            
+            {/* SidebarBadge untuk indikator global */}
+            {orgId && <SidebarBadge role="merchant" orgId={orgId} />}
           </div>
+
+          {orgId && <SupportChatButton orgId={orgId} currentUserId={currentUserId} />}
 
           <div className="relative mt-2">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input 
-              placeholder="Cari merchant..." 
+              placeholder="Cari pembeli..." 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 bg-background/50"
@@ -138,7 +170,7 @@ export function AdminMessagesClient({ currentUserId }: { currentUserId: string }
             ) : filteredRooms.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground text-center p-6">
                 <MessageCircle className="size-10 mb-3 opacity-20" />
-                <p>Tidak ada pesan</p>
+                <p>Belum ada pesan</p>
               </div>
             ) : (
               <div className="flex flex-col">
@@ -171,7 +203,9 @@ export function AdminMessagesClient({ currentUserId }: { currentUserId: string }
                           "text-xs truncate flex-1",
                           room.unreadCount > 0 ? "font-semibold text-foreground" : "text-muted-foreground"
                         )}>
-                          {room.lastMessage}
+                          {room.lastMessage.startsWith("[Produk:") 
+                            ? "Sent a product..." 
+                            : room.lastMessage}
                         </p>
                         
                         {room.unreadCount > 0 && (
@@ -189,7 +223,7 @@ export function AdminMessagesClient({ currentUserId }: { currentUserId: string }
         </div>
       </div>
 
-      {/* --- RIGHT PANEL: CHAT WINDOW --- */}
+      {/* --- RIGHT PANEL --- */}
       <div className={cn("flex-1 flex flex-col bg-background h-full min-w-0", !selectedRoom ? "hidden md:flex" : "flex")}>
         {selectedRoom ? (
           <ActiveChatWindow 
@@ -201,8 +235,8 @@ export function AdminMessagesClient({ currentUserId }: { currentUserId: string }
         ) : (
           <div className="hidden md:flex flex-col items-center justify-center h-full text-muted-foreground">
             <div className="bg-muted/30 p-6 rounded-full mb-4"><Store className="size-12 opacity-20" /></div>
-            <h3 className="font-semibold text-lg">Admin Support Center</h3>
-            <p className="text-sm mt-1">Pilih percakapan untuk membalas.</p>
+            <h3 className="font-semibold text-lg">UPJ Cart Messenger</h3>
+            <p className="text-sm mt-1">Pilih percakapan dari daftar untuk memulai.</p>
           </div>
         )}
       </div>

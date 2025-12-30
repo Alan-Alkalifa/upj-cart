@@ -1,3 +1,4 @@
+//
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -7,11 +8,11 @@ import {
   ChevronLeft,
   Send,
   Search,
-  MoreVertical,
   Store,
   Check,
   CheckCheck,
   XCircle,
+  ShoppingBag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,7 +41,26 @@ type ChatRoom = {
   unreadCount: number;
 };
 
-// --- SUB-COMPONENT: CHAT LIST VIEW (MISSING IN YOUR CODE) ---
+// --- HELPER: PRODUCT PARSER ---
+// Mendeteksi format: [Produk: NAMA - Rp HARGA | IMG: URL]
+const parseProductMessage = (content: string) => {
+  // Regex diperbarui untuk menangkap Image URL opsional
+  const productRegex = /^\[Produk: (.*?) - Rp (.*?)(?: \| IMG: (.*?))?\](\n.*)?$/s;
+  const match = content.match(productRegex);
+
+  if (match) {
+    return {
+      isProduct: true,
+      name: match[1],
+      price: match[2],
+      image: match[3] || null,
+      additionalText: match[4] ? match[4].trim() : "",
+    };
+  }
+  return { isProduct: false };
+};
+
+// --- SUB-COMPONENT: CHAT LIST VIEW ---
 function ChatList({
   rooms,
   loading,
@@ -129,7 +149,10 @@ function ChatList({
                             : "text-muted-foreground"
                         )}
                       >
-                        {room.lastMessage}
+                        {/* Tampilkan cuplikan pesan yang lebih bersih jika itu produk */}
+                        {room.lastMessage.startsWith("[Produk:") 
+                          ? "Sent a product..." 
+                          : room.lastMessage}
                       </p>
 
                       {room.unreadCount > 0 && (
@@ -183,10 +206,11 @@ function ActiveChatView({
   const handleSend = async () => {
     if (!input.trim() && !pendingProduct) return;
 
-    // Logic: Gabungkan info produk ke dalam pesan teks
     let finalContent = input;
+    
+    // LOGIC BARU: Sertakan URL gambar dalam format pesan
     if (pendingProduct) {
-      const productInfo = `[Produk: ${pendingProduct.name} - Rp ${pendingProduct.price.toLocaleString("id-ID")}]`;
+      const productInfo = `[Produk: ${pendingProduct.name} - Rp ${pendingProduct.price.toLocaleString("id-ID")} | IMG: ${pendingProduct.image || ""}]`;
       finalContent = input ? `${productInfo}\n${input}` : productInfo;
     }
 
@@ -215,11 +239,40 @@ function ActiveChatView({
           <div className="flex flex-col gap-3 pb-4">
             {messages.map((msg: any) => {
               const isMe = msg.sender_id === currentUserId;
+              // Gunakan Parser
+              const parsed = parseProductMessage(msg.content);
+
               return (
                 <div key={msg.id} className={cn("flex w-full", isMe ? "justify-end" : "justify-start")}>
-                  <div className={cn("max-w-[85%] px-3 py-2 text-sm shadow-sm flex flex-col gap-1", isMe ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm" : "bg-white border rounded-2xl rounded-tl-sm")}>
-                    <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                    <div className={cn("flex items-center gap-1.5 text-[9px]", isMe ? "text-primary-foreground/90 justify-end" : "text-muted-foreground opacity-70 justify-end")}>
+                  <div className={cn("max-w-[85%] text-sm shadow-sm flex flex-col gap-1", 
+                    isMe ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm" : "bg-white border rounded-2xl rounded-tl-sm"
+                  )}>
+                    
+                    {/* TAMPILAN CARD PRODUK (Jika pesan berisi produk) */}
+                    {parsed.isProduct ? (
+                      <div className="flex flex-col">
+                        <div className={cn("flex items-center gap-3 p-2 rounded-xl border relative mb-1", isMe ? "bg-primary-foreground/10 border-white/20" : "bg-muted/30 border-muted-foreground/10")}>
+                           <Avatar className={cn("h-10 w-10 rounded-lg border", isMe ? "border-white/20" : "border-muted-foreground/10")}>
+                              <AvatarImage src={parsed.image || undefined} className="object-cover" />
+                              <AvatarFallback className={cn(isMe ? "text-primary bg-white" : "")}><ShoppingBag className="size-4" /></AvatarFallback>
+                           </Avatar>
+                           <div className="flex-1 min-w-0">
+                              <p className="text-[11px] font-bold truncate leading-tight">{parsed.name}</p>
+                              <p className={cn("text-[10px] font-bold mt-0.5", isMe ? "text-white/90" : "text-primary")}>Rp {parsed.price}</p>
+                           </div>
+                        </div>
+                        {/* Teks tambahan di bawah produk (jika ada) */}
+                        {parsed.additionalText && (
+                          <p className="px-3 py-1 leading-relaxed whitespace-pre-wrap">{parsed.additionalText}</p>
+                        )}
+                      </div>
+                    ) : (
+                      // Pesan Biasa
+                      <p className="px-3 py-2 leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                    )}
+
+                    {/* Metadata Waktu & Status Read */}
+                    <div className={cn("flex items-center gap-1.5 text-[9px] px-3 pb-1.5", isMe ? "text-primary-foreground/90 justify-end" : "text-muted-foreground opacity-70 justify-end")}>
                       <span>{new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                       {isMe && (
                         <span>
@@ -236,7 +289,7 @@ function ActiveChatView({
         </ScrollArea>
       </div>
 
-      {/* PREVIEW PRODUK SEBELUM KIRIM */}
+      {/* PREVIEW PRODUK SEBELUM KIRIM (Tetap sama) */}
       {pendingProduct && (
         <div className="px-4 py-2 border-t bg-background animate-in slide-in-from-bottom-2">
           <div className="flex items-center gap-3 p-2 bg-muted/30 rounded-xl border relative">
@@ -313,12 +366,13 @@ export function FloatingChat({
   const isRestrictedPath = pathname.startsWith("/merchant") || pathname.startsWith("/admin");
 
   const refreshAllData = async () => {
-    const { data: member } = await supabase.from("organization_members").select("org_id").eq("profile_id", currentUserId).maybeSingle();
-    const count = await getUnreadCount("merchant", member?.org_id);
+    // Gunakan role 'buyer' untuk notifikasi di sisi pembeli
+    const count = await getUnreadCount("buyer", currentUserId);
     setUnreadCount(count || 0);
+    
     const { rooms: fetchedRooms } = await getMyChatRooms();
     setRooms(fetchedRooms || []);
-    setLoading(false);
+    if (!orgId) setLoading(false);
   };
 
   useEffect(() => {
@@ -335,10 +389,25 @@ export function FloatingChat({
 
       setLoading(true);
       const res = await startBuyerChat(orgId);
+      
       if (res.roomId) {
-        setActiveRoom({ id: res.roomId, otherPartyName: storeName, otherPartyImage: storeAvatar || null, lastMessage: "", updatedAt: new Date().toISOString(), unreadCount: 0 });
+        // Set Active Room segera agar UI responsif
+        setActiveRoom({ 
+          id: res.roomId, 
+          otherPartyName: storeName, 
+          otherPartyImage: storeAvatar || null, 
+          lastMessage: "", 
+          updatedAt: new Date().toISOString(), 
+          unreadCount: 0 
+        });
+        setLoading(false);
         await refreshAllData();
+      } else {
+        setLoading(false);
       }
+    } else if (val) {
+      setLoading(true);
+      await refreshAllData();
       setLoading(false);
     } else if (!val) {
       setActiveRoom(null);
@@ -353,7 +422,7 @@ export function FloatingChat({
       <SheetTrigger asChild>
         {customTrigger ? customTrigger : (
           <div className="fixed bottom-6 right-6 z-50">
-            <Button size="lg" className="h-14 w-14 rounded-full shadow-xl p-0 transition-all bg-primary">
+            <Button size="lg" className="h-14 w-14 rounded-full shadow-xl p-0 transition-all bg-primary hover:scale-105">
               <MessageCircle className="size-7 fill-white text-white" />
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-5 w-5">
