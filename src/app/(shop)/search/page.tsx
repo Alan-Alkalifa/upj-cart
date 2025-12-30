@@ -2,26 +2,50 @@ import { createClient } from "@/utils/supabase/server"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { SlidersHorizontal, Tag } from "lucide-react"
+import { SlidersHorizontal, Tag, Search as SearchIcon } from "lucide-react"
 import Link from "next/link"
 import { PriceFilter } from "@/components/shop/price-filter"
 import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ShopSearch } from "@/components/shop/shop-search"
 import { ProductSort } from "@/components/shop/product-sort"
-import { ProductGrid } from "@/components/shop/product-grid" // IMPORT BARU
+import { ProductGrid } from "@/components/shop/product-grid"
+// IMPORT BARU:
+import { getStorePreview, getProductPreview } from "./actions"
+import { SearchPreviewCard } from "@/components/shop/search-preview-card"
 
-const PRODUCTS_PER_PAGE = 10 // Changed from 12 to 10 as requested
+const PRODUCTS_PER_PAGE = 10
 
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category?: string; min?: string; max?: string; sort?: string }>
+  searchParams: Promise<{ 
+    q?: string; 
+    category?: string; 
+    min?: string; 
+    max?: string; 
+    sort?: string;
+    store_preview?: string;   // Param baru
+    product_preview?: string; // Param baru
+  }>
 }) {
   const params = await searchParams
   const supabase = await createClient()
+
+  // 1. LOGIC FETCH PREVIEW DATA
+  let storePreviewData = null
+  let productPreviewData = null
+
+  if (params.store_preview) {
+    storePreviewData = await getStorePreview(params.store_preview)
+  }
   
-  // 1. Initial Query (Halaman 1)
+  if (params.product_preview) {
+    productPreviewData = await getProductPreview(params.product_preview)
+  }
+
+  // 2. LOGIC INITIAL QUERY (LIST PRODUK DI BAWAH)
+  // Tetap berjalan seperti biasa untuk mengisi grid di bawah
   let query = supabase
     .from("products")
     .select(`
@@ -33,7 +57,7 @@ export default async function SearchPage({
     `)
     .eq("is_active", true)
     .is("deleted_at", null)
-    .range(0, PRODUCTS_PER_PAGE - 1) // Fetch first 10 items
+    .range(0, PRODUCTS_PER_PAGE - 1)
 
   // Apply Filter
   if (params.q) query = query.ilike("name", `%${params.q}%`)
@@ -61,7 +85,9 @@ export default async function SearchPage({
     if (params.min) p.set("min", params.min)
     if (params.max) p.set("max", params.max)
     if (params.sort) p.set("sort", params.sort)
-
+    // Keep preview params if changing filters? Usually better to clear them, 
+    // but here we rebuild cleanly.
+    
     Object.entries(updates).forEach(([key, value]) => {
       if (value) p.set(key, value)
       else p.delete(key)
@@ -72,19 +98,19 @@ export default async function SearchPage({
   const getCategoryUrl = (catId?: string) => buildUrl({ category: catId })
 
   return (
-    <div className="container mx-auto px-4 py-6 md:py-8">
+    <div className="container mx-auto px-4 py-6 md:py-8 min-h-screen">
       <div className="flex flex-col md:flex-row gap-6 md:gap-8">
         
         {/* SIDEBAR (Hidden on Mobile) */}
-        <aside className="w-64 hidden md:block space-y-8 sticky top-24 h-fit">
+        <aside className="w-64 hidden md:block space-y-8 sticky top-24 h-fit shrink-0">
            <div className="space-y-3">
-             <Label className="font-bold text-sm uppercase tracking-widest text-muted-foreground">Cari Produk</Label>
+             <Label className="font-bold text-xs uppercase tracking-widest text-muted-foreground">Cari Produk</Label>
              <ShopSearch />
           </div>
           <Separator className="opacity-50" />
           
           <div className="space-y-4">
-            <h3 className="font-bold text-sm uppercase tracking-widest flex items-center gap-2 text-muted-foreground">
+            <h3 className="font-bold text-xs uppercase tracking-widest flex items-center gap-2 text-muted-foreground">
               <Tag className="h-4 w-4" /> Kategori
             </h3>
             <div className="flex flex-col gap-1">
@@ -103,7 +129,26 @@ export default async function SearchPage({
         </aside>
 
         {/* MAIN CONTENT */}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
+          
+          {/* --- BAGIAN 1: PREVIEW CARD (JIKA ADA) --- */}
+          {(storePreviewData || productPreviewData) && (
+             <div className="mb-8">
+               <SearchPreviewCard 
+                 type={storePreviewData ? 'store' : 'product'}
+                 data={storePreviewData || productPreviewData}
+               />
+               <div className="flex items-center gap-4 mb-2">
+                 <div className="h-px bg-border flex-1" />
+                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
+                   Hasil Pencarian Lainnya
+                 </span>
+                 <div className="h-px bg-border flex-1" />
+               </div>
+             </div>
+          )}
+          {/* ----------------------------------------- */}
+
           {/* Header Area */}
           <div className="flex flex-col gap-4 mb-6 md:mb-8">
              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
@@ -114,7 +159,7 @@ export default async function SearchPage({
                      "Semua Produk"}
                   </h1>
                   <p className="text-sm text-muted-foreground">
-                     Menampilkan produk terbaik untuk Anda
+                     {products?.length ? `Menampilkan produk yang sesuai` : 'Tidak ditemukan produk'}
                   </p>
                 </div>
                 
@@ -151,7 +196,11 @@ export default async function SearchPage({
                    </Sheet>
                 </div>
              </div>
-             <div className="md:hidden"><ShopSearch /></div>
+             
+             {/* Mobile Search Bar */}
+             <div className="md:hidden">
+               <ShopSearch />
+             </div>
           </div>
 
           {/* Product Grid with Load More */}
