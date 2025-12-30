@@ -7,8 +7,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs" // Hapus import 'Tabs'
-import { ShopTabsWrapper } from "@/components/shop/shop-tabs-wrapper" // Import Wrapper Baru
+import { TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs" 
+import { ShopTabsWrapper } from "@/components/shop/shop-tabs-wrapper" 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Breadcrumb,
@@ -233,15 +233,17 @@ export default async function MerchantPage(props: {
                       storeName={merchant.name}
                       storeAvatar={merchant.logo_url}
                       customTrigger={
-                        <Button className="flex-1 md:flex-none gap-2 font-semibold shadow-sm">
-                          <MessageCircle className="h-4 w-4" /> Chat Penjual
+                        // FIX: Added variant="outline" for consistency
+                        <Button variant="outline" className="flex-1 md:flex-none gap-2 font-semibold shadow-sm">
+                          <MessageCircle className="h-4 w-4" /> Chat
                         </Button>
                       }
                     />
                   ) : (
-                    <Button className="flex-1 md:flex-none gap-2 font-semibold shadow-sm" asChild>
+                    // FIX: Added variant="outline" for consistency
+                    <Button variant="outline" className="flex-1 md:flex-none gap-2 font-semibold shadow-sm" asChild>
                       <Link href={`/login?next=/shop/${slug}`}>
-                         <MessageCircle className="h-4 w-4" /> Chat Penjual
+                         <MessageCircle className="h-4 w-4" /> Chat
                       </Link>
                     </Button>
                   )}
@@ -295,23 +297,38 @@ export default async function MerchantPage(props: {
 
       {/* CONTENT TABS */}
       <div className="container mx-auto px-4 py-8">
-        {/* PENGGUNAAN WRAPPER BARU */}
         <ShopTabsWrapper defaultTab="products" className="space-y-8">
           
           <div className="sticky top-16 z-30 bg-muted/5 backdrop-blur-md pb-4 pt-2 px-4 md:static md:bg-transparent md:p-0">
-             <TabsList className="h-12 w-full sm:w-auto p-1 bg-background/80 border shadow-sm rounded-xl">
+             {/* FIX: Added overflow-x-auto for responsiveness on small screens */}
+             <TabsList className="h-12 w-full sm:w-auto p-1 bg-background/80 border shadow-sm rounded-xl overflow-x-auto">
                <TabsTrigger 
                  id="products-trigger" 
                  value="products" 
-                 className="flex-1 sm:flex-none h-full px-6 rounded-lg data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-medium"
+                 // FIX: Adjusted padding and font size for mobile
+                 className="flex-1 sm:flex-none h-full px-3 sm:px-6 text-xs sm:text-sm rounded-lg data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-medium"
                >
                  Etalase
                </TabsTrigger>
                
-               <TabsTrigger value="about" className="flex-1 sm:flex-none h-full px-6 rounded-lg data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-medium">Profil Toko</TabsTrigger>
-               <TabsTrigger value="reviews" className="flex-1 sm:flex-none h-full px-6 rounded-lg data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-medium">
+               <TabsTrigger 
+                 value="about" 
+                 // FIX: Adjusted padding and font size for mobile
+                 className="flex-1 sm:flex-none h-full px-3 sm:px-6 text-xs sm:text-sm rounded-lg data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-medium"
+               >
+                 Profil Toko
+               </TabsTrigger>
+               
+               <TabsTrigger 
+                 value="reviews" 
+                 // FIX: Adjusted padding and font size for mobile
+                 className="flex-1 sm:flex-none h-full px-3 sm:px-6 text-xs sm:text-sm rounded-lg data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-medium"
+               >
                  Ulasan 
-                 <Badge variant="secondary" className="ml-2 h-5 min-w-[20px] px-1 bg-muted-foreground/10 text-muted-foreground">{totalReviews}</Badge>
+                 {/* FIX: Adjusted margin for mobile */}
+                 <Badge variant="secondary" className="ml-1.5 sm:ml-2 h-5 min-w-[20px] px-1 bg-muted-foreground/10 text-muted-foreground">
+                   {totalReviews}
+                 </Badge>
                </TabsTrigger>
              </TabsList>
           </div>
@@ -353,13 +370,18 @@ export default async function MerchantPage(props: {
                                <SlidersHorizontal className="h-4 w-4" />
                              </Button>
                            </SheetTrigger>
-                           <SheetContent side="bottom" className="h-[85vh] rounded-t-[20px] p-0">
-                             <SheetHeader className="p-6 border-b">
+                           
+                           {/* FIX: Added flex-col to SheetContent */}
+                           <SheetContent side="bottom" className="h-[85vh] rounded-t-[20px] p-0 flex flex-col">
+                             {/* FIX: Added shrink-0 to Header */}
+                             <SheetHeader className="p-6 border-b shrink-0">
                                <SheetTitle className="text-left">Filter Produk Toko</SheetTitle>
                              </SheetHeader>
-                             <div className="p-6 space-y-8">
+                             
+                             {/* FIX: Added scroll container with extra padding-bottom */}
+                             <div className="p-6 space-y-6 overflow-y-auto flex-1 pb-20">
                                <section className="space-y-3">
-                                 <Label>Cari Nama</Label>
+                                 <Label>Cari Produk</Label>
                                  <ShopSearch baseUrl={`/shop/${slug}`} placeholder={`Cari di ${merchant.name}...`} />
                                </section>
                                <Separator />
