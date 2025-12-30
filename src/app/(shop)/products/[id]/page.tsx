@@ -1,7 +1,7 @@
-// File: src/app/(shop)/products/[id]/page.tsx
 import { createClient } from "@/utils/supabase/server"
 import { notFound } from "next/navigation"
 import { ProductDetailClient } from "@/components/shop/product-detail-client"
+import { ProductImageCarousel } from "@/components/shop/product-image-carousel" // New Component
 import { FloatingChat } from "@/components/chat/floating-chat" 
 import { ShareButton } from "@/components/shop/share-button" 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -26,7 +26,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   // 1. Fetch User Data (Required for Chat & Role Check)
   const { data: { user } } = await supabase.auth.getUser()
 
-  // 2. Cek Role User (Untuk Batasi Fitur Beli/Chat)
+  // 2. Check Role (To Restrict Buy/Chat features for Merchants)
   let userRole = null;
   if (user) {
     const { data: profile } = await supabase
@@ -37,7 +37,6 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     userRole = profile?.role
   }
 
-  // Merchant dan Admin tidak boleh beli / chat
   const isRestricted = userRole === 'merchant' || userRole === 'super_admin';
 
   // 3. Fetch Product Data with Relations
@@ -67,6 +66,12 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   // Filter active variants
   const activeVariants = product.product_variants.filter((v: any) => v.deleted_at === null)
   product.product_variants = activeVariants
+
+  // PREPARE IMAGES
+  // Prioritize gallery_urls, fallback to single image_url
+  const images = (product.gallery_urls && product.gallery_urls.length > 0) 
+    ? product.gallery_urls 
+    : (product.image_url ? [product.image_url] : [])
 
   return (
     <div className="bg-background min-h-screen pb-20">
@@ -102,25 +107,9 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           
           {/* LEFT COLUMN: PRODUCT IMAGES (Sticky on Desktop) */}
           <div className="lg:col-span-5 xl:col-span-5 h-fit lg:sticky lg:top-24">
-            <div className="aspect-square bg-muted rounded-2xl overflow-hidden border shadow-sm relative group">
-              {product.image_url ? (
-                <img 
-                  src={product.image_url} 
-                  alt={product.name} 
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center text-muted-foreground bg-secondary/30">
-                  No Image Available
-                </div>
-              )}
-              {/* Floating Badge */}
-              <div className="absolute top-4 left-4">
-                 <Badge variant="secondary" className="backdrop-blur-md bg-white/80 text-black border-white/20 shadow-sm">
-                   Original
-                 </Badge>
-              </div>
-            </div>
+            
+            {/* CAROUSEL COMPONENT */}
+            <ProductImageCarousel images={images} productName={product.name} />
             
             {/* Merchant Info (Mobile Only) */}
             <div className="lg:hidden mt-6">
@@ -264,8 +253,6 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   )
 }
 
-// Sub-component for Merchant Card
-// UPDATED: Fixed layout for mobile devices (flex-col on mobile, flex-row on desktop)
 function MerchantCard({ 
   organization, 
   currentUserId,
@@ -278,7 +265,6 @@ function MerchantCard({
   return (
     <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-5 bg-card rounded-xl border hover:border-primary/50 transition-colors shadow-sm group">
       
-      {/* 1. Wrapper for Avatar + Text (Keeps them side-by-side on all screens) */}
       <div className="flex items-center gap-4 flex-1 w-full">
         <Avatar className="h-14 w-14 sm:h-16 sm:w-16 border bg-white shadow-sm group-hover:scale-105 transition-transform shrink-0">
           <AvatarImage src={organization.logo_url} className="object-cover" />
@@ -305,7 +291,6 @@ function MerchantCard({
         </div>
       </div>
       
-      {/* 2. Action Buttons (Full width grid on mobile, Flex row on Desktop) */}
       <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 w-full sm:w-auto shrink-0 mt-2 sm:mt-0">
         
         {!isRestricted && (
@@ -316,7 +301,6 @@ function MerchantCard({
                     storeName={organization.name}
                     storeAvatar={organization.logo_url}
                     customTrigger={
-                        /* Added w-full so it fills the grid column on mobile */
                         <Button variant="outline" className="gap-2 font-medium w-full sm:w-auto">
                             <MessageCircle className="size-4" />
                             <span className="truncate">Chat</span>

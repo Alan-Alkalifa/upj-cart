@@ -3,13 +3,21 @@
 import { createClient } from "@/utils/supabase/server"
 import { productSchema } from "@/lib/dashboard-schemas"
 import { revalidatePath } from "next/cache"
-import { redirect } from "next/navigation"
 import { z } from "zod"
+
+function getMainImage(values: z.infer<typeof productSchema>) {
+  if (values.gallery_urls && values.gallery_urls.length > 0) {
+    return values.gallery_urls[0]
+  }
+  return values.image_url || ""
+}
 
 // --- CREATE PRODUCT ---
 export async function createProduct(orgId: string, values: z.infer<typeof productSchema>) {
   const supabase = await createClient()
   
+  const mainImage = getMainImage(values)
+
   // 1. Insert Product
   const { data: product, error: prodError } = await supabase
     .from("products")
@@ -20,7 +28,8 @@ export async function createProduct(orgId: string, values: z.infer<typeof produc
       description: values.description,
       base_price: values.base_price,
       weight_grams: values.weight_grams,
-      image_url: values.image_url,
+      image_url: mainImage,                    
+      gallery_urls: values.gallery_urls || [],
       is_active: values.is_active
     })
     .select()
@@ -52,6 +61,8 @@ export async function createProduct(orgId: string, values: z.infer<typeof produc
 export async function updateProduct(productId: string, values: z.infer<typeof productSchema>) {
   const supabase = await createClient()
 
+  const mainImage = getMainImage(values)
+
   // 1. Update Product Details
   const { error: prodError } = await supabase
     .from("products")
@@ -61,7 +72,8 @@ export async function updateProduct(productId: string, values: z.infer<typeof pr
       description: values.description,
       base_price: values.base_price,
       weight_grams: values.weight_grams,
-      image_url: values.image_url,
+      image_url: mainImage,
+      gallery_urls: values.gallery_urls || [],
       is_active: values.is_active,
       updated_at: new Date().toISOString()
     })
@@ -69,9 +81,7 @@ export async function updateProduct(productId: string, values: z.infer<typeof pr
 
   if (prodError) return { error: prodError.message }
 
-  // 2. Upsert Variants (Handle Add/Update)
-  // Note: Handling deletion of variants removed from UI requires more logic (fetching existing IDs vs submitted IDs).
-  // For this MVP, we will Upsert based on ID.
+  // 2. Upsert Variants
   for (const v of values.variants) {
     if (v.id) {
       // Update existing
@@ -115,11 +125,10 @@ export async function deleteProduct(productId: string) {
 export async function deleteProductVariant(variantId: string) {
   const supabase = await createClient()
 
-  // UBAH DARI DELETE() KE UPDATE()
   const { error } = await supabase
     .from("product_variants")
     .update({ 
-      deleted_at: new Date().toISOString() // Isi timestamp saat ini
+      deleted_at: new Date().toISOString()
     })
     .eq("id", variantId)
 
