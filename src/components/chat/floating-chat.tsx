@@ -1,7 +1,6 @@
-//
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { usePathname } from "next/navigation";
 import {
   MessageCircle,
@@ -26,6 +25,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useChat } from "@/hooks/use-chat";
+// RESTORED: Import logic from the reference code
 import { getMyChatRooms } from "@/app/actions/chat-list";
 import { getUnreadCount, markRoomAsRead } from "@/app/actions/notifications";
 import { startBuyerChat } from "@/app/actions/chat";
@@ -42,10 +42,8 @@ type ChatRoom = {
 };
 
 // --- HELPER: PRODUCT PARSER ---
-// Mendeteksi format: [Produk: NAMA - Rp HARGA | IMG: URL]
 const parseProductMessage = (content: string) => {
-  // Regex diperbarui untuk menangkap Image URL opsional
-  const productRegex = /^\[Produk: (.*?) - Rp (.*?)(?: \| IMG: (.*?))?\](\n.*)?$/s;
+  const productRegex = /^\[Produk: (.*?) - Rp (.*?)(?: \| IMG: (.*?))?\]([\s\S]*)?$/;
   const match = content.match(productRegex);
 
   if (match) {
@@ -72,22 +70,10 @@ function ChatList({
 }) {
   const [search, setSearch] = useState("");
 
+  // Logic filter from Code A implemented here
   const filteredRooms = rooms.filter((r) =>
     r.otherPartyName.toLowerCase().includes(search.toLowerCase())
   );
-
-  if (loading) {
-    return (
-      <div className="flex flex-col gap-3 p-4">
-        {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="h-14 w-full bg-muted/50 animate-pulse rounded-xl"
-          />
-        ))}
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -104,10 +90,19 @@ function ChatList({
         </div>
       </div>
 
-      {/* Room List */}
+      {/* Room List UI */}
       <div className="flex-1 min-h-0">
         <ScrollArea className="h-full">
-          {filteredRooms.length === 0 ? (
+          {loading ? (
+            <div className="flex flex-col gap-3 p-4">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="h-14 w-full bg-muted/50 animate-pulse rounded-xl"
+                />
+              ))}
+            </div>
+          ) : filteredRooms.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground text-center px-6">
               <MessageCircle className="size-8 opacity-20 mb-3" />
               <p className="font-medium text-sm">Belum ada percakapan</p>
@@ -136,7 +131,19 @@ function ChatList({
                         {new Date(room.updatedAt).toLocaleDateString([], {
                           month: "short",
                           day: "numeric",
-                        })}
+                        }) ===
+                        new Date().toLocaleDateString([], {
+                          month: "short",
+                          day: "numeric",
+                        })
+                          ? new Date(room.updatedAt).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : new Date(room.updatedAt).toLocaleDateString([], {
+                              month: "short",
+                              day: "numeric",
+                            })}
                       </span>
                     </div>
 
@@ -149,9 +156,8 @@ function ChatList({
                             : "text-muted-foreground"
                         )}
                       >
-                        {/* Tampilkan cuplikan pesan yang lebih bersih jika itu produk */}
-                        {room.lastMessage.startsWith("[Produk:") 
-                          ? "Sent a product..." 
+                        {room.lastMessage.startsWith("[Produk:")
+                          ? "Sent a product..."
                           : room.lastMessage}
                       </p>
 
@@ -196,7 +202,8 @@ function ActiveChatView({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollIntoView({ behavior: "smooth" });
+    if (scrollRef.current)
+      scrollRef.current.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   useEffect(() => {
@@ -207,10 +214,11 @@ function ActiveChatView({
     if (!input.trim() && !pendingProduct) return;
 
     let finalContent = input;
-    
-    // LOGIC BARU: Sertakan URL gambar dalam format pesan
+
     if (pendingProduct) {
-      const productInfo = `[Produk: ${pendingProduct.name} - Rp ${pendingProduct.price.toLocaleString("id-ID")} | IMG: ${pendingProduct.image || ""}]`;
+      const productInfo = `[Produk: ${pendingProduct.name} - Rp ${pendingProduct.price.toLocaleString(
+        "id-ID"
+      )} | IMG: ${pendingProduct.image || ""}]`;
       finalContent = input ? `${productInfo}\n${input}` : productInfo;
     }
 
@@ -222,7 +230,12 @@ function ActiveChatView({
   return (
     <div className="flex flex-col h-full bg-muted/5 overflow-hidden">
       <div className="flex items-center gap-2 p-3 border-b bg-background/95 backdrop-blur z-10 shrink-0">
-        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full -ml-1" onClick={onBack}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 rounded-full -ml-1"
+          onClick={onBack}
+        >
           <ChevronLeft className="size-5" />
         </Button>
         <Avatar className="h-8 w-8 border">
@@ -230,7 +243,9 @@ function ActiveChatView({
           <AvatarFallback>{room.otherPartyName[0]}</AvatarFallback>
         </Avatar>
         <div className="flex-1 overflow-hidden">
-          <h4 className="font-semibold text-sm truncate">{room.otherPartyName}</h4>
+          <h4 className="font-semibold text-sm truncate">
+            {room.otherPartyName}
+          </h4>
         </div>
       </div>
 
@@ -239,44 +254,98 @@ function ActiveChatView({
           <div className="flex flex-col gap-3 pb-4">
             {messages.map((msg: any) => {
               const isMe = msg.sender_id === currentUserId;
-              // Gunakan Parser
               const parsed = parseProductMessage(msg.content);
 
               return (
-                <div key={msg.id} className={cn("flex w-full", isMe ? "justify-end" : "justify-start")}>
-                  <div className={cn("max-w-[85%] text-sm shadow-sm flex flex-col gap-1", 
-                    isMe ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm" : "bg-white border rounded-2xl rounded-tl-sm"
-                  )}>
-                    
-                    {/* TAMPILAN CARD PRODUK (Jika pesan berisi produk) */}
+                <div
+                  key={msg.id}
+                  className={cn(
+                    "flex w-full",
+                    isMe ? "justify-end" : "justify-start"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "max-w-[85%] text-sm shadow-sm flex flex-col gap-1",
+                      isMe
+                        ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm"
+                        : "bg-white border rounded-2xl rounded-tl-sm"
+                    )}
+                  >
                     {parsed.isProduct ? (
                       <div className="flex flex-col">
-                        <div className={cn("flex items-center gap-3 p-2 rounded-xl border relative mb-1", isMe ? "bg-primary-foreground/10 border-white/20" : "bg-muted/30 border-muted-foreground/10")}>
-                           <Avatar className={cn("h-10 w-10 rounded-lg border", isMe ? "border-white/20" : "border-muted-foreground/10")}>
-                              <AvatarImage src={parsed.image || undefined} className="object-cover" />
-                              <AvatarFallback className={cn(isMe ? "text-primary bg-white" : "")}><ShoppingBag className="size-4" /></AvatarFallback>
-                           </Avatar>
-                           <div className="flex-1 min-w-0">
-                              <p className="text-[11px] font-bold truncate leading-tight">{parsed.name}</p>
-                              <p className={cn("text-[10px] font-bold mt-0.5", isMe ? "text-white/90" : "text-primary")}>Rp {parsed.price}</p>
-                           </div>
+                        <div
+                          className={cn(
+                            "flex items-center gap-3 p-2 rounded-xl border relative mb-1",
+                            isMe
+                              ? "bg-primary-foreground/10 border-white/20"
+                              : "bg-muted/30 border-muted-foreground/10"
+                          )}
+                        >
+                          <Avatar
+                            className={cn(
+                              "h-10 w-10 rounded-lg border",
+                              isMe
+                                ? "border-white/20"
+                                : "border-muted-foreground/10"
+                            )}
+                          >
+                            <AvatarImage
+                              src={parsed.image || undefined}
+                              className="object-cover"
+                            />
+                            <AvatarFallback
+                              className={cn(isMe ? "text-primary bg-white" : "")}
+                            >
+                              <ShoppingBag className="size-4" />
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-bold truncate leading-tight">
+                              {parsed.name}
+                            </p>
+                            <p
+                              className={cn(
+                                "text-[10px] font-bold mt-0.5",
+                                isMe ? "text-white/90" : "text-primary"
+                              )}
+                            >
+                              Rp {parsed.price}
+                            </p>
+                          </div>
                         </div>
-                        {/* Teks tambahan di bawah produk (jika ada) */}
                         {parsed.additionalText && (
-                          <p className="px-3 py-1 leading-relaxed whitespace-pre-wrap">{parsed.additionalText}</p>
+                          <p className="px-3 py-1 leading-relaxed whitespace-pre-wrap">
+                            {parsed.additionalText}
+                          </p>
                         )}
                       </div>
                     ) : (
-                      // Pesan Biasa
-                      <p className="px-3 py-2 leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                      <p className="px-3 py-2 leading-relaxed whitespace-pre-wrap">
+                        {msg.content}
+                      </p>
                     )}
-
-                    {/* Metadata Waktu & Status Read */}
-                    <div className={cn("flex items-center gap-1.5 text-[9px] px-3 pb-1.5", isMe ? "text-primary-foreground/90 justify-end" : "text-muted-foreground opacity-70 justify-end")}>
-                      <span>{new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                    <div
+                      className={cn(
+                        "flex items-center gap-1.5 text-[9px] px-3 pb-1.5",
+                        isMe
+                          ? "text-primary-foreground/90 justify-end"
+                          : "text-muted-foreground opacity-70 justify-end"
+                      )}
+                    >
+                      <span>
+                        {new Date(msg.created_at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
                       {isMe && (
                         <span>
-                          {msg.is_read ? <CheckCheck className="size-3.5 text-blue-300" /> : <Check className="size-3.5 opacity-70" />}
+                          {msg.is_read ? (
+                            <CheckCheck className="size-3.5 text-blue-300" />
+                          ) : (
+                            <Check className="size-3.5 opacity-70" />
+                          )}
                         </span>
                       )}
                     </div>
@@ -289,20 +358,26 @@ function ActiveChatView({
         </ScrollArea>
       </div>
 
-      {/* PREVIEW PRODUK SEBELUM KIRIM (Tetap sama) */}
       {pendingProduct && (
         <div className="px-4 py-2 border-t bg-background animate-in slide-in-from-bottom-2">
           <div className="flex items-center gap-3 p-2 bg-muted/30 rounded-xl border relative">
             <Avatar className="h-10 w-10 rounded-lg border">
               <AvatarImage src={pendingProduct.image} className="object-cover" />
-              <AvatarFallback><Store className="size-4" /></AvatarFallback>
+              <AvatarFallback>
+                <Store className="size-4" />
+              </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-bold truncate">{pendingProduct.name}</p>
-              <p className="text-[10px] text-primary font-bold">Rp {pendingProduct.price.toLocaleString("id-ID")}</p>
+              <p className="text-[11px] font-bold truncate">
+                {pendingProduct.name}
+              </p>
+              <p className="text-[10px] text-primary font-bold">
+                Rp {pendingProduct.price.toLocaleString("id-ID")}
+              </p>
             </div>
             <Button
-              variant="ghost" size="icon"
+              variant="ghost"
+              size="icon"
               className="h-6 w-6 rounded-full absolute -top-2 -right-2 bg-background border shadow-sm hover:text-destructive"
               onClick={onRemoveProduct}
             >
@@ -321,7 +396,12 @@ function ActiveChatView({
             placeholder="Ketik pesan..."
             className="border-none shadow-none focus-visible:ring-0 bg-transparent px-4"
           />
-          <Button size="icon" onClick={handleSend} disabled={!input.trim() && !pendingProduct} className="rounded-full h-9 w-9">
+          <Button
+            size="icon"
+            onClick={handleSend}
+            disabled={!input.trim() && !pendingProduct}
+            className="rounded-full h-9 w-9"
+          >
             <Send className="size-4" />
           </Button>
         </div>
@@ -355,60 +435,120 @@ export function FloatingChat({
   customTrigger,
 }: FloatingChatProps) {
   const pathname = usePathname();
+
+  // [FIX 1] Use stable useState for Supabase client (from Code A)
+  const [supabase] = useState(() => createClient());
+
   const [open, setOpen] = useState(false);
   const [activeRoom, setActiveRoom] = useState<ChatRoom | null>(null);
   const [pendingProduct, setPendingProduct] = useState<any>(null);
+
+  // [RESTORED] State for Rooms and Loading (from Code A)
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
 
-  const isRestrictedPath = pathname.startsWith("/merchant") || pathname.startsWith("/admin");
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  const refreshAllData = async () => {
-    // Gunakan role 'buyer' untuk notifikasi di sisi pembeli
+  const isRestrictedPath =
+    pathname.startsWith("/merchant") || pathname.startsWith("/admin");
+
+  // [IMPLEMENTED] Stable Fetch Rooms Logic (from Code A)
+  const fetchRooms = useCallback(async () => {
+    const { rooms: fetchedRooms, error } = await getMyChatRooms();
+    if (error) {
+      console.error("Error fetching rooms:", error);
+    } else {
+      setRooms(fetchedRooms || []);
+    }
+    setLoading(false);
+    return fetchedRooms || [];
+  }, []);
+
+  const refreshAllData = useCallback(async () => {
+    if (!currentUserId) return;
+
+    // Fetch Unread Count
     const count = await getUnreadCount("buyer", currentUserId);
     setUnreadCount(count || 0);
-    
-    const { rooms: fetchedRooms } = await getMyChatRooms();
-    setRooms(fetchedRooms || []);
-    if (!orgId) setLoading(false);
-  };
 
+    // Fetch Rooms List
+    await fetchRooms();
+  }, [currentUserId, fetchRooms]);
+
+  // 1. Initial Load
   useEffect(() => {
     if (!currentUserId || isRestrictedPath) return;
     refreshAllData();
-  }, [currentUserId, isRestrictedPath]);
+  }, [currentUserId, isRestrictedPath, refreshAllData]);
+
+  // 2. Refresh when ActiveRoom changes (to update unread status in list)
+  useEffect(() => {
+    if (!loading && rooms.length > 0) {
+      // Re-fetch logic from Code A to clear unread markers in list
+      fetchRooms();
+    }
+    // Also update global badge count
+    getUnreadCount("buyer", currentUserId).then((c) => setUnreadCount(c || 0));
+  }, [activeRoom?.id, currentUserId, fetchRooms, loading, rooms.length]);
+
+  // 3. REALTIME LISTENER (Global Logic from Code A)
+  useEffect(() => {
+    if (!currentUserId || isRestrictedPath) return;
+
+    const channel = supabase
+      .channel("buyer_global_chat_listener")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "chat_messages",
+        },
+        () => {
+          console.log("🔔 Realtime Buyer: New activity detected!");
+          refreshAllData();
+        }
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          console.log("✅ Chat List Connected to Realtime");
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUserId, isRestrictedPath, supabase, refreshAllData]);
 
   const handleOpenChange = async (val: boolean) => {
     setOpen(val);
     if (val && orgId && storeName) {
+      // Logic for Direct Store Chat
       if (productId && productName) {
-        setPendingProduct({ id: productId, name: productName, image: productImage, price: productPrice });
+        setPendingProduct({
+          id: productId,
+          name: productName,
+          image: productImage,
+          price: productPrice,
+        });
       }
 
-      setLoading(true);
       const res = await startBuyerChat(orgId);
-      
+
       if (res.roomId) {
-        // Set Active Room segera agar UI responsif
-        setActiveRoom({ 
-          id: res.roomId, 
-          otherPartyName: storeName, 
-          otherPartyImage: storeAvatar || null, 
-          lastMessage: "", 
-          updatedAt: new Date().toISOString(), 
-          unreadCount: 0 
+        setActiveRoom({
+          id: res.roomId,
+          otherPartyName: storeName,
+          otherPartyImage: storeAvatar || null,
+          lastMessage: "",
+          updatedAt: new Date().toISOString(),
+          unreadCount: 0,
         });
-        setLoading(false);
         await refreshAllData();
-      } else {
-        setLoading(false);
       }
     } else if (val) {
-      setLoading(true);
+      // Just opening list -> Refresh data
       await refreshAllData();
-      setLoading(false);
     } else if (!val) {
       setActiveRoom(null);
       setPendingProduct(null);
@@ -420,14 +560,21 @@ export function FloatingChat({
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>
-        {customTrigger ? customTrigger : (
+        {customTrigger ? (
+          customTrigger
+        ) : (
           <div className="fixed bottom-6 right-6 z-50">
-            <Button size="lg" className="h-14 w-14 rounded-full shadow-xl p-0 transition-all bg-primary hover:scale-105">
+            <Button
+              size="lg"
+              className="h-14 w-14 rounded-full shadow-xl p-0 transition-all bg-primary hover:scale-105"
+            >
               <MessageCircle className="size-7 fill-white text-white" />
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-5 w-5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-5 w-5 bg-red-500 text-[10px] text-white items-center justify-center font-bold">{unreadCount > 9 ? "9+" : unreadCount}</span>
+                  <span className="relative inline-flex rounded-full h-5 w-5 bg-red-500 text-[10px] text-white items-center justify-center font-bold">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
                 </span>
               )}
             </Button>
@@ -449,10 +596,18 @@ export function FloatingChat({
               pendingProduct={pendingProduct}
               onRemoveProduct={() => setPendingProduct(null)}
               onBack={() => setActiveRoom(null)}
-              onMessageSent={() => { setPendingProduct(null); refreshAllData(); }}
+              onMessageSent={() => {
+                setPendingProduct(null);
+                refreshAllData();
+              }}
             />
           ) : (
-            <ChatList rooms={rooms} loading={loading} onSelectRoom={setActiveRoom} />
+            // [IMPLEMENTED] Passing dynamic data to ChatList
+            <ChatList
+              rooms={rooms}
+              loading={loading}
+              onSelectRoom={setActiveRoom}
+            />
           )}
         </div>
       </SheetContent>
