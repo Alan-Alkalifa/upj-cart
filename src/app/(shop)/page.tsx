@@ -83,7 +83,7 @@ export default async function ShopPage() {
             <Link 
               key={cat.id} 
               href={`/search?category=${cat.id}`}
-              className="group flex flex-col items-center justify-center p-6 rounded-xl border bg-card hover:bg-accent/50 hover:border-primary/50 transition-all text-center gap-4 shadow-sm hover:shadow-md min-w-[140px] snap-center"
+              className="group flex flex-col items-center justify-center p-6 rounded-xl border bg-card hover:bg-accent/50 hover:border-primary/50 transition-all text-center gap-4 shadow-sm hover:shadow-md min-w-35 snap-center"
             >
               <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 group-hover:bg-primary group-hover:text-white transition-all duration-300">
                 <Tag className="h-6 w-6" />

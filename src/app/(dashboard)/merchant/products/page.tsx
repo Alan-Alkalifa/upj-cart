@@ -230,13 +230,13 @@ export default async function ProductsPage(props: { searchParams: Promise<{ page
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[80px]">Foto</TableHead>
+                <TableHead className="w-20">Foto</TableHead>
                 <TableHead>Nama Produk</TableHead>
                 <TableHead>Kategori</TableHead>
                 <TableHead>Harga</TableHead>
                 <TableHead>Total Stok</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
+                <TableHead className="w-12.5"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

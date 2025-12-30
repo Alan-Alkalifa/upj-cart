@@ -10,11 +10,44 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { ShopSearch } from "@/components/shop/shop-search"
 import { ProductSort } from "@/components/shop/product-sort"
 import { ProductGrid } from "@/components/shop/product-grid"
-// Import Actions & Components yang telah diperbarui
 import { getStorePreview, getProductPreview } from "./actions"
 import { SearchPreviewCard } from "@/components/shop/search-preview-card"
+import { Metadata } from "next"
 
 const PRODUCTS_PER_PAGE = 10
+
+// --- 1. GENERATE METADATA ---
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; category?: string }>
+}): Promise<Metadata> {
+  const params = await searchParams
+  const supabase = await createClient()
+
+  let title = "Cari Produk"
+  
+  if (params.q) {
+    title = `Jual ${params.q}`
+  } else if (params.category) {
+    const { data: cat } = await supabase
+      .from("global_categories")
+      .select("name")
+      .eq("id", params.category)
+      .single()
+    
+    if (cat) title = `Jual ${cat.name} Murah`
+  }
+
+  return {
+    title: title,
+    description: "Temukan berbagai produk menarik dari Civitas Universitas Pembangunan Jaya.",
+    robots: {
+      index: true,
+      follow: true, 
+    }
+  }
+}
 
 export default async function SearchPage({
   searchParams,
@@ -41,7 +74,7 @@ export default async function SearchPage({
     storePreviewData = await getStorePreview(params.store_preview)
   }
   
-  // Fetch Product Preview (sekarang lebih aman dengan fallback)
+  // Fetch Product Preview
   if (params.product_preview) {
     productPreviewData = await getProductPreview(params.product_preview)
   }

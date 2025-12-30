@@ -35,8 +35,35 @@ import { ShopSearch } from "@/components/shop/shop-search"
 import { PriceFilter } from "@/components/shop/price-filter"
 import { ProductSort } from "@/components/shop/product-sort"
 import { Label } from "@/components/ui/label"
+import { Metadata } from "next"
 
 const PRODUCTS_PER_PAGE = 12
+
+// --- 1. GENERATE METADATA ---
+export async function generateMetadata(
+  { params }: { params: Promise<{ slug: string }> }
+): Promise<Metadata> {
+  const { slug } = await params
+  const supabase = await createClient()
+
+  const { data: merchant } = await supabase
+    .from("organizations")
+    .select("name, description, logo_url")
+    .eq("slug", slug)
+    .single()
+
+  if (!merchant) return { title: "Toko Tidak Ditemukan" }
+
+  return {
+    title: merchant.name, // "Nama Toko | UPJ Cart"
+    description: merchant.description || `Kunjungi official store ${merchant.name} di UPJ Cart.`,
+    openGraph: {
+      title: `${merchant.name} - Official Store UPJ Cart`,
+      description: merchant.description,
+      images: merchant.logo_url ? [merchant.logo_url] : [],
+    }
+  }
+}
 
 export default async function MerchantPage(props: { 
   params: Promise<{ slug: string }>,
@@ -55,6 +82,24 @@ export default async function MerchantPage(props: {
     .single()
 
   if (!merchant) return notFound()
+
+  // --- 2. STRUCTURED DATA (JSON-LD) ---
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Store",
+    name: merchant.name,
+    image: merchant.logo_url,
+    description: merchant.description,
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: merchant.address_street,
+      addressLocality: merchant.address_city,
+      addressRegion: "Banten",
+      postalCode: merchant.address_postal_code,
+      addressCountry: "ID"
+    },
+    url: `${process.env.NEXT_PUBLIC_SITE_URL}/shop/${slug}`
+  }
 
   const { data: shopReviews } = await supabase
     .from("reviews")
@@ -132,6 +177,10 @@ export default async function MerchantPage(props: {
 
   return (
     <div className="bg-muted/5 min-h-screen pb-20">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       
       {/* HEADER SECTION (Banner & Info) */}
       <div className="bg-background border-b shadow-sm">
@@ -201,7 +250,7 @@ export default async function MerchantPage(props: {
                       )}
                     </h1>
                     <p className="text-muted-foreground mt-2 max-w-2xl text-sm leading-relaxed line-clamp-2">
-                      {merchant.description || "Toko mahasiswa Universitas Pembangunan Jaya."}
+                      {merchant.description || "Toko Civitas Universitas Pembangunan Jaya."}
                     </p>
                   </div>
                   
@@ -233,14 +282,12 @@ export default async function MerchantPage(props: {
                       storeName={merchant.name}
                       storeAvatar={merchant.logo_url}
                       customTrigger={
-                        // FIX: Added variant="outline" for consistency
                         <Button variant="outline" className="flex-1 md:flex-none gap-2 font-semibold shadow-sm">
                           <MessageCircle className="h-4 w-4" /> Chat
                         </Button>
                       }
                     />
                   ) : (
-                    // FIX: Added variant="outline" for consistency
                     <Button variant="outline" className="flex-1 md:flex-none gap-2 font-semibold shadow-sm" asChild>
                       <Link href={`/login?next=/shop/${slug}`}>
                          <MessageCircle className="h-4 w-4" /> Chat
@@ -300,12 +347,10 @@ export default async function MerchantPage(props: {
         <ShopTabsWrapper defaultTab="products" className="space-y-8">
           
           <div className="sticky top-16 z-30 bg-muted/5 backdrop-blur-md pb-4 pt-2 px-4 md:static md:bg-transparent md:p-0">
-             {/* FIX: Added overflow-x-auto for responsiveness on small screens */}
              <TabsList className="h-12 w-full sm:w-auto p-1 bg-background/80 border shadow-sm rounded-xl overflow-x-auto">
                <TabsTrigger 
                  id="products-trigger" 
                  value="products" 
-                 // FIX: Adjusted padding and font size for mobile
                  className="flex-1 sm:flex-none h-full px-3 sm:px-6 text-xs sm:text-sm rounded-lg data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-medium"
                >
                  Etalase
@@ -313,7 +358,6 @@ export default async function MerchantPage(props: {
                
                <TabsTrigger 
                  value="about" 
-                 // FIX: Adjusted padding and font size for mobile
                  className="flex-1 sm:flex-none h-full px-3 sm:px-6 text-xs sm:text-sm rounded-lg data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-medium"
                >
                  Profil Toko
@@ -321,11 +365,9 @@ export default async function MerchantPage(props: {
                
                <TabsTrigger 
                  value="reviews" 
-                 // FIX: Adjusted padding and font size for mobile
                  className="flex-1 sm:flex-none h-full px-3 sm:px-6 text-xs sm:text-sm rounded-lg data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-medium"
                >
                  Ulasan 
-                 {/* FIX: Adjusted margin for mobile */}
                  <Badge variant="secondary" className="ml-1.5 sm:ml-2 h-5 min-w-[20px] px-1 bg-muted-foreground/10 text-muted-foreground">
                    {totalReviews}
                  </Badge>
@@ -371,14 +413,11 @@ export default async function MerchantPage(props: {
                              </Button>
                            </SheetTrigger>
                            
-                           {/* FIX: Added flex-col to SheetContent */}
                            <SheetContent side="bottom" className="h-[85vh] rounded-t-[20px] p-0 flex flex-col">
-                             {/* FIX: Added shrink-0 to Header */}
                              <SheetHeader className="p-6 border-b shrink-0">
                                <SheetTitle className="text-left">Filter Produk Toko</SheetTitle>
                              </SheetHeader>
                              
-                             {/* FIX: Added scroll container with extra padding-bottom */}
                              <div className="p-6 space-y-6 overflow-y-auto flex-1 pb-20">
                                <section className="space-y-3">
                                  <Label>Cari Produk</Label>

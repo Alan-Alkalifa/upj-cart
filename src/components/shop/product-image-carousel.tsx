@@ -93,8 +93,8 @@ export function ProductImageCarousel({ images, productName }: ProductImageCarous
         {/* Navigation Arrows (Only if > 1 image) */}
         {images.length > 1 && (
           <>
-            {/* <CarouselPrevious className="left-4 bg-white/80 hover:bg-white border-none shadow-md opacity-0 group-hover:opacity-100 transition-opacity" />
-            <CarouselNext className="right-4 bg-white/80 hover:bg-white border-none shadow-md opacity-0 group-hover:opacity-100 transition-opacity" /> */}
+            <CarouselPrevious className="left-4 bg-white/80 hover:bg-white border-none shadow-md opacity-0 group-hover:opacity-100 transition-opacity" />
+            <CarouselNext className="right-4 bg-white/80 hover:bg-white border-none shadow-md opacity-0 group-hover:opacity-100 transition-opacity" />
           </>
         )}
 

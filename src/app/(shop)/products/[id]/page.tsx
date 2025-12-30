@@ -1,7 +1,7 @@
 import { createClient } from "@/utils/supabase/server"
 import { notFound } from "next/navigation"
 import { ProductDetailClient } from "@/components/shop/product-detail-client"
-import { ProductImageCarousel } from "@/components/shop/product-image-carousel" // New Component
+import { ProductImageCarousel } from "@/components/shop/product-image-carousel" 
 import { FloatingChat } from "@/components/chat/floating-chat" 
 import { ShareButton } from "@/components/shop/share-button" 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -18,6 +18,45 @@ import {
 } from "@/components/ui/breadcrumb"
 import { Star, Store, MapPin, ShieldCheck, Truck, MessageCircle } from "lucide-react"
 import Link from "next/link"
+import { Metadata, ResolvingMetadata } from "next"
+
+// --- 1. GENERATE METADATA (Dynamic SEO) ---
+export async function generateMetadata(
+  { params }: { params: Promise<{ id: string }> },
+  parent: ResolvingMetadata
+): Promise<Metadata> {
+  const { id } = await params
+  const supabase = await createClient()
+
+  // Fetch minimal data for SEO to keep it fast
+  const { data: product } = await supabase
+    .from("products")
+    .select("name, description, image_url, gallery_urls")
+    .eq("id", id)
+    .single()
+
+  if (!product) {
+    return {
+      title: "Produk Tidak Ditemukan",
+    }
+  }
+
+  // Prioritize gallery image if available, else main image
+  const previousImages = (await parent).openGraph?.images || []
+  const productImages = product.gallery_urls?.length 
+    ? product.gallery_urls 
+    : (product.image_url ? [product.image_url] : [])
+
+  return {
+    title: product.name,
+    description: product.description?.slice(0, 160) || `Beli ${product.name} di UPJ Cart.`,
+    openGraph: {
+      title: product.name,
+      description: product.description?.slice(0, 200),
+      images: [...productImages, ...previousImages],
+    },
+  }
+}
 
 export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -26,7 +65,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   // 1. Fetch User Data (Required for Chat & Role Check)
   const { data: { user } } = await supabase.auth.getUser()
 
-  // 2. Check Role (To Restrict Buy/Chat features for Merchants)
+  // 2. Check Role
   let userRole = null;
   if (user) {
     const { data: profile } = await supabase
@@ -68,13 +107,48 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   product.product_variants = activeVariants
 
   // PREPARE IMAGES
-  // Prioritize gallery_urls, fallback to single image_url
   const images = (product.gallery_urls && product.gallery_urls.length > 0) 
     ? product.gallery_urls 
     : (product.image_url ? [product.image_url] : [])
 
+  // --- 4. STRUCTURED DATA (JSON-LD) ---
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    image: images,
+    description: product.description,
+    sku: product.id,
+    brand: {
+      "@type": "Brand",
+      name: product.organizations?.name || "UPJ Cart Merchant"
+    },
+    offers: {
+      "@type": "Offer",
+      url: `${process.env.NEXT_PUBLIC_SITE_URL}/products/${product.id}`,
+      priceCurrency: "IDR",
+      price: product.base_price,
+      availability: product.is_active ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      seller: {
+        "@type": "Organization",
+        name: product.organizations?.name
+      }
+    },
+    aggregateRating: reviews.length > 0 ? {
+        "@type": "AggregateRating",
+        ratingValue: avgRating,
+        reviewCount: reviews.length
+    } : undefined
+  }
+
   return (
     <div className="bg-background min-h-screen pb-20">
+      {/* Inject Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+
       {/* BREADCRUMBS SECTION */}
       <div className="border-b">
         <div className="container mx-auto px-4 py-3">
@@ -105,13 +179,9 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
       <div className="container mx-auto px-4 py-8 lg:py-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           
-          {/* LEFT COLUMN: PRODUCT IMAGES (Sticky on Desktop) */}
+          {/* LEFT COLUMN: PRODUCT IMAGES */}
           <div className="lg:col-span-5 xl:col-span-5 h-fit lg:sticky lg:top-24">
-            
-            {/* CAROUSEL COMPONENT */}
             <ProductImageCarousel images={images} productName={product.name} />
-            
-            {/* Merchant Info (Mobile Only) */}
             <div className="lg:hidden mt-6">
                <MerchantCard 
                  organization={product.organizations} 
@@ -123,20 +193,16 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
           {/* RIGHT COLUMN: PRODUCT DETAILS */}
           <div className="lg:col-span-7 xl:col-span-6 space-y-8">
-            
-            {/* Header Info */}
             <div className="space-y-4">
               <div className="flex justify-between items-start gap-4">
                 <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight text-foreground leading-tight">
                   {product.name}
                 </h1>
-                {/* Wishlist & Share Buttons */}
                 <div className="flex gap-2 shrink-0">
                    <ShareButton />
                 </div>
               </div>
 
-              {/* Rating & Stats */}
               <div className="flex items-center gap-4 text-sm flex-wrap">
                 <div className="flex items-center gap-1.5 bg-yellow-50 px-2.5 py-1 rounded-full border border-yellow-100 text-yellow-800">
                   <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
@@ -153,10 +219,8 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
             <Separator />
 
-            {/* Price & Cart Actions (Client Component) */}
             <ProductDetailClient product={product} isRestricted={isRestricted} />
 
-            {/* Trust Signals */}
             <div className="grid grid-cols-2 gap-3">
                <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 border">
                   <ShieldCheck className="h-5 w-5 text-green-600 mt-0.5" />
@@ -176,7 +240,6 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
             <Separator />
 
-            {/* Description */}
             <div className="space-y-4">
                <h3 className="font-bold text-lg">Deskripsi Produk</h3>
                <div className="prose prose-sm prose-neutral max-w-none text-muted-foreground leading-relaxed whitespace-pre-line">
@@ -186,7 +249,6 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
             <Separator />
 
-            {/* Merchant Info (Desktop Only) */}
             <div className="hidden lg:block">
               <h3 className="font-bold text-lg mb-4">Informasi Penjual</h3>
               <MerchantCard 
@@ -196,7 +258,6 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
               />
             </div>
 
-            {/* Reviews Section */}
             <div className="space-y-6 pt-4">
               <h3 className="font-bold text-lg flex items-center gap-2">
                 Ulasan Pembeli 
@@ -279,7 +340,7 @@ function MerchantCard({
             </Badge>
           </h4>
           <p className="text-sm text-muted-foreground truncate mt-1">
-            {organization.description || "Toko mahasiswa terpercaya di UPJ."}
+            {organization.description || "Toko Civitas terpercaya di UPJ."}
           </p>
           <div className="flex items-center gap-4 mt-2 sm:mt-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

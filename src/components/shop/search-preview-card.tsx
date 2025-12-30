@@ -99,8 +99,8 @@ export function SearchPreviewCard({ type, data }: SearchPreviewCardProps) {
              <div className="absolute inset-0 bg-black/10"></div>
           </div>
         ) : (
-          <div className="h-28 md:h-36 w-full bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden">
-             <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#ffffff33_1px,transparent_1px)] [background-size:16px_16px]"></div>
+          <div className="h-28 md:h-36 w-full bg-linear-to-r from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden">
+             <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#ffffff33_1px,transparent_1px)] bg-size-[16px_16px]"></div>
           </div>
         )}
 
@@ -109,7 +109,7 @@ export function SearchPreviewCard({ type, data }: SearchPreviewCardProps) {
             
             {/* Avatar */}
             <div className="-mt-10 shrink-0 relative">
-               <Avatar className="h-20 w-20 md:h-24 md:w-24 border-[4px] border-background shadow-lg bg-white rounded-2xl">
+               <Avatar className="h-20 w-20 md:h-24 md:w-24 border-4 border-background shadow-lg bg-white rounded-2xl">
                  <AvatarImage src={data.logo_url} className="object-cover rounded-xl" />
                  <AvatarFallback className="text-2xl font-bold bg-primary/5 text-primary rounded-xl">
                    {data.name?.substring(0, 2).toUpperCase()}
@@ -136,7 +136,7 @@ export function SearchPreviewCard({ type, data }: SearchPreviewCardProps) {
                </div>
 
                <p className="text-sm text-muted-foreground line-clamp-1 leading-relaxed max-w-xl">
-                 {data.description || "Toko mahasiswa Universitas Pembangunan Jaya."}
+                 {data.description || "Toko Civitas Universitas Pembangunan Jaya."}
                </p>
             </div>
 
@@ -221,7 +221,7 @@ export function SearchPreviewCard({ type, data }: SearchPreviewCardProps) {
 
         <CardContent className="p-4 flex flex-col md:flex-row gap-5 items-start">
           
-          <div className="w-full md:w-[220px] shrink-0 relative">
+          <div className="w-full md:w-55 shrink-0 relative">
              <ProductImageCarousel images={images} productName={data.name} />
              <div className="absolute top-2 left-2 z-10 pointer-events-none">
                <Badge variant="secondary" className="backdrop-blur-md bg-white/90 dark:bg-black/60 shadow-sm border-white/20 text-[10px] px-1.5 h-5">
@@ -334,7 +334,7 @@ export function SearchPreviewSkeleton({ type = 'product' }: { type?: 'store' | '
             
             {/* Avatar Skeleton */}
             <div className="-mt-10 shrink-0 relative">
-               <Skeleton className="h-20 w-20 md:h-24 md:w-24 rounded-2xl border-[4px] border-background bg-muted" />
+               <Skeleton className="h-20 w-20 md:h-24 md:w-24 rounded-2xl border-4 border-background bg-muted" />
             </div>
 
             {/* Info Skeleton */}
@@ -363,7 +363,7 @@ export function SearchPreviewSkeleton({ type = 'product' }: { type?: 'store' | '
       <CardContent className="p-4 flex flex-col md:flex-row gap-5 items-start">
         
         {/* Image Carousel Skeleton */}
-        <div className="w-full md:w-[220px] shrink-0">
+        <div className="w-full md:w-55 shrink-0">
            <Skeleton className="aspect-square w-full rounded-xl" />
         </div>
 

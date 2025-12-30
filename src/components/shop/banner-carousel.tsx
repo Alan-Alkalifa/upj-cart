@@ -19,7 +19,7 @@ const BANNERS = [
     id: 1,
     url: "https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=2070&auto=format&fit=crop",
     title: "Dukung Produk Teman Kampus!",
-    subtitle: "Temukan kreasi unik dari mahasiswa UPJ.",
+    subtitle: "Temukan kreasi unik dari Civitas Akademik UPJ.",
     link: "/search?sort=newest"
   },
   {
@@ -74,13 +74,13 @@ export function BannerCarousel() {
         <CarouselContent>
           {BANNERS.map((banner) => (
             <CarouselItem key={banner.id}>
-              <div className="relative aspect-[2/1] md:aspect-[3/1] lg:aspect-[3.5/1] w-full bg-muted">
+              <div className="relative aspect-2/1 md:aspect-3/1 lg:aspect-[3.5/1] w-full bg-muted">
                 <img 
                   src={banner.url} 
                   alt={banner.title} 
                   className="object-cover w-full h-full brightness-75 transition-transform duration-1000 hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-6 md:p-12">
+                <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent flex items-end p-6 md:p-12">
                   <div className="text-white max-w-2xl">
                     <h2 className="text-2xl md:text-4xl lg:text-5xl font-bold mb-3 tracking-tight drop-shadow-md">
                       {banner.title}
@@ -121,7 +121,7 @@ export function BannerCarousel() {
 // --- NEW SKELETON COMPONENT ---
 export function BannerCarouselSkeleton() {
   return (
-    <div className="w-full rounded-2xl overflow-hidden shadow-xl relative aspect-[2/1] md:aspect-[3/1] lg:aspect-[3.5/1]">
+    <div className="w-full rounded-2xl overflow-hidden shadow-xl relative aspect-2/1 md:aspect-3/1 lg:aspect-[3.5/1]">
       {/* Background Image Placeholder */}
       <Skeleton className="w-full h-full bg-muted/50" />
       
@@ -129,10 +129,10 @@ export function BannerCarouselSkeleton() {
       <div className="absolute inset-0 flex items-end p-6 md:p-12">
         <div className="max-w-2xl w-full space-y-4">
           {/* Title Line */}
-          <Skeleton className="h-8 md:h-12 w-3/4 max-w-[300px] bg-white/20" />
+          <Skeleton className="h-8 md:h-12 w-3/4 max-w-75 bg-white/20" />
           
           {/* Subtitle Line */}
-          <Skeleton className="h-4 md:h-6 w-1/2 max-w-[400px] bg-white/20" />
+          <Skeleton className="h-4 md:h-6 w-1/2 max-w-100 bg-white/20" />
           
           {/* Button Placeholder */}
           <div className="pt-2">

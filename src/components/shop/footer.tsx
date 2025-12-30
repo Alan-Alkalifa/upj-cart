@@ -20,7 +20,7 @@ export async function Footer() {
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Platform jual beli resmi Universitas Pembangunan Jaya. 
-              Mendukung wirausaha mahasiswa dan civitas akademika.
+              Mendukung wirausaha dari civitas akademika UPJ.
             </p>
           </div>
 

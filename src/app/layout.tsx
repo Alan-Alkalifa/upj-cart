@@ -17,9 +17,28 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// --- SEO CONFIGURATION ---
 export const metadata: Metadata = {
-  title: "UPJ Cart - Marketplace Universitas Pembangunan Jaya",
-  description: "Platform jual beli untuk civitas akademika UPJ.",
+  // Base URL is required for Open Graph images to work correctly
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://upj-cart.com"),
+  title: {
+    default: "UPJ Cart - Marketplace Universitas Pembangunan Jaya",
+    template: "%s | UPJ Cart" 
+  },
+  description: "Platform jual beli resmi untuk civitas akademika Universitas Pembangunan Jaya.",
+  openGraph: {
+    title: "UPJ Cart",
+    description: "Belanja produk dari civitas akademika UPJ.",
+    url: "https://upj-cart.com",
+    siteName: "UPJ Cart",
+    locale: "id_ID",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "UPJ Cart",
+    description: "Marketplace Civitas UPJ",
+  }
 };
 
 export default async function RootLayout({

@@ -120,7 +120,7 @@ export function ShopSearch({
         <Input
           type="text"
           placeholder={placeholder}
-          className="pl-4 h-11 bg-background rounded-full text-sm border shadow-sm focus-visible:ring-primary/20 transition-all pr-24"
+          className="pl-4 h-11 bg-background text-sm border shadow-sm focus-visible:ring-primary/20 transition-all pr-24"
           value={searchTerm}
           onChange={handleInputChange}
           onFocus={() => searchTerm.length >= 2 && setIsOpen(true)}
@@ -136,7 +136,7 @@ export function ShopSearch({
                 setSearchTerm('')
                 setIsOpen(false)
               }}
-              className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              className="p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
               type="button"
             >
               <X className="h-4 w-4" />
@@ -146,7 +146,7 @@ export function ShopSearch({
           <Button 
             onClick={handleSearch} 
             size="icon" 
-            className="h-8 w-8 rounded-full shadow-sm" 
+            className="h-8 w-8 shadow-sm" 
             type="button"
           >
              <Search className="h-4 w-4" />
@@ -167,8 +167,7 @@ export function ShopSearch({
                 </div>
                 {results.orgs.map((org) => (
                   <Link 
-                    key={org.id} 
-                    // LINK INI MENGARAH KE PREVIEW CARD DI SEARCH PAGE
+                    key={org.id}
                     href={`/search?q=${searchTerm}&store_preview=${org.slug}`}
                     onClick={() => setIsOpen(false)}
                     className="flex items-center gap-3 px-4 py-2 hover:bg-muted/50 transition-colors"
@@ -203,7 +202,7 @@ export function ShopSearch({
                     onClick={() => setIsOpen(false)}
                     className="flex items-center gap-3 px-4 py-2 hover:bg-muted/50 transition-colors group"
                   >
-                    <div className="h-10 w-10 rounded-md bg-muted overflow-hidden flex-shrink-0 border">
+                    <div className="h-10 w-10 rounded-md bg-muted overflow-hidden shrink-0 border">
                       {product.image_url ? (
                         <img 
                           src={product.image_url} 
@@ -223,7 +222,7 @@ export function ShopSearch({
                            {formatPrice(product.base_price)}
                          </span>
                          {product.organizations && (
-                            <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">
+                            <span className="text-[10px] text-muted-foreground truncate max-w-25">
                                {product.organizations.name}
                             </span>
                          )}

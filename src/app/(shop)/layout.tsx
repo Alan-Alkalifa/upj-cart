@@ -4,7 +4,7 @@ import { Footer } from "@/components/shop/footer"
 
 // Metadata bisa ditambahkan di sini untuk SEO
 export const metadata = {
-  title: "UPJ Cart - Belanja Produk Mahasiswa",
+  title: "UPJ Cart - Belanja Produk Civitas Akademika UPJ",
   description: "Marketplace resmi Universitas Pembangunan Jaya.",
 }
 
