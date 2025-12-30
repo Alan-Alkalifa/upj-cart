@@ -79,35 +79,40 @@ export async function startAdminChat(orgId: string) {
 /**
  * 3. SEND MESSAGE
  * Generic function for all chat types.
- */export async function sendMessage(roomId: string, content: string) {
+ */
+export async function sendMessage(
+  roomId: string, 
+  content: string, 
+  productMetadata?: { id: string; name: string; price: number; image: string | null }
+) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) return { error: "Unauthorized" };
 
-  // 1. Simpan Pesan Baru
+  // Jika ada metadata produk, gabungkan ke dalam konten pesan
+  let finalContent = content;
+  if (productMetadata) {
+    const productInfo = `[PRODUK: ${productMetadata.name} - Rp ${productMetadata.price.toLocaleString("id-ID")}]`;
+    finalContent = content ? `${productInfo}\n${content}` : productInfo;
+  }
+
   const { data, error } = await supabase
     .from("chat_messages")
     .insert({
       room_id: roomId,
       sender_id: user.id,
-      content: content,
+      content: finalContent,
     })
     .select()
     .single();
 
   if (error) return { error: error.message };
   
-  // 2. UPDATE WAKTU ROOM (PENTING AGAR NAIK KE ATAS)
-  // Tanpa langkah ini, chat tidak akan pindah ke "Terbaru"
-  const { error: updateError } = await supabase
+  await supabase
     .from("chat_rooms")
     .update({ updated_at: new Date().toISOString() })
     .eq("id", roomId);
-
-  if (updateError) {
-     console.error("Gagal update waktu room:", updateError.message);
-  }
 
   return { success: true, data };
 }

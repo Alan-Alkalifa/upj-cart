@@ -1,3 +1,5 @@
+// src/app/(dashboard)/admin/page.tsx
+
 import { createAdminClient } from "@/utils/supabase/admin";
 import { getPlatformSettings } from "@/utils/get-settings";
 import {
@@ -72,7 +74,7 @@ export default async function AdminDashboardPage({
     orderStatsRes,
     chartDataRes,
   ] = await Promise.all([
-    supabase.from("orders").select("total_amount").eq("status", "completed"),
+    supabase.from("orders").select("total_amount").eq("status", "completed"), //
     supabase
       .from("organizations")
       .select("id, name, created_at, slug")
@@ -95,6 +97,7 @@ export default async function AdminDashboardPage({
     supabase
       .from("orders")
       .select("created_at, total_amount")
+      .eq("status", "completed")
       .gte("created_at", startDate.toISOString())
       .order("created_at", { ascending: true }),
   ]);
@@ -130,11 +133,11 @@ export default async function AdminDashboardPage({
               month: "short",
             }),
         orders: 0,
-        revenue: 0,
+        revenue: 0, // MUST MATCH dataKey in PlatformTrendChart
       };
     }
     acc[key].orders += 1;
-    acc[key].revenue += order.total_amount;
+    acc[key].revenue += order.total_amount; // Mapping total_amount to revenue
     return acc;
   }, {});
 
@@ -142,7 +145,7 @@ export default async function AdminDashboardPage({
     (a: any, b: any) => a.sortDate.getTime() - b.sortDate.getTime()
   ) as any[];
 
-  // --- REST OF CALCULATIONS ---
+  // --- CALCULATIONS ---
   const completedOrders = revenueRes.data || [];
   const grossSales = completedOrders.reduce(
     (acc, order) => acc + order.total_amount,
@@ -206,7 +209,7 @@ export default async function AdminDashboardPage({
         </div>
       </div>
 
-      {/* SECTION 1: METRICS */}
+      {/* METRICS */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="bg-green-50 border-green-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -226,22 +229,10 @@ export default async function AdminDashboardPage({
           </CardContent>
         </Card>
 
-        <Card
-          className={
-            totalPendingPayout > 0 ? "border-l-4 border-l-orange-500" : ""
-          }
-        >
+        <Card className={totalPendingPayout > 0 ? "border-l-4 border-l-orange-500" : ""}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Pending Payouts
-            </CardTitle>
-            <Wallet
-              className={`h-4 w-4 ${
-                totalPendingPayout > 0
-                  ? "text-orange-500"
-                  : "text-muted-foreground"
-              }`}
-            />
+            <CardTitle className="text-sm font-medium">Pending Payouts</CardTitle>
+            <Wallet className={`h-4 w-4 ${totalPendingPayout > 0 ? "text-orange-500" : "text-muted-foreground"}`} />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -255,9 +246,7 @@ export default async function AdminDashboardPage({
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Avg. Order Value
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Avg. Order Value</CardTitle>
             <TrendingUp className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
@@ -278,9 +267,7 @@ export default async function AdminDashboardPage({
           <CardContent>
             <div className="text-2xl font-bold">
               {totalUsers}{" "}
-              <span className="text-sm font-normal text-muted-foreground">
-                users
-              </span>
+              <span className="text-sm font-normal text-muted-foreground">users</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               {activeCount} active merchants
@@ -289,14 +276,12 @@ export default async function AdminDashboardPage({
         </Card>
       </div>
 
-      {/* SECTION 2: QUEUES & HEALTH */}
+      {/* QUEUES & HEALTH */}
       <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-7">
-        {/* Merchant Approvals (3/7) */}
         <Card className="col-span-1 md:col-span-2 lg:col-span-3">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-orange-500" /> Merchant
-              Approvals
+              <AlertCircle className="h-5 w-5 text-orange-500" /> Merchant Approvals
             </CardTitle>
             <CardDescription>Stores waiting for verification.</CardDescription>
           </CardHeader>
@@ -309,27 +294,18 @@ export default async function AdminDashboardPage({
             ) : (
               <div className="space-y-4">
                 {pendingMerchants.map((merchant) => (
-                  <div
-                    key={merchant.id}
-                    className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-accent/50 transition-colors"
-                  >
+                  <div key={merchant.id} className="flex items-center justify-between p-4 border rounded-lg bg-card">
                     <div className="flex items-center gap-4">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100 text-orange-600">
                         <Store className="h-5 w-5" />
                       </div>
                       <div className="space-y-1">
-                        <p className="text-sm font-medium leading-none">
-                          {merchant.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          /{merchant.slug}
-                        </p>
+                        <p className="text-sm font-medium">{merchant.name}</p>
+                        <p className="text-xs text-muted-foreground">/{merchant.slug}</p>
                       </div>
                     </div>
                     <Button size="sm" variant="outline" asChild>
-                      <Link href={`/admin/merchants?id=${merchant.id}`}>
-                        Review
-                      </Link>
+                      <Link href={`/admin/merchants?id=${merchant.id}`}>Review</Link>
                     </Button>
                   </div>
                 ))}
@@ -338,7 +314,6 @@ export default async function AdminDashboardPage({
           </CardContent>
         </Card>
 
-        {/* Order Health (2/7) */}
         <Card className="col-span-1 md:col-span-1 lg:col-span-2 flex flex-col">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -354,11 +329,7 @@ export default async function AdminDashboardPage({
                 </span>
                 <span className="font-bold">{completedOrderCount}</span>
               </div>
-              <Progress
-                value={successRate}
-                className="h-2 bg-green-100"
-                indicatorClassName="bg-green-500"
-              />
+              <Progress value={successRate} className="h-2" />
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
@@ -367,20 +338,11 @@ export default async function AdminDashboardPage({
                 </span>
                 <span className="font-bold">{cancelledOrderCount}</span>
               </div>
-              <Progress
-                value={
-                  totalOrderCount > 0
-                    ? (cancelledOrderCount / totalOrderCount) * 100
-                    : 0
-                }
-                className="h-2 bg-red-100"
-                indicatorClassName="bg-red-500"
-              />
+              <Progress value={totalOrderCount > 0 ? (cancelledOrderCount / totalOrderCount) * 100 : 0} className="h-2" />
             </div>
           </CardContent>
         </Card>
 
-        {/* New Users (2/7) */}
         <Card className="col-span-1 md:col-span-1 lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -394,25 +356,14 @@ export default async function AdminDashboardPage({
                   <div className="flex items-center gap-3">
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={user.avatar_url || ""} />
-                      <AvatarFallback className="text-[10px]">
-                        {user.full_name?.charAt(0).toUpperCase() || "U"}
-                      </AvatarFallback>
+                      <AvatarFallback>{user.full_name?.charAt(0) || "U"}</AvatarFallback>
                     </Avatar>
-                    <div className="space-y-1 overflow-hidden">
-                      <p className="text-sm font-medium leading-none truncate max-w-[120px]">
-                        {user.full_name || "No Name"}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground truncate max-w-[120px]">
-                        {user.email}
-                      </p>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">{user.full_name || "No Name"}</p>
+                      <p className="text-[10px] text-muted-foreground">{user.email}</p>
                     </div>
                   </div>
-                  <Badge
-                    variant={
-                      user.role === "super_admin" ? "default" : "secondary"
-                    }
-                    className="text-[10px]"
-                  >
+                  <Badge variant={user.role === "super_admin" ? "default" : "secondary"} className="text-[10px]">
                     {user.role}
                   </Badge>
                 </div>
@@ -422,9 +373,8 @@ export default async function AdminDashboardPage({
         </Card>
       </div>
 
-      {/* SECTION 3: REVENUE TREND CHART */}
+      {/* REVENUE TREND CHART */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-1">
-        {/* Pass the dynamic data and the current range selection */}
         <PlatformTrendChart data={chartData} currentRange={range} />
       </div>
     </div>

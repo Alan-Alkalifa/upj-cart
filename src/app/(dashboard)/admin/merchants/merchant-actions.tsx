@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { approveMerchant, rejectMerchant } from "../actions"
+import { approveMerchant, rejectMerchant, suspendMerchant, hardDeleteMerchant } from "../actions"
 import { toast } from "sonner"
-import { CheckCircle, XCircle, Loader2 } from "lucide-react"
+import { CheckCircle, XCircle, Loader2, AlertTriangle, Trash2, Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   AlertDialog,
@@ -32,35 +32,21 @@ interface Props {
   orgId: string
   email: string
   orgName: string
+  status: "pending" | "active" | "suspended" | "rejected"
 }
 
-export function MerchantActionButtons({ orgId, email, orgName }: Props) {
+export function MerchantActionButtons({ orgId, email, orgName, status }: Props) {
   const [isPending, startTransition] = useTransition()
   const [rejectOpen, setRejectOpen] = useState(false)
   const [rejectReason, setRejectReason] = useState("")
 
-  const handleApprove = () => {
+  const handleAction = (actionFn: () => Promise<{ error?: string }>, successMsg: string) => {
     startTransition(async () => {
-      const res = await approveMerchant(orgId, email)
+      const res = await actionFn()
       if (res?.error) {
         toast.error("Gagal", { description: res.error })
       } else {
-        toast.success("Toko Disetujui", { description: `${orgName} kini aktif.` })
-      }
-    })
-  }
-
-  const handleReject = () => {
-    if (!rejectReason) {
-      toast.error("Wajib isi alasan penolakan")
-      return
-    }
-    startTransition(async () => {
-      const res = await rejectMerchant(orgId, email, rejectReason)
-      if (res?.error) {
-        toast.error("Gagal", { description: res.error })
-      } else {
-        toast.success("Toko Ditolak")
+        toast.success(successMsg)
         setRejectOpen(false)
       }
     })
@@ -68,62 +54,95 @@ export function MerchantActionButtons({ orgId, email, orgName }: Props) {
 
   return (
     <div className="flex justify-end gap-2">
-      {/* APPROVE BUTTON (Alert Dialog) */}
-      <AlertDialog>
-        <AlertDialogTrigger asChild>
-          <Button size="sm" variant="outline" className="text-green-600 hover:text-green-700 hover:bg-green-50">
+      {/* 1. PENDING: APPROVE & REJECT */}
+      {status === 'pending' && (
+        <>
+          <Button 
+            size="sm" variant="outline" className="text-green-600"
+            onClick={() => handleAction(() => approveMerchant(orgId, email), "Toko Disetujui")}
+            disabled={isPending}
+          >
             <CheckCircle className="mr-1 h-4 w-4" /> Setuju
           </Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Setujui Toko ini?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Toko <b>{orgName}</b> akan menjadi aktif. Pemilik akan menerima email notifikasi dan bisa mulai berjualan.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleApprove} disabled={isPending}>
-              {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Ya, Aktifkan"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
-      {/* REJECT BUTTON (Custom Dialog with Input) */}
-      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
-        <DialogTrigger asChild>
-          <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700 hover:bg-red-50">
-            <XCircle className="mr-1 h-4 w-4" /> Tolak
-          </Button>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Tolak Pengajuan Toko</DialogTitle>
-            <DialogDescription>
-              Toko <b>{orgName}</b> akan ditolak permanen. Berikan alasan kepada merchant.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="reason">Alasan Penolakan</Label>
-              <Input
-                id="reason"
-                placeholder="Contoh: Nama toko tidak pantas..."
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRejectOpen(false)}>Batal</Button>
-            <Button variant="destructive" onClick={handleReject} disabled={isPending}>
-              {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Tolak Pengajuan"}
+          <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="outline" className="text-red-600">
+                <XCircle className="mr-1 h-4 w-4" /> Tolak
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Tolak Pengajuan</DialogTitle>
+                <DialogDescription>Alasan penolakan untuk <b>{orgName}</b>.</DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <Label>Alasan</Label>
+                <Input value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Contoh: Nama toko tidak valid" />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setRejectOpen(false)}>Batal</Button>
+                <Button variant="destructive" disabled={!rejectReason || isPending} onClick={() => handleAction(() => rejectMerchant(orgId, email, rejectReason), "Toko Ditolak")}>
+                  {isPending ? <Loader2 className="animate-spin" /> : "Konfirmasi Tolak"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
+
+      {/* 2. ACTIVE: SUSPEND */}
+      {status === 'active' && (
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button size="sm" variant="outline" className="text-amber-600 border-amber-200">
+              <AlertTriangle className="mr-1 h-4 w-4" /> Suspend
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Suspend Toko <b>{orgName}</b>?</AlertDialogTitle>
+              <AlertDialogDescription>Toko tidak akan bisa diakses oleh publik sementara waktu.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Batal</AlertDialogCancel>
+              <AlertDialogAction className="bg-amber-600" onClick={() => handleAction(() => suspendMerchant(orgId, email), "Toko Ditangguhkan")}>
+                Ya, Suspend
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {/* 3. SUSPENDED: RESTORE TO ACTIVE */}
+      {status === 'suspended' && (
+        <Button size="sm" variant="outline" className="text-green-600" onClick={() => handleAction(() => approveMerchant(orgId, email), "Toko Diaktifkan Kembali")}>
+          <Play className="mr-1 h-4 w-4" /> Aktifkan Kembali
+        </Button>
+      )}
+
+      {/* 4. REJECTED: HARD DELETE */}
+      {status === 'rejected' && (
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button size="sm" variant="destructive">
+              <Trash2 className="mr-1 h-4 w-4" /> Hapus Permanen
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Hapus Permanen?</AlertDialogTitle>
+              <AlertDialogDescription>Semua data <b>{orgName}</b> akan dihapus selamanya.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Batal</AlertDialogCancel>
+              <AlertDialogAction className="bg-red-600" onClick={() => handleAction(() => hardDeleteMerchant(orgId), "Toko Berhasil Dihapus")}>
+                Hapus
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   )
 }

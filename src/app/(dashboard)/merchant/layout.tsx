@@ -13,6 +13,7 @@ import {
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb"
 import { createClient } from "@/utils/supabase/server"
+import { getPlatformSettings } from "@/utils/get-settings" //
 import { redirect } from "next/navigation"
 
 export default async function DashboardLayout({
@@ -22,9 +23,15 @@ export default async function DashboardLayout({
 }) {
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  // 1. Ambil Data User & Settings Platform secara Parallel
+  const [{ data: { user } }, settings] = await Promise.all([
+    supabase.auth.getUser(),
+    getPlatformSettings() // Mengambil platform_name & support_email
+  ])
+
   if (!user) redirect("/login")
 
+  // 2. Ambil Data Organisasi
   const { data: memberData } = await supabase 
     .from("organization_members")
     .select("*, organizations(*)")
@@ -37,15 +44,16 @@ export default async function DashboardLayout({
 
   const org = memberData.organizations
   
-  // 3. Status Check
-  const isRestricted = org.status === 'pending' || org.status === 'rejected'
+  // 3. Status Check (Sekarang menyertakan 'suspended')
+  const isRestricted = org.status === 'pending' || org.status === 'rejected' || org.status === 'suspended'
 
   return (
     <SidebarProvider>
       <AppSidebar user={user} org={org} />
       
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+        {/* Perbaikan class tailwind sesuai saran linter */}
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
           <div className="flex items-center gap-2">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
@@ -60,9 +68,14 @@ export default async function DashboardLayout({
                         Pending Verification
                       </span>
                     )}
+                    {org?.status === 'suspended' && (
+                      <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                        Suspended
+                      </span>
+                    )}
                     {org?.status === 'rejected' && (
                       <span className="inline-flex items-center rounded-full border border-red-200 bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
-                        Suspended
+                        Rejected
                       </span>
                     )}
                   </BreadcrumbPage>
@@ -73,9 +86,15 @@ export default async function DashboardLayout({
         </header>
 
         <div className="flex flex-1 flex-col gap-4 p-4 mt-4 pt-0">
-          {/* 🔴 INTERCEPT CONTENT HERE */}
+          {/* Mengirimkan data settings ke RestrictedView untuk memperbaiki error TS2741 */}
           {isRestricted ? (
-            <RestrictedView status={org.status} />
+            <RestrictedView 
+              status={org.status} 
+              settings={{
+                platform_name: settings.platform_name,
+                support_email: settings.support_email
+              }} 
+            />
           ) : (
             children
           )}

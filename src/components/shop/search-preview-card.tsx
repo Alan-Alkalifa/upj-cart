@@ -66,7 +66,7 @@ export function SearchPreviewCard({ type, data }: SearchPreviewCardProps) {
   // Siapkan Data URL untuk Share
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
   const shareUrl = type === 'store' 
-    ? `${origin}/shop/${data.slug}`
+    ? `${origin}/merchant/${data.slug}`
     : `${origin}/products/${data.id}`
 
   // Siapkan Data untuk Chat
@@ -172,7 +172,7 @@ export function SearchPreviewCard({ type, data }: SearchPreviewCardProps) {
                <ShareButton url={shareUrl} title={data.name} />
 
                <Button asChild size="sm" variant="default" className=" h-9 px-5 gap-2 shadow-sm">
-                 <Link href={`/shop/${data.slug}`}>
+                 <Link href={`/merchant/${data.slug}`}>
                    Kunjungi
                  </Link>
                </Button>

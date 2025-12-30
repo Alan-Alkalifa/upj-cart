@@ -10,7 +10,18 @@ import { cn } from "@/lib/utils"
 // [ANALYTICS] Import Helper
 import { trackEvent } from "@/lib/analytics"
 
-export function ProductDetailClient({ product, isRestricted = false }: { product: any, isRestricted?: boolean }) {
+// --- FIX: Perbarui interface untuk menerima prop 'user' ---
+interface ProductDetailClientProps {
+  product: any;
+  user: any; // Menerima data user dari Server Component
+  isRestricted?: boolean;
+}
+
+export function ProductDetailClient({ 
+  product, 
+  user, // Destructure prop user di sini
+  isRestricted = false 
+}: ProductDetailClientProps) {
   const router = useRouter()
   
   // Cari varian default yang stoknya tersedia
@@ -40,7 +51,13 @@ export function ProductDetailClient({ product, isRestricted = false }: { product
   }, [product])
 
   const handleAddToCart = async () => {
-    if (isRestricted) return; // Guard clause
+    // Gunakan data user untuk pengecekan awal sebelum hit server
+    if (!user) {
+      toast.error("Anda belum login", { description: "Silakan login untuk mulai berbelanja." })
+      return router.push("/login")
+    }
+
+    if (isRestricted) return; 
     if (!selectedVariantId) return toast.error("Silakan pilih varian terlebih dahulu")
     if (quantity > maxStock) return toast.error("Stok tidak mencukupi")
 
@@ -108,6 +125,7 @@ export function ProductDetailClient({ product, isRestricted = false }: { product
             return (
               <button
                 key={variant.id}
+                type="button"
                 onClick={() => {
                   if(!isHabis) {
                     setSelectedVariantId(variant.id)
@@ -158,13 +176,11 @@ export function ProductDetailClient({ product, isRestricted = false }: { product
               </Button>
             </div>
 
-            {/* Total Subtotal Preview (Optional) */}
             <div className="text-sm text-muted-foreground hidden sm:block">
               Subtotal: <span className="font-bold text-foreground">Rp {(displayPrice * quantity).toLocaleString("id-ID")}</span>
             </div>
         </div>
 
-        {/* CTA Button */}
         <Button 
           size="lg" 
           className="w-full text-base font-bold shadow-lg shadow-primary/20 h-12"

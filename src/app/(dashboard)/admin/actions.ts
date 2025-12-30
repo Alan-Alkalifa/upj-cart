@@ -10,7 +10,6 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 export async function approveMerchant(orgId: string, merchantEmail: string) {
   const supabase = createAdminClient()
 
-  // 1. Update Status
   const { error } = await supabase
     .from("organizations")
     .update({ 
@@ -21,18 +20,12 @@ export async function approveMerchant(orgId: string, merchantEmail: string) {
 
   if (error) return { error: error.message }
 
-  // 2. Send Email
   try {
     await resend.emails.send({
-      from: 'UPJ Cart <onboarding@resend.dev>', // Change for production
+      from: 'UPJ Cart <onboarding@resend.dev>',
       to: merchantEmail, 
-      subject: 'Selamat! Toko Anda Telah Disetujui',
-      html: `
-        <h1>Toko Anda Aktif!</h1>
-        <p>Selamat, toko Anda telah disetujui oleh Admin UPJ Cart.</p>
-        <p>Silakan login untuk mulai berjualan.</p>
-        <a href="http://localhost:3000/login">Login Dashboard</a>
-      `
+      subject: 'Status Toko: Aktif',
+      html: `<h1>Toko Anda Kini Aktif</h1><p>Selamat! Toko Anda telah diaktifkan kembali oleh Admin.</p>`
     })
   } catch (e) {
     console.error("Email failed:", e)
@@ -42,10 +35,10 @@ export async function approveMerchant(orgId: string, merchantEmail: string) {
   return { success: true }
 }
 
+// --- REJECT ---
 export async function rejectMerchant(orgId: string, merchantEmail: string, reason: string) {
   const supabase = createAdminClient()
 
-  // 1. Update Status & Save Reason
   const { error } = await supabase
     .from("organizations")
     .update({ 
@@ -56,22 +49,58 @@ export async function rejectMerchant(orgId: string, merchantEmail: string, reaso
 
   if (error) return { error: error.message }
 
-  // 2. Send Email
   try {
     await resend.emails.send({
       from: 'UPJ Cart <onboarding@resend.dev>',
       to: merchantEmail,
       subject: 'Status Pendaftaran Toko',
-      html: `
-        <h1>Mohon Maaf</h1>
-        <p>Pengajuan toko Anda ditolak oleh Admin.</p>
-        <p><strong>Alasan:</strong> ${reason}</p>
-        <p>Silakan perbaiki data Anda atau hubungi admin.</p>
-      `
+      html: `<h1>Pengajuan Ditolak</h1><p>Alasan: ${reason}</p>`
     })
   } catch (e) {
     console.error("Email failed:", e)
   }
+
+  revalidatePath("/admin/merchants")
+  return { success: true }
+}
+
+// --- SUSPEND ---
+export async function suspendMerchant(orgId: string, merchantEmail: string) {
+  const supabase = createAdminClient()
+
+  const { error } = await supabase
+    .from("organizations")
+    .update({ status: "suspended" })
+    .eq("id", orgId)
+
+  if (error) return { error: error.message }
+
+  try {
+    await resend.emails.send({
+      from: 'UPJ Cart Support <support@resend.dev>',
+      to: merchantEmail,
+      subject: 'PENTING: Toko Ditangguhkan',
+      html: `<h1>Toko Ditangguhkan</h1><p>Toko Anda sementara dinonaktifkan oleh admin karena pelanggaran kebijakan.</p>`
+    })
+  } catch (e) {
+    console.error("Email failed:", e)
+  }
+
+  revalidatePath("/admin/merchants")
+  return { success: true }
+}
+
+// --- HARD DELETE ---
+export async function hardDeleteMerchant(orgId: string) {
+  const supabase = createAdminClient()
+
+  // Ensure database has ON DELETE CASCADE for related items
+  const { error } = await supabase
+    .from("organizations")
+    .delete()
+    .eq("id", orgId)
+
+  if (error) return { error: error.message }
 
   revalidatePath("/admin/merchants")
   return { success: true }

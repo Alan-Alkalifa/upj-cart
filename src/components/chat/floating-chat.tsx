@@ -11,6 +11,7 @@ import {
   Store,
   Check,
   CheckCheck,
+  XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,11 +27,10 @@ import { Badge } from "@/components/ui/badge";
 import { useChat } from "@/hooks/use-chat";
 import { getMyChatRooms } from "@/app/actions/chat-list";
 import { getUnreadCount, markRoomAsRead } from "@/app/actions/notifications";
-import { startBuyerChat } from "@/app/actions/chat"; // Import chat initiator
+import { startBuyerChat } from "@/app/actions/chat";
 import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
 
-// --- TYPE DEFINITIONS ---
 type ChatRoom = {
   id: string;
   otherPartyName: string;
@@ -40,7 +40,7 @@ type ChatRoom = {
   unreadCount: number;
 };
 
-// --- SUB-COMPONENT: CHAT LIST VIEW ---
+// --- SUB-COMPONENT: CHAT LIST VIEW (MISSING IN YOUR CODE) ---
 function ChatList({
   rooms,
   loading,
@@ -132,7 +132,6 @@ function ChatList({
                         {room.lastMessage}
                       </p>
 
-                      {/* Unread Badge per Room */}
                       {room.unreadCount > 0 && (
                         <Badge
                           variant="destructive"
@@ -157,11 +156,15 @@ function ChatList({
 function ActiveChatView({
   room,
   currentUserId,
+  pendingProduct,
+  onRemoveProduct,
   onBack,
   onMessageSent,
 }: {
   room: ChatRoom;
   currentUserId: string;
+  pendingProduct: any;
+  onRemoveProduct: () => void;
   onBack: () => void;
   onMessageSent: () => void;
 }) {
@@ -169,36 +172,33 @@ function ActiveChatView({
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // 1. Auto-scroll on new message
   useEffect(() => {
-    if (scrollRef.current)
-      scrollRef.current.scrollIntoView({ behavior: "smooth" });
+    if (scrollRef.current) scrollRef.current.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // 2. Mark as Read Logic
   useEffect(() => {
-    if (room.id) {
-      markRoomAsRead(room.id);
-    }
+    if (room.id) markRoomAsRead(room.id);
   }, [room.id, messages.length]);
 
   const handleSend = async () => {
-    if (!input.trim()) return;
-    await send(input);
+    if (!input.trim() && !pendingProduct) return;
+
+    // Logic: Gabungkan info produk ke dalam pesan teks
+    let finalContent = input;
+    if (pendingProduct) {
+      const productInfo = `[Produk: ${pendingProduct.name} - Rp ${pendingProduct.price.toLocaleString("id-ID")}]`;
+      finalContent = input ? `${productInfo}\n${input}` : productInfo;
+    }
+
+    await send(finalContent);
     setInput("");
-    onMessageSent(); // Trigger list refresh
+    onMessageSent();
   };
 
   return (
     <div className="flex flex-col h-full bg-muted/5 overflow-hidden">
-      {/* Header */}
       <div className="flex items-center gap-2 p-3 border-b bg-background/95 backdrop-blur z-10 shrink-0">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 rounded-full -ml-1"
-          onClick={onBack}
-        >
+        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full -ml-1" onClick={onBack}>
           <ChevronLeft className="size-5" />
         </Button>
         <Avatar className="h-8 w-8 border">
@@ -206,69 +206,24 @@ function ActiveChatView({
           <AvatarFallback>{room.otherPartyName[0]}</AvatarFallback>
         </Avatar>
         <div className="flex-1 overflow-hidden">
-          <h4 className="font-semibold text-sm truncate">
-            {room.otherPartyName}
-          </h4>
+          <h4 className="font-semibold text-sm truncate">{room.otherPartyName}</h4>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-muted-foreground"
-        >
-          <MoreVertical className="size-4" />
-        </Button>
       </div>
 
-      {/* Messages Area */}
       <div className="flex-1 min-h-0">
         <ScrollArea className="h-full p-4">
           <div className="flex flex-col gap-3 pb-4">
-            {messages.map((msg) => {
+            {messages.map((msg: any) => {
               const isMe = msg.sender_id === currentUserId;
               return (
-                <div
-                  key={msg.id}
-                  className={cn(
-                    "flex w-full",
-                    isMe ? "justify-end" : "justify-start"
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "max-w-[85%] px-3 py-2 text-sm shadow-sm flex flex-col gap-1",
-                      isMe
-                        ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm"
-                        : "bg-white border rounded-2xl rounded-tl-sm"
-                    )}
-                  >
-                    <p className="leading-relaxed whitespace-pre-wrap">
-                      {msg.content}
-                    </p>
-
-                    {/* Time & Read Status */}
-                    <div
-                      className={cn(
-                        "flex items-center gap-1.5 text-[9px]",
-                        isMe
-                          ? "justify-end text-primary-foreground/90"
-                          : "justify-end text-muted-foreground opacity-70"
-                      )}
-                    >
-                      <span>
-                        {new Date(msg.created_at).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-
-                      {/* READ/UNREAD INDICATORS */}
+                <div key={msg.id} className={cn("flex w-full", isMe ? "justify-end" : "justify-start")}>
+                  <div className={cn("max-w-[85%] px-3 py-2 text-sm shadow-sm flex flex-col gap-1", isMe ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm" : "bg-white border rounded-2xl rounded-tl-sm")}>
+                    <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                    <div className={cn("flex items-center gap-1.5 text-[9px]", isMe ? "text-primary-foreground/90 justify-end" : "text-muted-foreground opacity-70 justify-end")}>
+                      <span>{new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                       {isMe && (
                         <span>
-                          {msg.is_read ? (
-                            <CheckCheck className="size-3.5 stroke-[2] text-blue-300" />
-                          ) : (
-                            <Check className="size-3.5 stroke-[2] opacity-70" />
-                          )}
+                          {msg.is_read ? <CheckCheck className="size-3.5 text-blue-300" /> : <Check className="size-3.5 opacity-70" />}
                         </span>
                       )}
                     </div>
@@ -281,22 +236,39 @@ function ActiveChatView({
         </ScrollArea>
       </div>
 
-      {/* Input Area */}
+      {/* PREVIEW PRODUK SEBELUM KIRIM */}
+      {pendingProduct && (
+        <div className="px-4 py-2 border-t bg-background animate-in slide-in-from-bottom-2">
+          <div className="flex items-center gap-3 p-2 bg-muted/30 rounded-xl border relative">
+            <Avatar className="h-10 w-10 rounded-lg border">
+              <AvatarImage src={pendingProduct.image} className="object-cover" />
+              <AvatarFallback><Store className="size-4" /></AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-bold truncate">{pendingProduct.name}</p>
+              <p className="text-[10px] text-primary font-bold">Rp {pendingProduct.price.toLocaleString("id-ID")}</p>
+            </div>
+            <Button
+              variant="ghost" size="icon"
+              className="h-6 w-6 rounded-full absolute -top-2 -right-2 bg-background border shadow-sm hover:text-destructive"
+              onClick={onRemoveProduct}
+            >
+              <XCircle className="size-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="p-3 bg-background border-t shrink-0">
-        <div className="flex gap-2 items-end bg-muted/50 p-1.5 rounded-3xl border focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+        <div className="flex gap-2 items-end bg-muted/50 p-1.5 rounded-3xl border">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
             placeholder="Ketik pesan..."
-            className="border-none shadow-none focus-visible:ring-0 min-h-[40px] bg-transparent px-4"
+            className="border-none shadow-none focus-visible:ring-0 bg-transparent px-4"
           />
-          <Button
-            size="icon"
-            onClick={handleSend}
-            disabled={!input.trim()}
-            className="rounded-full h-9 w-9 bg-primary shrink-0"
-          >
+          <Button size="icon" onClick={handleSend} disabled={!input.trim() && !pendingProduct} className="rounded-full h-9 w-9">
             <Send className="size-4" />
           </Button>
         </div>
@@ -305,13 +277,17 @@ function ActiveChatView({
   );
 }
 
-// --- MAIN COMPONENT: GLOBAL FLOATING BUTTON ---
+// --- MAIN COMPONENT ---
 interface FloatingChatProps {
   currentUserId: string;
-  orgId?: string; // Optional: Target Org to chat with
-  storeName?: string; // Optional: Target Store Name
-  storeAvatar?: string; // Optional: Target Store Avatar
-  customTrigger?: React.ReactNode; // Optional: Custom trigger button
+  orgId?: string;
+  storeName?: string;
+  storeAvatar?: string;
+  productId?: string;
+  productName?: string;
+  productImage?: string;
+  productPrice?: number;
+  customTrigger?: React.ReactNode;
 }
 
 export function FloatingChat({
@@ -319,92 +295,54 @@ export function FloatingChat({
   orgId,
   storeName,
   storeAvatar,
+  productId,
+  productName,
+  productImage,
+  productPrice,
   customTrigger,
 }: FloatingChatProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [activeRoom, setActiveRoom] = useState<ChatRoom | null>(null);
+  const [pendingProduct, setPendingProduct] = useState<any>(null);
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
-  // 1. Hide on Dashboard Pages (Prevent Duplicate UI)
-  const isRestrictedPath =
-    pathname.startsWith("/merchant") || pathname.startsWith("/admin");
+  const isRestrictedPath = pathname.startsWith("/merchant") || pathname.startsWith("/admin");
 
-  // 2. Data Fetcher Logic
   const refreshAllData = async () => {
-    const { data: member } = await supabase
-      .from("organization_members")
-      .select("org_id")
-      .eq("profile_id", currentUserId)
-      .maybeSingle();
-
+    const { data: member } = await supabase.from("organization_members").select("org_id").eq("profile_id", currentUserId).maybeSingle();
     const count = await getUnreadCount("merchant", member?.org_id);
     setUnreadCount(count || 0);
-
     const { rooms: fetchedRooms } = await getMyChatRooms();
     setRooms(fetchedRooms || []);
     setLoading(false);
   };
 
-  // 3. Global Realtime Listener
   useEffect(() => {
     if (!currentUserId || isRestrictedPath) return;
-
     refreshAllData();
-
-    const badgeChannel = supabase
-      .channel(`fc_badge_${currentUserId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "chat_messages" },
-        () => refreshAllData()
-      )
-      .subscribe();
-
-    const listChannel = supabase
-      .channel(`fc_list_${currentUserId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "chat_rooms" },
-        () => refreshAllData()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(badgeChannel);
-      supabase.removeChannel(listChannel);
-    };
   }, [currentUserId, isRestrictedPath]);
 
-  // Handle Sheet Open/Close with Org Logic
   const handleOpenChange = async (val: boolean) => {
     setOpen(val);
-
-    // When opening, if orgId is present, we DIRECTLY initialize the specific room
     if (val && orgId && storeName) {
+      if (productId && productName) {
+        setPendingProduct({ id: productId, name: productName, image: productImage, price: productPrice });
+      }
+
       setLoading(true);
       const res = await startBuyerChat(orgId);
-
       if (res.roomId) {
-        // Set the active room immediately so the view switches to chat
-        setActiveRoom({
-          id: res.roomId,
-          otherPartyName: storeName,
-          otherPartyImage: storeAvatar || null,
-          lastMessage: "",
-          updatedAt: new Date().toISOString(),
-          unreadCount: 0,
-        });
-        await refreshAllData(); // Sync background list
+        setActiveRoom({ id: res.roomId, otherPartyName: storeName, otherPartyImage: storeAvatar || null, lastMessage: "", updatedAt: new Date().toISOString(), unreadCount: 0 });
+        await refreshAllData();
       }
       setLoading(false);
-    }
-    // When closing, reset active room
-    else if (!val) {
+    } else if (!val) {
       setActiveRoom(null);
+      setPendingProduct(null);
     }
   };
 
@@ -413,55 +351,39 @@ export function FloatingChat({
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>
-        {customTrigger ? (
-          // Render custom trigger (e.g., from MerchantCard)
-          customTrigger
-        ) : (
-          // Render Default FAB
+        {customTrigger ? customTrigger : (
           <div className="fixed bottom-6 right-6 z-50">
-            <Button
-              size="lg"
-              className="h-14 w-14 rounded-full shadow-xl p-0 hover:scale-110 active:scale-95 transition-all duration-300 bg-primary group"
-            >
-              <MessageCircle className="size-7 fill-white text-white group-hover:rotate-12 transition-transform" />
+            <Button size="lg" className="h-14 w-14 rounded-full shadow-xl p-0 transition-all bg-primary">
+              <MessageCircle className="size-7 fill-white text-white" />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-5 w-5 z-50">
+                <span className="absolute -top-1 -right-1 flex h-5 w-5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-5 w-5 bg-red-500 border-2 border-background text-[10px] text-white items-center justify-center font-bold shadow-sm">
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </span>
+                  <span className="relative inline-flex rounded-full h-5 w-5 bg-red-500 text-[10px] text-white items-center justify-center font-bold">{unreadCount > 9 ? "9+" : unreadCount}</span>
                 </span>
               )}
             </Button>
           </div>
         )}
       </SheetTrigger>
-
-      <SheetContent
-        side="right"
-        className="w-full h-[100dvh] sm:h-full sm:w-[400px] p-0 flex flex-col border-l shadow-2xl overflow-hidden sm:rounded-l-2xl sm:my-2 sm:mr-2 sm:max-h-[calc(100vh-16px)]"
-      >
-        <div className="px-4 py-3 border-b flex items-center justify-between bg-muted/20 shrink-0">
+      <SheetContent className="w-full sm:w-[400px] p-0 flex flex-col">
+        <div className="px-4 py-3 border-b bg-muted/20">
           <SheetTitle className="text-base font-bold flex items-center gap-2">
             <Store className="size-4 text-primary" />
-            {activeRoom ? "Chat Room" : "Pesan Masuk"}
+            {activeRoom ? "Chat Toko" : "Pesan Masuk"}
           </SheetTitle>
         </div>
-
         <div className="flex-1 min-h-0 bg-background">
           {activeRoom ? (
             <ActiveChatView
               room={activeRoom}
               currentUserId={currentUserId}
+              pendingProduct={pendingProduct}
+              onRemoveProduct={() => setPendingProduct(null)}
               onBack={() => setActiveRoom(null)}
-              onMessageSent={refreshAllData}
+              onMessageSent={() => { setPendingProduct(null); refreshAllData(); }}
             />
           ) : (
-            <ChatList
-              rooms={rooms}
-              loading={loading}
-              onSelectRoom={setActiveRoom}
-            />
+            <ChatList rooms={rooms} loading={loading} onSelectRoom={setActiveRoom} />
           )}
         </div>
       </SheetContent>

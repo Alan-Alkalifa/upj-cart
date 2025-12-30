@@ -43,7 +43,7 @@ export async function getAnalyticsData(days: number = 7) {
       ],
       dimensions: [
         { name: "pageTitle" }, // Judul Halaman
-        { name: "pagePath" },  // URL Halaman (misal /shop/sepatu)
+        { name: "pagePath" },  // URL Halaman (misal /merchant/sepatu)
       ],
       metrics: [
         { name: "screenPageViews" }, // Diurutkan berdasarkan views
