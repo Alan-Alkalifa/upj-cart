@@ -10,19 +10,31 @@ interface ShareButtonProps {
   className?: string;
   variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
   size?: "default" | "sm" | "lg" | "icon";
+  // Tambahkan props opsional ini untuk mengatasi error TypeScript
+  url?: string;
+  title?: string;
 }
 
 export function ShareButton({ 
   children, 
   className, 
   variant = "outline", 
-  size = "icon" 
+  size = "icon",
+  url,    // Destructure prop url
+  title   // Destructure prop title
 }: ShareButtonProps) {
+  
   const handleCopy = () => {
     if (typeof window !== "undefined") {
-      navigator.clipboard.writeText(window.location.href);
+      // Prioritaskan URL dari props. Jika tidak ada, gunakan URL browser saat ini.
+      const textToCopy = url || window.location.href;
+
+      navigator.clipboard.writeText(textToCopy);
+      
       toast.success("Link disalin!", {
-        description: "Tautan berhasil disalin ke clipboard."
+        description: title 
+          ? `Tautan untuk "${title}" berhasil disalin.` 
+          : "Tautan berhasil disalin ke clipboard."
       });
     }
   };
@@ -33,7 +45,7 @@ export function ShareButton({
       size={size} 
       onClick={handleCopy}
       className={cn(
-        !children && "rounded-full h-10 w-10 text-muted-foreground hover:text-foreground transition-colors", 
+        !children && "h-10 w-10 text-muted-foreground hover:text-foreground transition-colors", 
         className
       )}
       title="Bagikan"

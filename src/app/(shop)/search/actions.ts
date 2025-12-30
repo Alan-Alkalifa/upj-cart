@@ -4,7 +4,7 @@ import { createClient } from "@/utils/supabase/server"
 
 const PRODUCTS_PER_PAGE = 12
 
-// --- EXISTING: LOAD MORE PRODUCTS (Untuk Infinite Scroll) ---
+// --- EXISTING: LOAD MORE PRODUCTS ---
 export async function getMoreProducts(
   page: number, 
   params: { 
@@ -34,14 +34,12 @@ export async function getMoreProducts(
     .is("deleted_at", null)
     .range(start, end)
 
-  // Apply Filters
   if (params.q) query = query.ilike("name", `%${params.q}%`)
   if (params.category) query = query.eq("global_category_id", params.category)
   if (params.min) query = query.gte("base_price", parseInt(params.min))
   if (params.max) query = query.lte("base_price", parseInt(params.max))
   if (params.merchant_id) query = query.eq("org_id", params.merchant_id)
 
-  // Sorting
   const sort = params.sort || 'newest'
   switch (sort) {
     case 'price_asc': query = query.order('base_price', { ascending: true }); break
@@ -54,15 +52,13 @@ export async function getMoreProducts(
   return data || []
 }
 
-// --- NEW: AUTOCOMPLETE PREVIEW (Untuk Dropdown Search) ---
+// --- EXISTING: AUTOCOMPLETE PREVIEW ---
 export async function getSearchPreview(query: string) {
   if (!query || query.length < 2) return { orgs: [], products: [] }
 
   const supabase = await createClient()
 
-  // Jalankan query paralel agar cepat
   const [orgs, products] = await Promise.all([
-    // Cari Toko
     supabase
       .from("organizations")
       .select("id, name, slug, logo_url")
@@ -70,7 +66,6 @@ export async function getSearchPreview(query: string) {
       .eq("status", "active")
       .limit(3),
 
-    // Cari Produk
     supabase
       .from("products")
       .select(`
@@ -92,7 +87,8 @@ export async function getSearchPreview(query: string) {
   }
 }
 
-// --- NEW: FETCH FULL CARD DATA (Untuk Tampilan Kartu di Halaman Search) ---
+// --- PREVIEW CARD DATA FETCHING ---
+
 export async function getStorePreview(slug: string) {
   const supabase = await createClient()
   const { data } = await supabase
@@ -105,14 +101,39 @@ export async function getStorePreview(slug: string) {
 
 export async function getProductPreview(id: string) {
   const supabase = await createClient()
-  const { data } = await supabase
+
+  // 1. Coba ambil data LENGKAP dengan product_images (Carousel)
+  // Gunakan try-catch atau cek error untuk fallback jika tabel tidak ada
+  const { data, error } = await supabase
     .from("products")
     .select(`
       id, name, description, base_price, image_url, weight_grams,
       organizations (name, slug, logo_url, address_city),
-      reviews (rating)
+      reviews (rating),
+      product_variants (price_override),
+      product_images (image_url)
     `)
     .eq("id", id)
     .single()
-  return data
+
+  if (!error && data) {
+    return data
+  }
+
+  // 2. Fallback: Jika gagal (misal tabel product_images belum dibuat),
+  // ambil data dasar tanpa product_images agar card tetap muncul.
+  console.warn("Fetching product with images failed, trying fallback:", error?.message)
+  
+  const { data: fallbackData } = await supabase
+    .from("products")
+    .select(`
+      id, name, description, base_price, image_url, weight_grams,
+      organizations (name, slug, logo_url, address_city),
+      reviews (rating),
+      product_variants (price_override)
+    `)
+    .eq("id", id)
+    .single()
+
+  return fallbackData
 }

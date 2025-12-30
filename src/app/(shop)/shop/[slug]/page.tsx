@@ -249,7 +249,7 @@ export default async function MerchantPage(props: {
                   )}
 
                   <ShareButton 
-                    variant="outline" 
+                    variant="default" 
                     size="default" 
                     className="flex-1 md:flex-none gap-2 shadow-sm"
                   >

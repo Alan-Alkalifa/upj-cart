@@ -317,7 +317,7 @@ function MerchantCard({
             )
         )}
         
-        <Button variant="outline" className="font-medium w-full sm:w-auto" asChild>
+        <Button variant="default" className="font-medium w-full sm:w-auto" asChild>
           <Link href={`/shop/${organization.slug}`}>Kunjungi</Link>
         </Button>
       </div>

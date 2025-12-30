@@ -2,7 +2,7 @@ import { createClient } from "@/utils/supabase/server"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { SlidersHorizontal, Tag, Search as SearchIcon } from "lucide-react"
+import { SlidersHorizontal, Tag } from "lucide-react"
 import Link from "next/link"
 import { PriceFilter } from "@/components/shop/price-filter"
 import { Label } from "@/components/ui/label"
@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { ShopSearch } from "@/components/shop/shop-search"
 import { ProductSort } from "@/components/shop/product-sort"
 import { ProductGrid } from "@/components/shop/product-grid"
-// IMPORT BARU:
+// Import Actions & Components yang telah diperbarui
 import { getStorePreview, getProductPreview } from "./actions"
 import { SearchPreviewCard } from "@/components/shop/search-preview-card"
 
@@ -25,8 +25,8 @@ export default async function SearchPage({
     min?: string; 
     max?: string; 
     sort?: string;
-    store_preview?: string;   // Param baru
-    product_preview?: string; // Param baru
+    store_preview?: string;
+    product_preview?: string;
   }>
 }) {
   const params = await searchParams
@@ -36,16 +36,17 @@ export default async function SearchPage({
   let storePreviewData = null
   let productPreviewData = null
 
+  // Fetch Store Preview
   if (params.store_preview) {
     storePreviewData = await getStorePreview(params.store_preview)
   }
   
+  // Fetch Product Preview (sekarang lebih aman dengan fallback)
   if (params.product_preview) {
     productPreviewData = await getProductPreview(params.product_preview)
   }
 
-  // 2. LOGIC INITIAL QUERY (LIST PRODUK DI BAWAH)
-  // Tetap berjalan seperti biasa untuk mengisi grid di bawah
+  // 2. LOGIC INITIAL QUERY (LIST PRODUK UTAMA)
   let query = supabase
     .from("products")
     .select(`
@@ -85,8 +86,6 @@ export default async function SearchPage({
     if (params.min) p.set("min", params.min)
     if (params.max) p.set("max", params.max)
     if (params.sort) p.set("sort", params.sort)
-    // Keep preview params if changing filters? Usually better to clear them, 
-    // but here we rebuild cleanly.
     
     Object.entries(updates).forEach(([key, value]) => {
       if (value) p.set(key, value)
@@ -101,7 +100,7 @@ export default async function SearchPage({
     <div className="container mx-auto px-4 py-6 md:py-8 min-h-screen">
       <div className="flex flex-col md:flex-row gap-6 md:gap-8">
         
-        {/* SIDEBAR (Hidden on Mobile) */}
+        {/* SIDEBAR (Desktop) */}
         <aside className="w-64 hidden md:block space-y-8 sticky top-24 h-fit shrink-0">
            <div className="space-y-3">
              <Label className="font-bold text-xs uppercase tracking-widest text-muted-foreground">Cari Produk</Label>
@@ -131,14 +130,16 @@ export default async function SearchPage({
         {/* MAIN CONTENT */}
         <div className="flex-1 min-w-0">
           
-          {/* --- BAGIAN 1: PREVIEW CARD (JIKA ADA) --- */}
+          {/* --- BAGIAN 1: PREVIEW CARD --- */}
+          {/* Render hanya jika data ditemukan */}
           {(storePreviewData || productPreviewData) && (
-             <div className="mb-8">
+             <div className="mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
                <SearchPreviewCard 
                  type={storePreviewData ? 'store' : 'product'}
                  data={storePreviewData || productPreviewData}
                />
-               <div className="flex items-center gap-4 mb-2">
+               
+               <div className="flex items-center gap-4 mb-2 mt-8">
                  <div className="h-px bg-border flex-1" />
                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
                    Hasil Pencarian Lainnya
@@ -147,8 +148,7 @@ export default async function SearchPage({
                </div>
              </div>
           )}
-          {/* ----------------------------------------- */}
-
+          
           {/* Header Area */}
           <div className="flex flex-col gap-4 mb-6 md:mb-8">
              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
@@ -165,6 +165,8 @@ export default async function SearchPage({
                 
                 <div className="flex items-center gap-2 self-start sm:self-auto w-full sm:w-auto justify-between sm:justify-end">
                    <ProductSort />
+                   
+                   {/* Mobile Filter Sheet */}
                    <Sheet>
                       <SheetTrigger asChild>
                         <Button variant="outline" size="icon" className="md:hidden rounded-full border-2 h-10 w-10 shrink-0">
@@ -203,7 +205,7 @@ export default async function SearchPage({
              </div>
           </div>
 
-          {/* Product Grid with Load More */}
+          {/* Product Grid */}
           <ProductGrid 
             initialProducts={products || []} 
             searchParams={params} 
