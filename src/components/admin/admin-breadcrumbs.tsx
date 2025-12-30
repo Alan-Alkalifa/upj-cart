@@ -11,8 +11,47 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 
-export function AdminBreadcrumbs() {
+// 1. Definisikan tipe props agar TypeScript tidak error
+interface BreadcrumbItemType {
+  label: string
+  href: string
+  active?: boolean
+}
+
+interface AdminBreadcrumbsProps {
+  items?: BreadcrumbItemType[] // Opsional: Bisa dipakai, bisa tidak
+}
+
+export function AdminBreadcrumbs({ items }: AdminBreadcrumbsProps) {
   const pathname = usePathname()
+
+  // 2. LOGIKA BARU: Jika props 'items' ada, render berdasarkan items (Manual Mode)
+  if (items && items.length > 0) {
+    return (
+      <Breadcrumb>
+        <BreadcrumbList>
+          {items.map((item, index) => {
+            const isLast = index === items.length - 1
+            return (
+              <React.Fragment key={item.href}>
+                <BreadcrumbItem className={!item.active && !isLast ? "hidden md:block" : ""}>
+                  {item.active || isLast ? (
+                    <BreadcrumbPage>{item.label}</BreadcrumbPage>
+                  ) : (
+                    <BreadcrumbLink href={item.href}>{item.label}</BreadcrumbLink>
+                  )}
+                </BreadcrumbItem>
+                {!isLast && <BreadcrumbSeparator className="hidden md:block" />}
+              </React.Fragment>
+            )
+          })}
+        </BreadcrumbList>
+      </Breadcrumb>
+    )
+  }
+
+  // 3. LOGIKA LAMA (EXISTING): Auto-generate dari URL (Automatic Mode)
+  // Ini tetap berjalan jika komponen dipanggil tanpa props <AdminBreadcrumbs />
   
   // Split path into segments and remove empty strings
   const segments = pathname.split("/").filter(Boolean)
@@ -26,6 +65,7 @@ export function AdminBreadcrumbs() {
     finance: "Finance",
     messages: "Messages",
     settings: "Settings",
+    analytics: "Analytics", // Tambahkan analytics agar rapi jika mode auto dipakai
   }
 
   return (
