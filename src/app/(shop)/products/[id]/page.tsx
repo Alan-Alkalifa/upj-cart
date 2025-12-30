@@ -336,7 +336,7 @@ function MerchantCard({
           <h4 className="font-bold text-base truncate flex items-center gap-2">
             {organization.name}
             <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-blue-50 text-blue-700 border-blue-200 shrink-0">
-              Verified
+              Official Store
             </Badge>
           </h4>
           <p className="text-sm text-muted-foreground truncate mt-1">
