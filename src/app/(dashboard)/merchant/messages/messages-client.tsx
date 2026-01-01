@@ -11,7 +11,7 @@ import { getMyChatRooms } from "@/app/actions/chat-list";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/client";
 import { SupportChatButton } from "@/components/dashboard/support-chat-button"; 
-import { ActiveChatWindow } from "./active-chat-window"; 
+import { ActiveChatWindow } from "@/components/chat/active-chat-window"; 
 import { SidebarBadge } from "@/components/dashboard/sidebar-badge";
 
 export type ChatRoom = {
@@ -66,8 +66,7 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
   // 3. Initial Load
   useEffect(() => { fetchRooms(); }, [searchParams]);
 
-  // 4. [NEW] Refresh List on Room Change
-  // This ensures the list hits the server again when you enter OR leave a chat
+  // 4. Refresh List on Room Change
   useEffect(() => {
     fetchRooms();
   }, [selectedRoom]);
@@ -79,32 +78,12 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
     const channelName = `merchant_messages_list_${currentUserId}`;
 
     const channel = supabase.channel(channelName)
-      // A. Message Changes (New/Read)
-      .on(
-        'postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'chat_messages' 
-        }, 
-        () => {
-          console.log("Realtime: Message changed, refreshing...");
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_messages' }, () => {
           fetchRooms();
-        }
-      )
-      // B. Room Changes (Sorting)
-      .on(
-        'postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'chat_rooms' 
-        }, 
-        () => {
-          console.log("Realtime: Room updated, refreshing...");
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_rooms' }, () => {
           fetchRooms();
-        }
-      )
+      })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -115,10 +94,14 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
   );
 
   return (
-    <div className="flex flex-1 h-full overflow-hidden bg-background md:rounded-xl md:border md:shadow-sm">
+    <div className="flex flex-1 h-full w-full max-w-full overflow-hidden bg-background">
       
       {/* --- LEFT PANEL: CHAT LIST --- */}
-      <div className={cn("w-full md:w-[320px] lg:w-[380px] flex flex-col border-r bg-muted/10 h-full", selectedRoom ? "hidden md:flex" : "flex")}>
+      <div className={cn(
+        "flex-col border-r bg-muted/10 h-full",
+        "w-full md:w-[320px] lg:w-[380px]", 
+        selectedRoom ? "hidden md:flex" : "flex"
+      )}>
         
         {/* Header */}
         <div className="p-4 border-b space-y-3 shrink-0 bg-background/50 backdrop-blur-sm z-10">
@@ -146,8 +129,8 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
         </div>
 
         {/* Room List */}
-        <div className="flex-1 min-h-0">
-          <ScrollArea className="h-full">
+        <div className="flex-1 min-h-0 w-full">
+          <ScrollArea className="h-full w-full">
             {loading ? (
                <div className="p-4 space-y-4">
                  {[1,2,3].map(i => <div key={i} className="h-16 bg-muted animate-pulse rounded-xl" />)}
@@ -164,7 +147,7 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
                     key={room.id}
                     onClick={() => setSelectedRoom(room)}
                     className={cn(
-                      "flex items-start gap-3 p-4 text-left hover:bg-muted/50 transition-all border-b border-border/40 last:border-0",
+                      "flex items-start gap-3 p-4 text-left hover:bg-muted/50 transition-all border-b border-border/40 last:border-0 w-full",
                       selectedRoom?.id === room.id && "bg-primary/5 border-l-4 border-l-primary pl-3"
                     )}
                   >
@@ -175,8 +158,10 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
                     
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-baseline mb-1">
-                        <span className="font-semibold truncate text-sm">{room.otherPartyName}</span>
-                        <span className="text-[10px] text-muted-foreground shrink-0">
+                        <span className="font-semibold truncate text-sm block max-w-[150px] sm:max-w-none">
+                          {room.otherPartyName}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground shrink-0 ml-2">
                            {new Date(room.updatedAt).toLocaleDateString([], {month:'short', day:'numeric'}) === new Date().toLocaleDateString([], {month:'short', day:'numeric'})
                               ? new Date(room.updatedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
                               : new Date(room.updatedAt).toLocaleDateString([], {month:'short', day:'numeric'})}
@@ -207,7 +192,11 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
       </div>
 
       {/* --- RIGHT PANEL: ACTIVE CHAT --- */}
-      <div className={cn("flex-1 flex flex-col bg-background h-full min-w-0", !selectedRoom ? "hidden md:flex" : "flex")}>
+      <div className={cn(
+        "flex-col bg-background h-full min-w-0",
+        "flex-1", 
+        !selectedRoom ? "hidden md:flex" : "flex"
+      )}>
         {selectedRoom ? (
           <ActiveChatWindow 
             room={selectedRoom} 

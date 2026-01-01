@@ -1,7 +1,6 @@
-//
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Search, MessageCircle, Store } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -12,7 +11,7 @@ import { getMyChatRooms } from "@/app/actions/chat-list";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/client";
 import { SupportChatButton } from "@/components/dashboard/support-chat-button"; 
-import { ActiveChatWindow } from "./active-chat-window"; 
+import { ActiveChatWindow } from "@/components/chat/active-chat-window"; 
 import { SidebarBadge } from "@/components/dashboard/sidebar-badge";
 
 export type ChatRoom = {
@@ -32,13 +31,7 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
   const [orgId, setOrgId] = useState<string | null>(null);
 
   const searchParams = useSearchParams();
-  
-  // [FIX 1] Gunakan useState untuk inisialisasi client HANYA SEKALI
-  // Ini mencegah objek supabase berubah-ubah setiap render yang memicu re-subscribe
-  const [supabase] = useState(() => createClient());
-
-  // Ref untuk melacak apakah ini mount pertama
-  const isInitialMount = useRef(true);
+  const supabase = createClient();
 
   // 1. Fetch Org ID
   useEffect(() => {
@@ -51,87 +44,64 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
       if (data) setOrgId(data.org_id);
     };
     fetchOrg();
-  }, [currentUserId, supabase]);
+  }, [currentUserId]);
 
-  // 2. Fetch Rooms Stabil
-  const fetchRooms = useCallback(async () => {
-    const { rooms: fetchedRooms, error } = await getMyChatRooms();
+  // 2. Fetch Rooms Function
+  const fetchRooms = async () => {
+    const { rooms, error } = await getMyChatRooms();
     if (error) {
       console.error("Error fetching rooms:", error);
     } else {
-      setRooms(fetchedRooms || []);
+      setRooms(rooms || []);
+      // Handle URL param selection
+      const paramId = searchParams.get('id');
+      if (paramId && rooms && !selectedRoom) {
+        const targetRoom = rooms.find(r => r.id === paramId);
+        if (targetRoom) setSelectedRoom(targetRoom);
+      }
     }
     setLoading(false);
-    return fetchedRooms || [];
-  }, []); 
+  };
 
-  // 3. Initial Load & Logic URL Param
+  // 3. Initial Load
+  useEffect(() => { fetchRooms(); }, [searchParams]);
+
+  // 4. Refresh List on Room Change
   useEffect(() => {
-    const init = async () => {
-      const fetchedRooms = await fetchRooms();
-      
-      if (isInitialMount.current) {
-        const paramId = searchParams.get('id');
-        if (paramId && fetchedRooms.length > 0) {
-          const target = fetchedRooms.find(r => r.id === paramId);
-          if (target) setSelectedRoom(target);
-        }
-        isInitialMount.current = false;
-      }
-    };
-    init();
-  }, [fetchRooms, searchParams]);
+    fetchRooms();
+  }, [selectedRoom]);
 
-  // 4. Refresh saat ganti Selected Room (agar unread count hilang di list)
-  useEffect(() => {
-    if (!loading && rooms.length > 0) {
-      fetchRooms();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedRoom?.id]); 
-
-  // 5. REALTIME LISTENER (FIXED)
+  // 5. REALTIME LISTENER
   useEffect(() => {
     if (!currentUserId) return;
 
-    // Nama channel statis agar tidak membuat channel baru terus menerus
-    const channel = supabase.channel('merchant_global_chat_list')
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Dengarkan SEMUA event (INSERT/UPDATE/DELETE)
-          schema: 'public',
-          table: 'chat_messages' 
-        },
-        () => {
-          console.log("🔔 Realtime: List Pesan Diperbarui!");
-          // Panggil fetchRooms untuk refresh data list
-          fetchRooms();
-        }
-      )
-      .subscribe((status) => {
-         if (status === 'SUBSCRIBED') {
-            console.log("✅ Chat List Connected to Realtime");
-         }
-      });
+    const channelName = `merchant_messages_list_${currentUserId}`;
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-    // [FIX 2] HAPUS 'supabase' dari dependency array atau gunakan state supabase yang stabil.
-    // Karena kita sudah pakai useState(() => createClient()) di atas, 'supabase' sekarang stabil.
-    // 'fetchRooms' juga sudah di-wrap useCallback dengan deps kosong.
-  }, [currentUserId, fetchRooms, supabase]);
+    const channel = supabase.channel(channelName)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_messages' }, () => {
+          fetchRooms();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_rooms' }, () => {
+          fetchRooms();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [currentUserId]);
 
   const filteredRooms = rooms.filter(r => 
     r.otherPartyName.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
-    <div className="flex flex-1 h-full overflow-hidden bg-background md:rounded-xl md:border md:shadow-sm">
+    <div className="flex flex-1 h-full w-full max-w-full overflow-hidden bg-background">
       
-      {/* --- LEFT PANEL --- */}
-      <div className={cn("w-full md:w-[320px] lg:w-[380px] flex flex-col border-r bg-muted/10 h-full", selectedRoom ? "hidden md:flex" : "flex")}>
+      {/* --- LEFT PANEL: CHAT LIST --- */}
+      <div className={cn(
+        "flex-col border-r bg-muted/10 h-full",
+        "w-full md:w-[320px] lg:w-[380px]", 
+        selectedRoom ? "hidden md:flex" : "flex"
+      )}>
         
         {/* Header */}
         <div className="p-4 border-b space-y-3 shrink-0 bg-background/50 backdrop-blur-sm z-10">
@@ -142,8 +112,6 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
                 {rooms.length}
               </span>
             </h1>
-            
-            {/* SidebarBadge untuk indikator global */}
             {orgId && <SidebarBadge role="merchant" orgId={orgId} />}
           </div>
 
@@ -161,8 +129,8 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
         </div>
 
         {/* Room List */}
-        <div className="flex-1 min-h-0">
-          <ScrollArea className="h-full">
+        <div className="flex-1 min-h-0 w-full">
+          <ScrollArea className="h-full w-full">
             {loading ? (
                <div className="p-4 space-y-4">
                  {[1,2,3].map(i => <div key={i} className="h-16 bg-muted animate-pulse rounded-xl" />)}
@@ -179,7 +147,7 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
                     key={room.id}
                     onClick={() => setSelectedRoom(room)}
                     className={cn(
-                      "flex items-start gap-3 p-4 text-left hover:bg-muted/50 transition-all border-b border-border/40 last:border-0",
+                      "flex items-start gap-3 p-4 text-left hover:bg-muted/50 transition-all border-b border-border/40 last:border-0 w-full",
                       selectedRoom?.id === room.id && "bg-primary/5 border-l-4 border-l-primary pl-3"
                     )}
                   >
@@ -190,8 +158,10 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
                     
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-baseline mb-1">
-                        <span className="font-semibold truncate text-sm">{room.otherPartyName}</span>
-                        <span className="text-[10px] text-muted-foreground shrink-0">
+                        <span className="font-semibold truncate text-sm block max-w-[150px] sm:max-w-none">
+                          {room.otherPartyName}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground shrink-0 ml-2">
                            {new Date(room.updatedAt).toLocaleDateString([], {month:'short', day:'numeric'}) === new Date().toLocaleDateString([], {month:'short', day:'numeric'})
                               ? new Date(room.updatedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
                               : new Date(room.updatedAt).toLocaleDateString([], {month:'short', day:'numeric'})}
@@ -203,9 +173,7 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
                           "text-xs truncate flex-1",
                           room.unreadCount > 0 ? "font-semibold text-foreground" : "text-muted-foreground"
                         )}>
-                          {room.lastMessage.startsWith("[Produk:") 
-                            ? "Sent a product..." 
-                            : room.lastMessage}
+                          {room.lastMessage}
                         </p>
                         
                         {room.unreadCount > 0 && (
@@ -223,8 +191,12 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
         </div>
       </div>
 
-      {/* --- RIGHT PANEL --- */}
-      <div className={cn("flex-1 flex flex-col bg-background h-full min-w-0", !selectedRoom ? "hidden md:flex" : "flex")}>
+      {/* --- RIGHT PANEL: ACTIVE CHAT --- */}
+      <div className={cn(
+        "flex-col bg-background h-full min-w-0",
+        "flex-1", 
+        !selectedRoom ? "hidden md:flex" : "flex"
+      )}>
         {selectedRoom ? (
           <ActiveChatWindow 
             room={selectedRoom} 

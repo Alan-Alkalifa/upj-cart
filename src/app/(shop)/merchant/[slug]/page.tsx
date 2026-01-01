@@ -274,26 +274,6 @@ export default async function MerchantPage(props: {
                 
                 {/* ACTION BUTTONS */}
                 <div className="flex gap-3 w-full md:w-auto shrink-0 mt-2 pt-4 md:mt-0">
-                  {user ? (
-                    <FloatingChat
-                      currentUserId={user.id}
-                      orgId={merchant.id}
-                      storeName={merchant.name}
-                      storeAvatar={merchant.logo_url}
-                      customTrigger={
-                        <Button variant="outline" className="flex-1 md:flex-none gap-2 font-semibold shadow-sm">
-                          <MessageCircle className="h-4 w-4" /> Chat
-                        </Button>
-                      }
-                    />
-                  ) : (
-                    <Button variant="outline" className="flex-1 md:flex-none gap-2 font-semibold shadow-sm" asChild>
-                      <Link href={`/login?next=/shop/${slug}`}>
-                         <MessageCircle className="h-4 w-4" /> Chat
-                      </Link>
-                    </Button>
-                  )}
-
                   <ShareButton 
                     variant="default" 
                     size="default" 

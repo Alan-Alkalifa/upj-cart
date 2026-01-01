@@ -9,8 +9,7 @@ export default async function AdminMessagesPage() {
   if (!user) redirect("/login");
 
   return (
-    // Fixed height container for consistent scrolling layout
-    <div className="h-[calc(100vh-4rem)] md:h-[calc(100vh-2rem)] flex flex-col">
+    <div className="w-full h-[calc(100dvh-5rem)] md:h-[calc(100vh-2rem)] flex flex-col">
        <MerchantMessagesClient currentUserId={user.id} />
     </div>
   );
