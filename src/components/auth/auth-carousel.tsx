@@ -84,7 +84,7 @@ export function AuthCarousel() {
 
                 <div className="absolute bottom-0 left-0 right-0 p-12 z-20">
                   <div className="max-w-xl space-y-4">
-                    <h2 className="text-3xl md:text-4xl font-bold tracking-tight drop-shadow-md text-white">
+                    <h2 className="text-3xl md:text-4xl font-bold tracking-tight drop-shadow-md text-primary">
                       {banner.title}
                     </h2>
                     <p className="text-lg text-white/90 leading-relaxed font-medium">

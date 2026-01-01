@@ -5,7 +5,6 @@ import { Toaster } from "@/components/ui/sonner";
 import { getPlatformSettings } from "@/utils/get-settings";
 import { createClient } from "@/utils/supabase/server";
 import { Wrench, Mail } from "lucide-react";
-import { FloatingChat } from "@/components/chat/floating-chat";
 import { CookieConsent } from "@/components/ui/cookie-consent";
 import { GoogleAnalyticsConsent } from "@/components/analytics/google-analytics-consent";
 
@@ -124,10 +123,9 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
-        <Toaster />
+        <Toaster richColors />
         <CookieConsent />
         <GoogleAnalyticsConsent />
-        {user && <FloatingChat currentUserId={user.id} />}
       </body>
     </html>
   );

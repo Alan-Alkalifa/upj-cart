@@ -41,7 +41,6 @@ export async function proxy(request: NextRequest) {
   const authRoutes = [
     "/login",
     "/register",
-    "/merchant-register",
     "/forgot-password",
     "/update-password",
     "/verify-email-sign-up",
@@ -51,46 +50,66 @@ export async function proxy(request: NextRequest) {
   const adminRoutes = ["/admin"];
 
   const isAuthRoute = authRoutes.some((route) => path.startsWith(route));
-  const isProtectedRoute =
-    protectedRoutes.some((route) => path.startsWith(route)) &&
-    !path.startsWith("/merchant-register");
+  const isProtectedRoute = protectedRoutes.some(
+    (route) => path === route || path.startsWith(`${route}/`)
+  );
 
-  const isAdminRoute = adminRoutes.some((route) => path.startsWith(route));
+  const isAdminRoute = adminRoutes.some(
+    (route) => path === route || path.startsWith(`${route}/`)
+  );
 
   // 3. Logic: Jika User SUDAH Login
   if (user) {
     // Jika user mengakses halaman Auth, tendang ke dashboard/home
     if (isAuthRoute) {
-      // Ambil role user untuk redirect yang tepat
-      // (Kita gunakan try-catch agar error DB tidak memblokir akses)
       let targetUrl = "/";
       try {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .single();
+        // --- OPTIMASI 1: Cek Metadata Dulu ---
+        // Jika role sudah ada di metadata user (cookie), gunakan itu.
+        // Jika tidak, baru fetch ke database.
+        let role = user.user_metadata?.role;
+        let isMerchant = false; // Default false, cek DB jika perlu
 
-        const { data: member } = await supabase
-          .from("organization_members")
-          .select("id")
-          .eq("profile_id", user.id)
-          .maybeSingle();
+        // Jika role belum ada di metadata, fetch dari DB
+        if (!role) {
+          const [profileRes, memberRes] = await Promise.all([
+            supabase
+              .from("profiles")
+              .select("role")
+              .eq("id", user.id)
+              .single(),
+            supabase
+              .from("organization_members")
+              .select("id")
+              .eq("profile_id", user.id)
+              .maybeSingle(),
+          ]);
+          role = profileRes.data?.role;
+          isMerchant = !!memberRes.data;
+        } else {
+          // Jika role ada di metadata, kita mungkin masih perlu cek merchant status
+          // (Kecuali Anda juga menyimpan status merchant di metadata)
+          if (role !== "super_admin") {
+            const { data: member } = await supabase
+              .from("organization_members")
+              .select("id")
+              .eq("profile_id", user.id)
+              .maybeSingle();
+            isMerchant = !!member;
+          }
+        }
+        // -------------------------------------
 
-        if (profile?.role === "super_admin") targetUrl = "/admin";
-        else if (member) targetUrl = "/merchant";
+        if (role === "super_admin") targetUrl = "/admin";
+        else if (isMerchant) targetUrl = "/merchant";
       } catch (e) {
-        // Fallback jika gagal fetch role
         console.error("Proxy Role Check Error:", e);
       }
 
-      // PENTING: Gunakan URL object untuk redirect
       const redirectUrl = new URL(targetUrl, request.url);
-
-      // Copy cookies dari response awal ke response redirect agar session tidak hilang
       const redirectResponse = NextResponse.redirect(redirectUrl);
 
-      // Salin cookies (trik mengatasi bug refresh token hilang)
+      // Salin cookies agar session tidak hilang saat redirect
       const setCookieHeader = response.headers.get("set-cookie");
       if (setCookieHeader) {
         redirectResponse.headers.set("set-cookie", setCookieHeader);
@@ -101,12 +120,19 @@ export async function proxy(request: NextRequest) {
 
     // Proteksi Route Admin
     if (isAdminRoute) {
-      const { data: profile } = await supabase
+      // Optimasi: Cek metadata dulu
+      let role = user.user_metadata?.role;
+      
+      if (!role) {
+         const { data: profile } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", user.id)
         .single();
-      if (profile?.role !== "super_admin") {
+        role = profile?.role;
+      }
+
+      if (role !== "super_admin") {
         return NextResponse.redirect(new URL("/", request.url));
       }
     }
@@ -116,12 +142,11 @@ export async function proxy(request: NextRequest) {
   if (!user) {
     if (isProtectedRoute) {
       const redirectUrl = new URL("/login", request.url);
-      // redirectUrl.searchParams.set("next", path); // Opsional
       return NextResponse.redirect(redirectUrl);
     }
   }
 
-  // 5. Cek Cookie Khusus (Verify Email) - Tetap gunakan logic Anda sebelumnya
+  // 5. Cek Cookie Khusus (Verify Email)
   if (
     path === "/verify-email-sign-up" &&
     !request.cookies.has("pending_verification_signup")

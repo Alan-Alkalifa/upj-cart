@@ -12,7 +12,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         <AuthCarousel />
         
         <div className="absolute top-10 right-10 z-30">
-          <Link href="/" className="flex items-center gap-2 group text-white">
+          <Link href="/" className="flex items-center gap-2 group text-primary">
             <div className="bg-primary text-primary-foreground p-2 rounded-lg shadow-lg group-hover:bg-primary/90 transition-colors">
               <Store className="h-6 w-6" />
             </div>

@@ -14,7 +14,6 @@ import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton" // Import Skeleton
 
 import { createClient } from "@/utils/supabase/client"
-import { FloatingChat } from "@/components/chat/floating-chat"
 import { ShareButton } from "@/components/shop/share-button"
 
 interface SearchPreviewCardProps {
@@ -142,31 +141,6 @@ export function SearchPreviewCard({ type, data }: SearchPreviewCardProps) {
 
             {/* Action Buttons */}
             <div className="w-full lg:w-auto mt-2 lg:mt-3 shrink-0 flex flex-wrap justify-start lg:justify-end gap-2">
-               
-               {/* Logic Chat Button */}
-               {showChatButton && !loadingAuth && (
-                 currentUser ? (
-                   <FloatingChat 
-                     currentUserId={currentUser.id}
-                     orgId={data.id}
-                     storeName={data.name}
-                     storeAvatar={data.logo_url}
-                     customTrigger={
-                       <Button variant="outline" size="sm" className=" h-9 px-4 gap-2">
-                         <MessageCircle className="h-4 w-4" /> 
-                         <span className="hidden sm:inline">Chat</span>
-                       </Button>
-                     }
-                   />
-                 ) : (
-                   <Button variant="outline" size="sm" className=" h-9 px-4 gap-2" asChild>
-                     <Link href={`/login?next=/search`}>
-                       <MessageCircle className="h-4 w-4" /> 
-                       <span className="hidden sm:inline">Chat</span>
-                     </Link>
-                   </Button>
-                 )
-               )}
 
                {/* Share Button */}
                <ShareButton url={shareUrl} title={data.name} />
@@ -282,28 +256,6 @@ export function SearchPreviewCard({ type, data }: SearchPreviewCardProps) {
                </Button>
                
                <div className="flex items-center gap-2">
-                 {showChatButton && !loadingAuth && (
-                   currentUser ? (
-                     <FloatingChat 
-                       currentUserId={currentUser.id}
-                       orgId={orgData.id}
-                       storeName={orgData.name}
-                       storeAvatar={orgData.logo_url}
-                       customTrigger={
-                         <Button variant="outline" size="icon" className=" h-9 w-9">
-                            <MessageCircle className="h-4 w-4" />
-                         </Button>
-                       }
-                     />
-                   ) : (
-                     <Button variant="outline" size="icon" className=" h-9 w-9" asChild>
-                       <Link href={`/login?next=/search`}>
-                          <MessageCircle className="h-4 w-4" />
-                       </Link>
-                     </Button>
-                   )
-                 )}
-
                  <ShareButton url={shareUrl} title={data.name} />
                </div>
              </div>

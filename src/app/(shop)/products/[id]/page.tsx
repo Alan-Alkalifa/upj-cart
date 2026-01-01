@@ -2,7 +2,6 @@ import { createClient } from "@/utils/supabase/server";
 import { notFound } from "next/navigation";
 import { ProductDetailClient } from "@/components/shop/product-detail-client";
 import { ProductImageCarousel } from "@/components/shop/product-image-carousel";
-import { FloatingChat } from "@/components/chat/floating-chat";
 import { ShareButton } from "@/components/shop/share-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
@@ -431,37 +430,6 @@ function MerchantCard({
       </div>
 
       <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 w-full sm:w-auto shrink-0 mt-2 sm:mt-0">
-        {!isRestricted &&
-          (currentUserId ? (
-            <FloatingChat
-              currentUserId={user.id}
-              orgId={product.org_id}
-              storeName={product.organizations.name}
-              storeAvatar={product.organizations.logo_url}
-              productId={product.id}
-              productName={product.name}
-              productImage={product.image_url}
-              productPrice={product.base_price}
-              customTrigger={
-                <Button variant="outline" className="flex-1 gap-2">
-                  <MessageCircle className="size-4" />
-                  Chat Penjual
-                </Button>
-              }
-            />
-          ) : (
-            <Button
-              variant="outline"
-              className="gap-2 font-medium w-full sm:w-auto"
-              asChild
-            >
-              <Link href={`/login?next=/products/${product.id}`}>
-                <MessageCircle className="size-4" />
-                Chat
-              </Link>
-            </Button>
-          ))}
-
         <Button
           variant="default"
           className="font-medium w-full sm:w-auto"

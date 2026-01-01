@@ -1,7 +1,6 @@
 import { createClient } from "@/utils/supabase/server"
 import { notFound } from "next/navigation"
 import { ProductCard } from "@/components/shop/product-card"
-import { FloatingChat } from "@/components/chat/floating-chat"
 import { ShareButton } from "@/components/shop/share-button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
