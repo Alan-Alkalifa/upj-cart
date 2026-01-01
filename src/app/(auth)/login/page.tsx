@@ -29,7 +29,6 @@ export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  // --- LOGIKA: DETEKSI TOKEN HASH ---
   useEffect(() => {
     const handleHashSession = async () => {
       const hash = window.location.hash;
@@ -40,7 +39,7 @@ export default function LoginPage() {
           const refreshToken = params.get("refresh_token");
 
           if (accessToken) {
-            const toastId = toast.loading("Memverifikasi sesi...");
+            const toastId = toast.loading("Verifying session...");
             const { error } = await supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken || "",
@@ -48,12 +47,12 @@ export default function LoginPage() {
 
             if (!error) {
               toast.dismiss(toastId);
-              toast.success("Login Berhasil!");
+              toast.success("Login Successful!");
               window.history.replaceState(null, "", window.location.pathname);
               router.push("/merchant"); 
               router.refresh();
             } else {
-              toast.error("Gagal memulihkan sesi.");
+              toast.error("Failed to verify session.");
             }
           }
         } catch (e) {
@@ -73,15 +72,15 @@ export default function LoginPage() {
     toast.promise(async () => {
       const res = await resendVerificationEmail(email);
       if (res?.error) throw new Error(res.error);
-      return "Berhasil dikirim!";
+      return "Successfully sent!";
     }, {
-      loading: "Mengirim email...",
-      success: "Link baru terkirim! Cek inbox/spam.",
-      error: (err) => `Gagal: ${err.message}`,
+      loading: "Sending email...",
+      success: "Successfully sent! Please check your inbox/spam.",
+      error: (err) => `Failed: ${err.message}`,
     });
   };
 
-function onSubmit(values: z.infer<typeof loginSchema>) {
+  function onSubmit(values: z.infer<typeof loginSchema>) {
     setUnverifiedEmail(null); 
     startTransition(async () => {
       const res = await login(values);
@@ -89,105 +88,101 @@ function onSubmit(values: z.infer<typeof loginSchema>) {
       if (res?.error) {
         if (res.code === "email_not_verified" || res.error.includes("not confirmed")) {
           setUnverifiedEmail(values.email);
-          toast.error("Akun Belum Aktif");
+          toast.error("Account Not Verified", { description: "Please verify your email before logging in." });
         } else {
-          toast.error("Gagal Masuk", { description: res.error });
+          toast.error("Login Failed", { description: res.error });
         }
       } 
-      // TAMBAHKAN BLOK INI:
       else if (res?.success) {
-        toast.success("Login Berhasil!"); // Munculkan toast
-        router.push(res.redirectUrl);     // Redirect manual di client
-        router.refresh();                 // Refresh untuk update state auth di layout
+        toast.success("Login Successful!");
+        router.push(res.redirectUrl);
+        router.refresh();
       }
     });
   }
 
   return (
-    // Update Layout: Hapus bg-muted/40 (sudah di layout parent), jaga centering
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Masuk</CardTitle>
-          <CardDescription>Akses akun belanja atau toko Anda.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              
-              {unverifiedEmail && (
-                <Alert variant="destructive" className="mb-4">
-                  <MailWarning className="h-4 w-4" />
-                  <AlertTitle>Email Belum Aktif</AlertTitle>
-                  <AlertDescription className="mt-2 space-y-2">
-                    <p className="text-xs">Akun ini belum diverifikasi.</p>
-                    <Button 
-                      size="sm" variant="outline" type="button"
-                      className="w-full bg-white text-destructive border-destructive hover:bg-destructive/10"
-                      onClick={() => onResendClick(unverifiedEmail)}
-                    >
-                      Kirim Ulang Link Verifikasi
-                    </Button>
-                  </AlertDescription>
-                </Alert>
+    <Card className="w-full border-0 shadow-none bg-transparent">
+      <CardHeader className="px-0 pt-0">
+        <CardTitle className="text-2xl font-bold">Login</CardTitle>
+        <CardDescription>Access your shopping or store account.</CardDescription>
+      </CardHeader>
+      <CardContent className="px-0">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            
+            {unverifiedEmail && (
+              <Alert variant="destructive" className="mb-4">
+                <MailWarning className="h-4 w-4" />
+                <AlertTitle>Email Not Verified</AlertTitle>
+                <AlertDescription className="mt-2 space-y-2">
+                  <p className="text-xs">This account has not been verified.</p>
+                  <Button 
+                    size="sm" variant="outline" type="button"
+                    className="w-full bg-white text-destructive border-destructive hover:bg-destructive/10"
+                    onClick={() => onResendClick(unverifiedEmail)}
+                  >
+                    Resend Verification Link
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl><Input placeholder="email@contoh.com" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
               )}
+            />
 
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl><Input placeholder="email@contoh.com" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <div className="flex items-center justify-between">
-                      <FormLabel>Password</FormLabel>
-                      <Link href="/forgot-password" className="text-xs text-primary hover:underline font-medium" tabIndex={-1}>
-                        Lupa Password?
-                      </Link>
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Password</FormLabel>
+                    <Link href="/forgot-password" className="text-xs text-primary hover:underline font-medium" tabIndex={-1}>
+                      Forgot Password?
+                    </Link>
+                  </div>
+                  <FormControl>
+                    <div className="relative">
+                      <Input 
+                        type={showPassword ? "text" : "password"} 
+                        placeholder="******" 
+                        className="pr-10"
+                        {...field} 
+                      />
+                      <Button
+                        type="button" variant="ghost" size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                        tabIndex={-1}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                      </Button>
                     </div>
-                    <FormControl>
-                      <div className="relative">
-                        <Input 
-                          type={showPassword ? "text" : "password"} 
-                          placeholder="******" 
-                          className="pr-10"
-                          {...field} 
-                        />
-                        <Button
-                          type="button" variant="ghost" size="sm"
-                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                          onClick={() => setShowPassword(!showPassword)}
-                          tabIndex={-1}
-                        >
-                          {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
-                        </Button>
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <Button type="submit" className="w-full" disabled={isPending}>
-                {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Masuk"}
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-        <CardFooter className="justify-center text-sm text-muted-foreground">
-          Belum punya akun? <Link href="/register" className="ml-1 text-primary hover:underline font-medium">Daftar</Link>
-        </CardFooter>
-      </Card>
-    </div>
+            <Button type="submit" className="w-full" disabled={isPending}>
+              {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Masuk"}
+            </Button>
+          </form>
+        </Form>
+      </CardContent>
+      <CardFooter className="justify-center px-0 pb-0 text-sm text-muted-foreground">
+        Don't have an account? <Link href="/register" className="ml-1 text-primary hover:underline font-medium">Register</Link>
+      </CardFooter>
+    </Card>
   );
 }

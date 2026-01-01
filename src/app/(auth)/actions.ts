@@ -30,7 +30,7 @@ export async function login(values: z.infer<typeof loginSchema>) {
   if (error) {
     if (error.message.includes("Email not confirmed")) {
       return {
-        error: "Email belum diverifikasi.",
+        error: "Email not verified.",
         code: "email_not_verified",
       };
     }
@@ -77,7 +77,7 @@ export async function signup(values: z.infer<typeof registerSchema>) {
     .maybeSingle();
 
   if (existingProfile) {
-    return { error: "Email sudah digunakan." };
+    return { error: "Email already used." };
   }
   // ---------------------------------------
 
@@ -94,7 +94,7 @@ export async function signup(values: z.infer<typeof registerSchema>) {
   if (error) {
     // Backup check jika Supabase mengembalikan error spesifik
     if (error.message.includes("User already registered")) {
-      return { error: "Email sudah digunakan." };
+      return { error: "Email already used." };
     }
     return { error: error.message };
   }
@@ -121,7 +121,25 @@ export async function registerMerchant(
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  if (session) return { error: "Anda sedang login. Logout terlebih dahulu." };
+  if (session) return { error: "You are already logged in. Please log out first." };
+
+  // --- LOGIKA BARU: CEK APAKAH SUDAH JADI BUYER? ---
+  const { data: existingUser } = await supabaseAdmin
+    .from("profiles")
+    .select("role")
+    .eq("email", values.email)
+    .maybeSingle();
+
+  if (existingUser) {
+    if (existingUser.role === "buyer") {
+      return { 
+        error: "Email already registered as a Buyer. Cannot register again as Merchant." 
+      };
+    } else {
+      return { error: "Email already used." };
+    }
+  }
+  // ------------------------------------------------
 
   // 1. Cek Ketersediaan Slug Toko
   const { data: existingSlug } = await supabaseAdmin
@@ -130,28 +148,27 @@ export async function registerMerchant(
     .eq("slug", values.storeSlug)
     .single();
 
-  if (existingSlug) return { error: "URL Toko sudah digunakan." };
+  if (existingSlug) return { error: "Merchant URL already used." };
 
   // 2. Create Auth User (Admin API)
-  // Admin API akan selalu throw error jika email duplikat, jadi aman tanpa manual check
   const { data: authData, error: authError } =
     await supabaseAdmin.auth.admin.createUser({
       email: values.email,
       password: values.password,
-      email_confirm: false, // User dibuat unverified
+      email_confirm: false, 
       user_metadata: { full_name: values.fullName },
     });
 
   if (authError) {
     if (authError.message.includes("User already registered")) {
-      return { error: "Email sudah digunakan." };
+      return { error: "Email already used." };
     }
     return { error: authError.message };
   }
 
-  if (!authData.user) return { error: "Gagal membuat user." };
+  if (!authData.user) return { error: "Failed to create user." };
 
-  // 3. RPC Transaction (Atomic: User + Org + Member)
+  // 3. RPC Transaction
   const { error: rpcError } = await supabaseAdmin.rpc(
     "register_merchant_transaction",
     {
@@ -165,22 +182,20 @@ export async function registerMerchant(
   );
 
   if (rpcError) {
-    // Rollback: Hapus user auth jika database gagal
     await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
     console.error("RPC Error:", rpcError);
-    return { error: "Gagal membuat toko. Masalah Database." };
+    return { error: "Failed to create store. Database issue." };
   }
 
   // --- KIRIM EMAIL (Resend) ---
   try {
-    // Generate Link Verifikasi
     const { data: linkData, error: linkError } =
       await supabaseAdmin.auth.admin.generateLink({
         type: "signup",
         email: values.email,
         password: values.password,
         options: {
-          redirectTo: "http://localhost:3000/merchant", // Redirect setelah klik email
+          redirectTo: "http://localhost:3000/merchant",
         },
       });
 
@@ -188,9 +203,7 @@ export async function registerMerchant(
 
     const verificationLink = linkData.properties.action_link;
 
-    // Kirim Email Kustom
     await resend.emails.send({
-      // FIXED: Menggunakan sender domain yang sudah diverifikasi (sesuai screenshot)
       from: "UPJ CART <hi@the-candils.com>",
       to: values.email,
       subject: "Verifikasi Email Toko Anda",
@@ -213,7 +226,6 @@ export async function registerMerchant(
     console.error("Email Error:", emailError);
   }
 
-  // Set Cookie akses sementara
   (await cookies()).set("pending_verification_signup", "true", {
     path: "/",
     httpOnly: true,
@@ -280,7 +292,7 @@ export async function forgotPassword(
       `,
     });
   } catch (emailError) {
-    return { error: "Gagal mengirim email reset." };
+    return { error: "Failed to send reset email." };
   }
 
   // Set Cookie akses sementara

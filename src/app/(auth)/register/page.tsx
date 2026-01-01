@@ -54,144 +54,141 @@ export default function RegisterPage() {
       
       if (result?.error) {
         const isEmailDuplicate = 
-          result.error.includes("User already registered") || 
-          result.error.includes("Email sudah digunakan");
+          result.error.includes("User already registered")
 
         if (isEmailDuplicate) {
           form.setError("email", { type: "manual", message: "Email ini sudah terdaftar." });
-          toast.warning("Email Sudah Terdaftar");
+          toast.warning("Email Already Registered", { description: "Please use a different email." });
         } else {
-          toast.error("Gagal Mendaftar", { description: result.error });
+          toast.error("Registration Failed", { description: result.error });
         }
       } else {
-        toast.success("Pendaftaran Berhasil!");
+        toast.success("Registration Successful!");
         router.push(`/verify-email-sign-up?email=${encodeURIComponent(values.email)}`);
       }
     });
   }
 
   return (
-    // Update: Hapus bg-muted/40, gunakan p-4
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-2xl">Daftar Akun</CardTitle>
-          <CardDescription>
-            Buat akun baru untuk mulai berbelanja di UPJCART.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="fullName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nama Lengkap</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Budi Santoso" disabled={isPending} {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input placeholder="nama@contoh.com" type="email" disabled={isPending} {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              {/* PASSWORD */}
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Input
-                          placeholder="******"
-                          type={showPassword ? "text" : "password"}
-                          disabled={isPending}
-                          className="pr-10"
-                          {...field}
-                        />
-                        <Button
-                          type="button" variant="ghost" size="sm"
-                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                          onClick={() => setShowPassword(!showPassword)}
-                        >
-                          {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
-                        </Button>
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+    // UI UPDATED: Hapus wrapper div, buat Card transparan dan tanpa border
+    <Card className="w-full border-0 shadow-none bg-transparent">
+      <CardHeader className="px-0 pt-0">
+        <CardTitle className="text-2xl font-bold">Register</CardTitle>
+        <CardDescription>
+          Create a new account to start shopping on UPJ MARKETPLACE.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="px-0">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="fullName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Full Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Budi Santoso" disabled={isPending} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input placeholder="nama@contoh.com" type="email" disabled={isPending} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            {/* PASSWORD */}
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Input
+                        placeholder="******"
+                        type={showPassword ? "text" : "password"}
+                        disabled={isPending}
+                        className="pr-10"
+                        {...field}
+                      />
+                      <Button
+                        type="button" variant="ghost" size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                      </Button>
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              {/* CONFIRM PASSWORD */}
-              <FormField
-                control={form.control}
-                name="confirmPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Konfirmasi Password</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Input
-                          placeholder="******"
-                          type={showConfirmPassword ? "text" : "password"}
-                          disabled={isPending}
-                          className="pr-10"
-                          {...field}
-                        />
-                        <Button
-                          type="button" variant="ghost" size="sm"
-                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        >
-                          {showConfirmPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
-                        </Button>
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            {/* CONFIRM PASSWORD */}
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Confirm Password</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Input
+                        placeholder="******"
+                        type={showConfirmPassword ? "text" : "password"}
+                        disabled={isPending}
+                        className="pr-10"
+                        {...field}
+                      />
+                      <Button
+                        type="button" variant="ghost" size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                      </Button>
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <Button type="submit" className="w-full" disabled={isPending}>
-                {isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Mendaftarkan...
-                  </>
-                ) : (
-                  "Daftar Sekarang"
-                )}
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-        <CardFooter className="justify-center">
-          <p className="text-sm text-muted-foreground">
-            Sudah punya akun?{" "}
-            <Link href="/login" className="text-primary hover:underline font-medium">
-              Masuk disini
-            </Link>
-          </p>
-        </CardFooter>
-      </Card>
-    </div>
+            <Button type="submit" className="w-full" disabled={isPending}>
+              {isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Registering...
+                </>
+              ) : (
+                "Register Now"
+              )}
+            </Button>
+          </form>
+        </Form>
+      </CardContent>
+      <CardFooter className="justify-center px-0 pb-0">
+        <p className="text-sm text-muted-foreground">
+          Already have an account?{" "}
+          <Link href="/login" className="text-primary hover:underline font-medium">
+            Login here
+          </Link>
+        </p>
+      </CardFooter>
+    </Card>
   );
 }

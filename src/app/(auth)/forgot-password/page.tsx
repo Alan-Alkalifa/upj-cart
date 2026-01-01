@@ -31,54 +31,52 @@ export default function ForgotPasswordPage() {
       if (res?.error) {
         toast.error(res.error);
       } else {
-        toast.success("Link reset dikirim!");
+        toast.success("Reset link sent!");
         router.push("/verify-email-reset-password");
       }
     });
   }
 
   return (
-    // Update: Konsisten p-4 tanpa bg
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Lupa Password?</CardTitle>
-          <CardDescription>Masukkan email Anda untuk menerima link reset.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="email@contoh.com" className="pl-9" {...field} />
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" className="w-full" disabled={isPending}>
-                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Kirim Link Reset
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-        <CardFooter className="justify-center border-t pt-4 mt-2">
-          <Button variant="link" asChild className="text-muted-foreground h-auto p-0">
-            <Link href="/login" className="flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4" /> Kembali ke Login
-            </Link>
-          </Button>
-        </CardFooter>
-      </Card>
-    </div>
+    // UI UPDATED: Removed outer wrapper & simplified Card style
+    <Card className="w-full border-0 shadow-none bg-transparent">
+      <CardHeader className="px-0">
+        <CardTitle className="text-2xl font-bold">Forgot Password?</CardTitle>
+        <CardDescription>Enter your email to receive a reset link.</CardDescription>
+      </CardHeader>
+      <CardContent className="px-0">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input placeholder="email@contoh.com" className="pl-9" {...field} />
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button type="submit" className="w-full" disabled={isPending}>
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Send Reset Link
+            </Button>
+          </form>
+        </Form>
+      </CardContent>
+      <CardFooter className="justify-center px-0 pb-0">
+        <Button variant="link" asChild className="text-muted-foreground h-auto p-0">
+          <Link href="/login" className="flex items-center gap-2 hover:text-primary transition-colors">
+            <ArrowLeft className="h-4 w-4" /> Login here
+          </Link>
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }

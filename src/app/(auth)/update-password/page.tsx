@@ -56,7 +56,7 @@ export default function UpdatePasswordPage() {
       if (session) {
         setIsSessionReady(true);
       } else {
-        setError("Link tidak valid atau kadaluarsa.");
+        setError("Link not valid or expired.");
       }
     };
     handleSession();
@@ -73,114 +73,106 @@ export default function UpdatePasswordPage() {
       if (res?.error) {
         toast.error(res.error);
       } else {
-        toast.success("Password berhasil diperbarui!");
+        toast.success("Password successfully updated!");
         await supabase.auth.signOut(); 
         router.push("/login");
       }
     });
   }
 
-  // Layout Konsisten: Gunakan p-4 tanpa bg
-  const wrapperClass = "flex min-h-screen items-center justify-center p-4";
+  // --- UI UPDATES: Menghapus wrapper, gunakan Card transparan ---
 
   if (!isSessionReady && !error) {
     return (
-      <div className={wrapperClass}>
-        <Card className="w-full max-w-sm text-center py-10">
-          <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary mb-4" />
-          <h3 className="font-semibold text-lg">Memverifikasi Link...</h3>
-        </Card>
-      </div>
+      <Card className="w-full border-0 shadow-none bg-transparent text-center py-10">
+        <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary mb-4" />
+        <h3 className="font-semibold text-lg">Verifying Link...</h3>
+      </Card>
     );
   }
 
   if (error) {
     return (
-      <div className={wrapperClass}>
-        <Alert variant="destructive" className="max-w-sm bg-white shadow-lg">
-          <Ban className="h-4 w-4" />
-          <AlertTitle>Tidak Dapat Diakses</AlertTitle>
-          <AlertDescription className="mt-2 flex flex-col gap-4">
-            <p className="text-sm text-muted-foreground">Halaman ini hanya dapat diakses melalui link dari email.</p>
-            <Button variant="outline" onClick={() => router.push("/login")}>Kembali ke Login</Button>
-          </AlertDescription>
-        </Alert>
-      </div>
+      <Alert variant="destructive" className="w-full max-w-sm bg-white shadow-lg">
+        <AlertTitle>Cannot Access</AlertTitle>
+        <AlertDescription className="mt-2 flex flex-col gap-4">
+          <p className="text-sm text-muted-foreground">This page can only be accessed via a link from your email.</p>
+          <Button variant="default" onClick={() => router.push("/login")}>Back to Login</Button>
+        </AlertDescription>
+      </Alert>
     );
   }
 
   return (
-    <div className={wrapperClass}>
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Password Baru</CardTitle>
-          <CardDescription>Silakan buat password baru Anda.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password Baru</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Input 
-                          type={showPassword ? "text" : "password"} 
-                          placeholder="******" 
-                          className="pr-10"
-                          {...field} 
-                        />
-                        <Button
-                          type="button" variant="ghost" size="sm"
-                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                          onClick={() => setShowPassword(!showPassword)}
-                        >
-                          {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
-                        </Button>
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="confirmPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Konfirmasi Password</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Input 
-                          type={showConfirmPassword ? "text" : "password"} 
-                          placeholder="******" 
-                          className="pr-10"
-                          {...field} 
-                        />
-                        <Button
-                          type="button" variant="ghost" size="sm"
-                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        >
-                          {showConfirmPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
-                        </Button>
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" className="w-full" disabled={isPending}>
-                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Simpan Password
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
-    </div>
+    <Card className="w-full border-0 shadow-none bg-transparent">
+      <CardHeader className="px-0 pt-0">
+        <CardTitle className="text-2xl font-bold">New Password</CardTitle>
+        <CardDescription>Please create a new password for your account.</CardDescription>
+      </CardHeader>
+      <CardContent className="px-0">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>New Password</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Input 
+                        type={showPassword ? "text" : "password"} 
+                        placeholder="******" 
+                        className="pr-10"
+                        {...field} 
+                      />
+                      <Button
+                        type="button" variant="ghost" size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                      </Button>
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Confirm Password</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Input 
+                        type={showConfirmPassword ? "text" : "password"} 
+                        placeholder="******" 
+                        className="pr-10"
+                        {...field} 
+                      />
+                      <Button
+                        type="button" variant="ghost" size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                      </Button>
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button type="submit" className="w-full" disabled={isPending}>
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Password
+            </Button>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
   );
 }
