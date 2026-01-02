@@ -36,17 +36,17 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
   // LOGIKA: Sembunyikan search bar navbar jika:
   // 1. User adalah Super Admin (sesuai request sebelumnya)
   // 2. Sedang di halaman /search (karena sudah ada search bar di page)
-  // 3. Sedang di halaman /shop/... (karena kita akan pakai search lokal toko)
-  const isSearchHidden = isSuperAdmin || pathname === '/search' || pathname?.startsWith('/shop/')
+  // 3. Sedang di halaman /merchant/... (karena kita akan pakai search lokal toko)
+  const isSearchHidden = isSuperAdmin || pathname === '/search' || pathname?.startsWith('/merchant/')
 
   const handleLogout = async () => {
     const supabase = createClient()
     const { error } = await supabase.auth.signOut()
 
     if (error) {
-      toast.error("Gagal keluar: " + error.message)
+      toast.error("Failed to logout: " + error.message)
     } else {
-      toast.success("Berhasil Logout!")
+      toast.success("Successfully logged out!")
       window.location.href = "/login"
     }
   }
@@ -134,12 +134,12 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
                   <>
                     <DropdownMenuItem asChild>
                       <Link href="/profile" className="cursor-pointer">
-                        <User className="mr-2 h-4 w-4" /> Akun Saya
+                        <User className="mr-2 h-4 w-4" /> Profile
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/orders" className="cursor-pointer">
-                        <Package className="mr-2 h-4 w-4" /> Pesanan Saya
+                        <Package className="mr-2 h-4 w-4" /> Orders
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
@@ -162,17 +162,17 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
                 )}
 
                 <DropdownMenuItem onClick={handleLogout} className="text-red-600 cursor-pointer focus:text-red-600 focus:bg-red-50">
-                  <LogOut className="mr-2 h-4 w-4" /> Keluar
+                  <LogOut className="mr-2 h-4 w-4" /> Logout
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
             <div className="flex items-center gap-2 ml-2">
               <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
-                <Link href="/register">Daftar</Link>
+                <Link href="/register">Register</Link>
               </Button>
               <Button asChild size="sm">
-                <Link href="/login">Masuk</Link>
+                <Link href="/login">Login</Link>
               </Button>
             </div>
           )}

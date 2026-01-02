@@ -2,7 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { MerchantMessagesClient } from "./messages-client";
 import { redirect } from "next/navigation";
 
-export default async function AdminMessagesPage() {
+export default async function MerchantMessagesPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
