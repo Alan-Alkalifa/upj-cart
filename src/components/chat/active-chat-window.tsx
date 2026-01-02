@@ -26,11 +26,11 @@ interface ActiveChatWindowProps {
   onMessageSent: () => void;
 }
 
-export function ActiveChatWindow({ 
-  room, 
-  currentUserId, 
+export function ActiveChatWindow({
+  room,
+  currentUserId,
   onBack,
-  onMessageSent 
+  onMessageSent,
 }: ActiveChatWindowProps) {
   const { messages, send } = useChat(room.id, currentUserId);
   const [input, setInput] = useState("");
@@ -52,7 +52,7 @@ export function ActiveChatWindow({
     if (!input.trim()) return;
     await send(input);
     setInput("");
-    onMessageSent(); 
+    onMessageSent();
   };
 
   return (
@@ -61,60 +61,83 @@ export function ActiveChatWindow({
       <div className="h-16 border-b flex items-center px-4 justify-between bg-background/95 backdrop-blur z-20 shrink-0">
         <div className="flex items-center gap-3 overflow-hidden">
           {/* Back Button (Mobile Only) */}
-          <Button variant="ghost" size="icon" className="-ml-2 shrink-0" onClick={onBack}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="-ml-2 shrink-0"
+            onClick={onBack}
+          >
             <ArrowLeft className="size-5" />
           </Button>
-          
+
           <Avatar className="h-9 w-9 border shrink-0">
             <AvatarImage src={room.otherPartyImage || undefined} />
             <AvatarFallback>{room.otherPartyName[0]}</AvatarFallback>
           </Avatar>
-          
+
           <div className="min-w-0">
-            <h3 className="font-semibold text-sm truncate">{room.otherPartyName}</h3>
+            <h3 className="font-semibold text-sm truncate">
+              {room.otherPartyName}
+            </h3>
           </div>
         </div>
       </div>
 
-      {/* --- MESSAGES AREA --- */}
-      {/* Added overflow-x-hidden to prevent side scrolling artifacts */}
-      <div className="flex-1 min-h-0 bg-muted/5 relative overflow-x-hidden">
+      <div className="flex-1 min-h-0 bg-muted/5 relative overflow-x-hidden w-full">
         <ScrollArea className="h-full w-full p-4">
-          <div className="flex flex-col gap-4 max-w-full mx-auto min-h-full justify-end pb-2">
+          {/* UPDATED: 
+      1. Changed 'max-w-full' to 'w-full' to force full width.
+      2. Removed 'mx-auto' so it doesn't try to center itself if width is constricted.
+    */}
+          <div className="flex flex-col gap-4 w-full min-h-full justify-end pb-2">
             {messages.map((msg) => {
               const isMe = msg.sender_id === currentUserId;
-              
+
               return (
-                <div 
-                  key={msg.id} 
-                  className={cn("flex w-full", isMe ? "justify-end" : "justify-start")}
+                <div
+                  key={msg.id}
+                  className={cn(
+                    "flex w-full",
+                    isMe ? "justify-end" : "justify-start"
+                  )}
                 >
-                   <div
+                  <div
                     className={cn(
+                      // Note: The bubbles themselves are still restricted to 85% (mobile) / 70% (desktop)
+                      // for readability. If you want the BUBBLES to also be full screen,
+                      // remove 'max-w-[85%] md:max-w-[70%]' below.
                       "relative max-w-[85%] md:max-w-[70%] px-4 py-2 text-sm shadow-sm flex flex-col gap-1",
-                      isMe 
-                        ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm" 
+                      isMe
+                        ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm"
                         : "bg-white dark:bg-card text-foreground border rounded-2xl rounded-tl-sm"
                     )}
                   >
-                    {/* Added break-words to ensure long text wraps within the bubble */}
-                    <p className="leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
-                    
+                    <p className="leading-relaxed whitespace-pre-wrap break-words">
+                      {msg.content}
+                    </p>
+
                     {/* Time & Read Status */}
-                    <div className={cn(
-                      "flex items-center gap-1.5 text-[9px]",
-                      isMe ? "justify-end text-primary-foreground/90" : "justify-end text-muted-foreground opacity-70"
-                    )}>
+                    <div
+                      className={cn(
+                        "flex items-center gap-1.5 text-[9px]",
+                        isMe
+                          ? "justify-end text-primary-foreground/90"
+                          : "justify-end text-muted-foreground opacity-70"
+                      )}
+                    >
                       <span>
-                        {new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        {new Date(msg.created_at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </span>
-                      
+
                       {isMe && (
                         <span title={msg.is_read ? "Read" : "Sent"}>
                           {msg.is_read ? (
                             <CheckCheck className="size-3.5 stroke-[2] text-blue-300" />
                           ) : (
-                            <Check className="size-3.5 stroke-[2] opacity-70" /> 
+                            <Check className="size-3.5 stroke-[2] opacity-70" />
                           )}
                         </span>
                       )}
@@ -132,15 +155,20 @@ export function ActiveChatWindow({
       {/* Added pb-6 for mobile safe area handling */}
       <div className="p-3 pb-6 md:pb-4 bg-background border-t shrink-0 z-20">
         <div className="max-w-3xl mx-auto flex gap-2">
-          <Input 
+          <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            onKeyDown={(e) => e.key === "Enter" && handleSend()}
             placeholder="Tulis pesan..."
             className="flex-1"
             autoComplete="off"
           />
-          <Button onClick={handleSend} disabled={!input.trim()} size="icon" className="shrink-0">
+          <Button
+            onClick={handleSend}
+            disabled={!input.trim()}
+            size="icon"
+            className="shrink-0"
+          >
             <Send className="size-4" />
           </Button>
         </div>

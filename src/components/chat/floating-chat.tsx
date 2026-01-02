@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { MessageCircle, Search, ArrowLeft } from "lucide-react";
+import { MessageCircle, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -44,10 +44,8 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
 
   const supabase = createClient();
 
-  // Calculate total unread count for the trigger button badge
   const totalUnread = rooms.reduce((acc, room) => acc + room.unreadCount, 0);
 
-  // 1. Fetch Org ID
   useEffect(() => {
     const fetchOrg = async () => {
       const { data } = await supabase
@@ -60,7 +58,6 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
     if (currentUserId) fetchOrg();
   }, [currentUserId, supabase]);
 
-  // 2. Fetch Rooms Logic (Memoized to be safe in dependency arrays)
   const fetchRooms = useCallback(async () => {
     const { rooms, error } = await getMyChatRooms();
     if (error) {
@@ -71,12 +68,9 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
     setLoading(false);
   }, []);
 
-  // 3. Initial Load & Realtime 
-  // UPDATED: Removed "!isOpen" check so it runs even when closed
   useEffect(() => {
     if (!currentUserId) return;
 
-    // Initial fetch to get badges immediately
     fetchRooms();
 
     const channelName = `global_messages_float_${currentUserId}`;
@@ -86,15 +80,14 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
         "postgres_changes",
         { event: "*", schema: "public", table: "chat_messages" },
         () => {
-            // Re-fetch rooms to update unread counts/last message
-            fetchRooms();
+          fetchRooms();
         }
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "chat_rooms" },
         () => {
-            fetchRooms();
+          fetchRooms();
         }
       )
       .subscribe();
@@ -102,9 +95,8 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentUserId, fetchRooms]); // Removed isOpen from dependency
+  }, [currentUserId, fetchRooms]);
 
-  // 4. Refresh List on Room Change (Optional, but keeps list fresh when navigating back)
   useEffect(() => {
     fetchRooms();
   }, [selectedRoom, fetchRooms]);
@@ -133,18 +125,22 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
         </Button>
       </SheetTrigger>
 
-      {/* Responsive Sheet Content */}
-      <SheetContent side="right" className="w-full sm:w-[450px] p-0 flex flex-col gap-0 border-l sm:border-l">
+      {/* FIXED: Added 'overflow-hidden' to SheetContent to strictly contain children */}
+      <SheetContent 
+        side="right" 
+        className="w-full sm:w-[450px] p-0 flex flex-col gap-0 border-l sm:border-l overflow-hidden"
+      >
         <SheetHeader className="sr-only">
           <SheetTitle>Chat Widget</SheetTitle>
         </SheetHeader>
 
         {selectedRoom ? (
           /* --- A. ACTIVE CHAT VIEW --- */
-          <div className="flex flex-col h-full animate-in slide-in-from-right-5 duration-200">
+          /* FIXED: Added 'overflow-hidden' and 'max-w-full' to prevent horizontal scroll */
+          <div className="flex flex-col h-full w-full max-w-full bg-background animate-in slide-in-from-right-5 duration-200 overflow-hidden">
             
-            {/* The Chat Window takes full remaining height */}
-            <div className="flex-1 min-h-0 relative">
+            {/* FIXED: Container is now strictly relative and hidden overflow */ }
+            <div className="flex-1 min-h-0 relative w-full max-w-full overflow-hidden">
               <ActiveChatWindow
                 room={selectedRoom}
                 currentUserId={currentUserId}
@@ -155,8 +151,7 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
           </div>
         ) : (
           /* --- B. ROOM LIST VIEW --- */
-          <div className="flex flex-col h-full">
-            {/* Header */}
+          <div className="flex flex-col h-full w-full max-w-full overflow-hidden">
             <div className="p-4 border-b bg-muted/10 space-y-4 shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -165,7 +160,6 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
                     {rooms.length}
                   </span>
                 </div>
-                {/* Support & Badge Actions */}
                 <div className="flex items-center gap-2">
                   {orgId && <SidebarBadge role="merchant" orgId={orgId} />}
                   {orgId && <SupportChatButton orgId={orgId} currentUserId={currentUserId} />}
@@ -183,8 +177,7 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
               </div>
             </div>
 
-            {/* List Content */}
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 w-full">
               {loading ? (
                 <div className="p-4 space-y-4">
                   {[1, 2, 3, 4].map((i) => (
@@ -206,12 +199,12 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
                   </p>
                 </div>
               ) : (
-                <div className="flex flex-col">
+                <div className="flex flex-col w-full">
                   {filteredRooms.map((room) => (
                     <button
                       key={room.id}
                       onClick={() => setSelectedRoom(room)}
-                      className="flex items-start gap-3 p-4 text-left hover:bg-muted/50 transition-colors border-b border-border/40 last:border-0 group"
+                      className="flex items-start gap-3 p-4 text-left hover:bg-muted/50 transition-colors border-b border-border/40 last:border-0 group w-full overflow-hidden"
                     >
                       <Avatar className="h-10 w-10 border shrink-0 transition-transform group-hover:scale-105">
                         <AvatarImage src={room.otherPartyImage || undefined} />
@@ -220,7 +213,8 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
                         </AvatarFallback>
                       </Avatar>
 
-                      <div className="flex-1 min-w-0 overflow-hidden">
+                      {/* FIXED: Added 'min-w-0' to force text truncation */}
+                      <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-baseline mb-1">
                           <span className="font-semibold truncate text-sm">
                             {room.otherPartyName}
