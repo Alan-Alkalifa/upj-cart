@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { MessageCircle, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,7 +42,8 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
   const [search, setSearch] = useState("");
   const [orgId, setOrgId] = useState<string | null>(null);
 
-  const supabase = createClient();
+  // [FIX 1] Memoize the client to ensure stability across renders
+  const supabase = useMemo(() => createClient(), []);
 
   const totalUnread = rooms.reduce((acc, room) => acc + room.unreadCount, 0);
 
@@ -68,6 +69,7 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
     setLoading(false);
   }, []);
 
+  // [FIX 2] Add 'supabase' to dependency array to ensure subscription stays alive
   useEffect(() => {
     if (!currentUserId) return;
 
@@ -80,6 +82,7 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
         "postgres_changes",
         { event: "*", schema: "public", table: "chat_messages" },
         () => {
+          // Refresh list on any message change
           fetchRooms();
         }
       )
@@ -87,16 +90,23 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
         "postgres_changes",
         { event: "*", schema: "public", table: "chat_rooms" },
         () => {
+          // Refresh list on room updates (e.g. read status)
           fetchRooms();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        // Optional: Log connection status for debugging
+        if (status === "SUBSCRIBED") {
+          console.log("Floating chat connected");
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentUserId, fetchRooms]);
+  }, [currentUserId, fetchRooms, supabase]);
 
+  // Refresh when room selection changes (to clear unread counts immediately in UI)
   useEffect(() => {
     fetchRooms();
   }, [selectedRoom, fetchRooms]);
@@ -125,9 +135,8 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
         </Button>
       </SheetTrigger>
 
-      {/* FIXED: Added 'overflow-hidden' to SheetContent to strictly contain children */}
-      <SheetContent 
-        side="right" 
+      <SheetContent
+        side="right"
         className="w-full sm:w-[450px] p-0 flex flex-col gap-0 border-l sm:border-l overflow-hidden"
       >
         <SheetHeader className="sr-only">
@@ -135,11 +144,7 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
         </SheetHeader>
 
         {selectedRoom ? (
-          /* --- A. ACTIVE CHAT VIEW --- */
-          /* FIXED: Added 'overflow-hidden' and 'max-w-full' to prevent horizontal scroll */
           <div className="flex flex-col h-full w-full max-w-full bg-background animate-in slide-in-from-right-5 duration-200 overflow-hidden">
-            
-            {/* FIXED: Container is now strictly relative and hidden overflow */ }
             <div className="flex-1 min-h-0 relative w-full max-w-full overflow-hidden">
               <ActiveChatWindow
                 room={selectedRoom}
@@ -150,19 +155,25 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
             </div>
           </div>
         ) : (
-          /* --- B. ROOM LIST VIEW --- */
           <div className="flex flex-col h-full w-full max-w-full overflow-hidden">
             <div className="p-4 border-b bg-muted/10 space-y-4 shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-lg tracking-tight">Pesan</h3>
+                  <h3 className="font-semibold text-lg tracking-tight">
+                    Pesan
+                  </h3>
                   <span className="bg-muted text-muted-foreground text-xs px-2 py-0.5 rounded-full font-medium">
                     {rooms.length}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   {orgId && <SidebarBadge role="merchant" orgId={orgId} />}
-                  {orgId && <SupportChatButton orgId={orgId} currentUserId={currentUserId} />}
+                  {orgId && (
+                    <SupportChatButton
+                      orgId={orgId}
+                      currentUserId={currentUserId}
+                    />
+                  )}
                 </div>
               </div>
 
@@ -213,7 +224,6 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
                         </AvatarFallback>
                       </Avatar>
 
-                      {/* FIXED: Added 'min-w-0' to force text truncation */}
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-baseline mb-1">
                           <span className="font-semibold truncate text-sm">
@@ -222,14 +232,20 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
                           <span className="text-[10px] text-muted-foreground shrink-0 ml-1">
                             {new Date(room.updatedAt).toLocaleDateString() ===
                             new Date().toLocaleDateString()
-                              ? new Date(room.updatedAt).toLocaleTimeString([], {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })
-                              : new Date(room.updatedAt).toLocaleDateString([], {
-                                  month: "short",
-                                  day: "numeric",
-                                })}
+                              ? new Date(room.updatedAt).toLocaleTimeString(
+                                  [],
+                                  {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }
+                                )
+                              : new Date(room.updatedAt).toLocaleDateString(
+                                  [],
+                                  {
+                                    month: "short",
+                                    day: "numeric",
+                                  }
+                                )}
                           </span>
                         </div>
 
