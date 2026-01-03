@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { MessageCircle, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +45,14 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
   // [FIX 1] Memoize the client to ensure stability across renders
   const supabase = useMemo(() => createClient(), []);
 
+  // [NEW] Use a ref to track 'isOpen' status inside the event listener 
+  // without triggering re-subscriptions
+  const isOpenRef = useRef(isOpen);
+
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+
   const totalUnread = rooms.reduce((acc, room) => acc + room.unreadCount, 0);
 
   useEffect(() => {
@@ -81,9 +89,22 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "chat_messages" },
-        () => {
+        (payload) => {
           // Refresh list on any message change
           fetchRooms();
+
+          // [NEW LOGIC] Play sound if widget is closed and new message received
+          if (payload.eventType === "INSERT" && !isOpenRef.current) {
+            const newMessage = payload.new as { sender_id: string };
+            
+            // Only play if the message is NOT from the current user
+            if (newMessage.sender_id !== currentUserId) {
+              const audio = new Audio("/mp3/notify.mp3");
+              audio.play().catch((err) => {
+                console.error("Audio play failed:", err);
+              });
+            }
+          }
         }
       )
       .on(
