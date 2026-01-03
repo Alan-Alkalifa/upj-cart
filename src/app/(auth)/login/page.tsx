@@ -175,7 +175,7 @@ export default function LoginPage() {
             />
 
             <Button type="submit" className="w-full" disabled={isPending}>
-              {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Masuk"}
+              {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Login"}
             </Button>
           </form>
         </Form>

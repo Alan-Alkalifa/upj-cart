@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Metadata, ResolvingMetadata } from "next";
+// --- NEW IMPORT ---
+import { ChatMerchantButton } from "@/components/shop/chat-merchant-button";
 
 // --- 1. GENERATE METADATA (Dynamic SEO) ---
 export async function generateMetadata(
@@ -360,7 +362,8 @@ export default async function ProductDetailPage({
                         {review.reply_comment && (
                           <div className="mt-3 bg-muted/50 p-3 rounded-lg text-sm border-l-2 border-primary">
                             <div className="flex items-center gap-2 mb-1">
-                              <Store className="h-3 w-3 text-primary" />
+                              <Store className="h-3 w-3 text-primary"
+                              />
                               <span className="font-semibold text-xs text-primary">
                                 Respon Penjual
                               </span>
@@ -430,6 +433,7 @@ function MerchantCard({
       </div>
 
       <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 w-full sm:w-auto shrink-0 mt-2 sm:mt-0">
+        <ChatMerchantButton orgId={organization.id} isRestricted={isRestricted} />
         <Button
           variant="default"
           className="font-medium w-full sm:w-auto"

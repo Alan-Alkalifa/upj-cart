@@ -94,7 +94,7 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
   );
 
   return (
-    <div className="flex flex-1 h-full w-full max-w-full overflow-hidden bg-background">
+    <div className="flex flex-1 h-full w-full max-w-full bg-background">
       
       {/* --- LEFT PANEL: CHAT LIST --- */}
       <div className={cn(

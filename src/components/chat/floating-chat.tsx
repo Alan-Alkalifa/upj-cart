@@ -42,10 +42,10 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
   const [search, setSearch] = useState("");
   const [orgId, setOrgId] = useState<string | null>(null);
 
-  // [FIX 1] Memoize the client to ensure stability across renders
+  // Memoize the client to ensure stability across renders
   const supabase = useMemo(() => createClient(), []);
 
-  // [NEW] Use a ref to track 'isOpen' status inside the event listener 
+  // Use a ref to track 'isOpen' status inside the event listener 
   // without triggering re-subscriptions
   const isOpenRef = useRef(isOpen);
 
@@ -77,7 +77,35 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
     setLoading(false);
   }, []);
 
-  // [FIX 2] Add 'supabase' to dependency array to ensure subscription stays alive
+  // --- [NEW FEATURE] Listen for 'open-chat-room' event ---
+  useEffect(() => {
+    const handleOpenChat = async (e: any) => {
+      const targetRoomId = e.detail?.roomId;
+      
+      // 1. Open the widget
+      setIsOpen(true);
+
+      if (targetRoomId) {
+        setLoading(true);
+        // 2. Refresh rooms to ensure we have the latest (including the new one)
+        const { rooms: freshRooms } = await getMyChatRooms();
+        setRooms(freshRooms || []);
+        setLoading(false);
+
+        // 3. Find and select the target room
+        const target = freshRooms?.find((r) => r.id === targetRoomId);
+        if (target) {
+          setSelectedRoom(target);
+        }
+      }
+    };
+
+    window.addEventListener("open-chat-room", handleOpenChat);
+    return () => window.removeEventListener("open-chat-room", handleOpenChat);
+  }, []);
+  // --------------------------------------------------------
+
+  // Add 'supabase' to dependency array to ensure subscription stays alive
   useEffect(() => {
     if (!currentUserId) return;
 
@@ -93,7 +121,7 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
           // Refresh list on any message change
           fetchRooms();
 
-          // [NEW LOGIC] Play sound if widget is closed and new message received
+          // Play sound if widget is closed and new message received
           if (payload.eventType === "INSERT" && !isOpenRef.current) {
             const newMessage = payload.new as { sender_id: string };
             
@@ -116,7 +144,6 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
         }
       )
       .subscribe((status) => {
-        // Optional: Log connection status for debugging
         if (status === "SUBSCRIBED") {
           console.log("Floating chat connected");
         }

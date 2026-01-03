@@ -35,6 +35,8 @@ import { PriceFilter } from "@/components/shop/price-filter"
 import { ProductSort } from "@/components/shop/product-sort"
 import { Label } from "@/components/ui/label"
 import { Metadata } from "next"
+// [NEW IMPORT] Chat Button
+import { ChatMerchantButton } from "@/components/shop/chat-merchant-button"
 
 const PRODUCTS_PER_PAGE = 12
 
@@ -74,6 +76,19 @@ export default async function MerchantPage(props: {
 
   const { data: { user } } = await supabase.auth.getUser()
 
+  // [NEW LOGIC] Determine restrictions for Chat feature
+  let isRestricted = false;
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+    const userRole = profile?.role;
+    // Admins and Merchants cannot initiate chat as buyers
+    isRestricted = userRole === "merchant" || userRole === "super_admin";
+  }
+
   const { data: merchant } = await supabase
     .from("organizations")
     .select("*")
@@ -97,7 +112,7 @@ export default async function MerchantPage(props: {
       postalCode: merchant.address_postal_code,
       addressCountry: "ID"
     },
-    url: `${process.env.NEXT_PUBLIC_SITE_URL}/shop/${slug}`
+    url: `${process.env.NEXT_PUBLIC_SITE_URL}/merchant/${slug}`
   }
 
   const { data: shopReviews } = await supabase
@@ -171,7 +186,7 @@ export default async function MerchantPage(props: {
       if (value) p.set(key, value)
       else p.delete(key)
     })
-    return `/shop/${slug}?${p.toString()}`
+    return `/merchant/${slug}?${p.toString()}`
   }
 
   return (
@@ -272,8 +287,14 @@ export default async function MerchantPage(props: {
                   </div>
                 </div>
                 
-                {/* ACTION BUTTONS */}
-                <div className="flex gap-3 w-full md:w-auto shrink-0 mt-2 pt-4 md:mt-0">
+                {/* ACTION BUTTONS (Updated for Responsiveness) */}
+                <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto shrink-0 mt-2 pt-4 md:mt-0">
+                  {/* [NEW] Chat Button */}
+                  <ChatMerchantButton 
+                    orgId={merchant.id} 
+                    isRestricted={isRestricted}
+                  />
+                  
                   <ShareButton 
                     variant="default" 
                     size="default" 
@@ -359,7 +380,7 @@ export default async function MerchantPage(props: {
               <aside className="w-64 hidden md:block space-y-6 sticky top-24 h-fit">
                  <div className="space-y-3">
                    <Label className="font-bold text-sm uppercase tracking-widest">Cari di Toko</Label>
-                   <ShopSearch baseUrl={`/shop/${slug}`} placeholder={`Cari di ${merchant.name}...`} />
+                   <ShopSearch baseUrl={`/merchant/${slug}`} placeholder={`Cari di ${merchant.name}...`} />
                 </div>
                 <Separator className="opacity-50" />
                 <PriceFilter />
@@ -400,7 +421,7 @@ export default async function MerchantPage(props: {
                              <div className="p-6 space-y-6 overflow-y-auto flex-1 pb-20">
                                <section className="space-y-3">
                                  <Label>Cari Produk</Label>
-                                 <ShopSearch baseUrl={`/shop/${slug}`} placeholder={`Cari di ${merchant.name}...`} />
+                                 <ShopSearch baseUrl={`/merchant/${slug}`} placeholder={`Cari di ${merchant.name}...`} />
                                </section>
                                <Separator />
                                <section>
@@ -412,7 +433,7 @@ export default async function MerchantPage(props: {
                       </div>
                    </div>
                    <div className="md:hidden">
-                      <ShopSearch baseUrl={`/shop/${slug}`} placeholder={`Cari di ${merchant.name}...`} />
+                      <ShopSearch baseUrl={`/merchant/${slug}`} placeholder={`Cari di ${merchant.name}...`} />
                    </div>
                 </div>
 

@@ -9,7 +9,7 @@ export default async function MerchantMessagesPage() {
   if (!user) redirect("/login");
 
   return (
-    <div className="w-full h-[calc(100dvh-5rem)] md:h-[calc(100vh-2rem)] flex flex-col">
+    <div className="max-w-full h-[calc(100dvh-5rem)] md:h-[calc(100vh-2rem)] flex flex-col">
        <MerchantMessagesClient currentUserId={user.id} />
     </div>
   );
