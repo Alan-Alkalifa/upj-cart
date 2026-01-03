@@ -85,7 +85,7 @@ export default function MerchantRegisterPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Campus Email</FormLabel>
-                      <FormControl><Input type="email" placeholder="nama@student.upj.ac.id" {...field} /></FormControl>
+                      <FormControl><Input type="email" placeholder="nama@upj.ac.id" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}

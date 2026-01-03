@@ -5,11 +5,10 @@ import { createClient } from "@/utils/supabase/client";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { updatePasswordSchema } from "@/lib/auth-schemas";
-import { updatePassword } from "@/app/(auth)/actions";
 import { z } from "zod";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Loader2, Ban, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,9 +26,12 @@ export default function UpdatePasswordPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // 1. Handle the Email Link (Hash Fragment)
   useEffect(() => {
     const handleSession = async () => {
+      // Check for the hash fragment (Supabase sends tokens here by default)
       const hash = window.location.hash;
+      
       if (hash && hash.includes("access_token")) {
         try {
           const params = new URLSearchParams(hash.substring(1));
@@ -37,28 +39,35 @@ export default function UpdatePasswordPage() {
           const refreshToken = params.get("refresh_token");
 
           if (accessToken) {
+            // Set the session on the CLIENT side immediately
             const { error } = await supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken || "",
             });
+            
             if (!error) {
               setIsSessionReady(true);
+              // Clean the URL so the token isn't visible
               window.history.replaceState(null, "", window.location.pathname);
               return;
             }
           }
         } catch (e) {
-          console.error("Token error", e);
+          console.error("Token parsing error", e);
         }
       }
 
+      // Fallback: Check if we already have an active session
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         setIsSessionReady(true);
       } else {
+        // Only show error if we truly found no session and no hash
+        // (Optional: You might want to wait a split second before showing this to avoid flash)
         setError("Link not valid or expired.");
       }
     };
+    
     handleSession();
   }, [supabase]);
 
@@ -67,21 +76,27 @@ export default function UpdatePasswordPage() {
     defaultValues: { password: "", confirmPassword: "" },
   });
 
+  // 2. Submit Logic (Client-Side Only)
   function onSubmit(values: z.infer<typeof updatePasswordSchema>) {
     startTransition(async () => {
-      const res = await updatePassword(values);
-      if (res?.error) {
-        toast.error(res.error);
+      // DIRECT CALL to Supabase. This bypasses Next.js Middleware/Server Actions entirely.
+      const { error } = await supabase.auth.updateUser({
+        password: values.password
+      });
+
+      if (error) {
+        toast.error(error.message);
       } else {
         toast.success("Password successfully updated!");
+        
+        // Sign out to force them to log in with the new password
         await supabase.auth.signOut(); 
         router.push("/login");
       }
     });
   }
 
-  // --- UI UPDATES: Menghapus wrapper, gunakan Card transparan ---
-
+  // --- Loading State ---
   if (!isSessionReady && !error) {
     return (
       <Card className="w-full border-0 shadow-none bg-transparent text-center py-10">
@@ -91,18 +106,20 @@ export default function UpdatePasswordPage() {
     );
   }
 
+  // --- Error State ---
   if (error) {
     return (
-      <Alert variant="destructive" className="w-full max-w-sm bg-white shadow-lg">
+      <Alert variant="destructive" className="w-full max-w-sm bg-white shadow-lg mx-auto">
         <AlertTitle>Cannot Access</AlertTitle>
         <AlertDescription className="mt-2 flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground">This page can only be accessed via a link from your email.</p>
+          <p className="text-sm text-muted-foreground">This page can only be accessed via a valid link from your email.</p>
           <Button variant="default" onClick={() => router.push("/login")}>Back to Login</Button>
         </AlertDescription>
       </Alert>
     );
   }
 
+  // --- Main Form ---
   return (
     <Card className="w-full border-0 shadow-none bg-transparent">
       <CardHeader className="px-0 pt-0">

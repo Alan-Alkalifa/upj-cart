@@ -9,7 +9,7 @@ import { z } from "zod";
 import { toast } from "sonner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, ArrowLeft, Mail } from "lucide-react";
+import { Loader2, Mail } from "lucide-react"; // Removed ArrowLeft as it wasn't used
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +38,6 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    // UI UPDATED: Removed outer wrapper & simplified Card style
     <Card className="w-full border-0 shadow-none bg-transparent">
       <CardHeader className="px-0">
         <CardTitle className="text-2xl font-bold">Forgot Password?</CardTitle>
@@ -63,17 +62,23 @@ export default function ForgotPasswordPage() {
                 </FormItem>
               )}
             />
+            
+            {/* UPDATED BUTTON LOGIC HERE */}
             <Button type="submit" className="w-full" disabled={isPending}>
-              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Send Reset Link
+              {isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Send Reset Link"
+              )}
             </Button>
+
           </form>
         </Form>
       </CardContent>
       <CardFooter className="justify-center px-0 pb-0">
         <Button variant="link" asChild className="text-muted-foreground h-auto p-0">
           <Link href="/login" className="flex items-center gap-2 hover:text-primary transition-colors">
-            <ArrowLeft className="h-4 w-4" /> Login here
+            Login here
           </Link>
         </Button>
       </CardFooter>
