@@ -1,4 +1,6 @@
 import { createClient } from "@/utils/supabase/server"
+// [FIX] Import admin client to bypass RLS for public categories
+import { createAdminClient } from "@/utils/supabase/admin"
 import { notFound } from "next/navigation"
 import { ProductCard } from "@/components/shop/product-card"
 import { ShareButton } from "@/components/shop/share-button"
@@ -27,7 +29,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { MapPin, Calendar, Star, MessageCircle, Share2, ShieldCheck, ShoppingBag, Clock, Info, Instagram, Globe, SlidersHorizontal, SearchX } from "lucide-react"
+import { MapPin, Calendar, Star, Share2, ShieldCheck, ShoppingBag, Clock, Info, Instagram, Globe, SlidersHorizontal, SearchX, Layers } from "lucide-react"
 import Link from "next/link"
 import { JumpToProductsBtn } from "@/components/shop/jump-to-product"
 import { ShopSearch } from "@/components/shop/shop-search"
@@ -35,8 +37,9 @@ import { PriceFilter } from "@/components/shop/price-filter"
 import { ProductSort } from "@/components/shop/product-sort"
 import { Label } from "@/components/ui/label"
 import { Metadata } from "next"
-// [NEW IMPORT] Chat Button
 import { ChatMerchantButton } from "@/components/shop/chat-merchant-button"
+import { cn } from "@/lib/utils"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 const PRODUCTS_PER_PAGE = 12
 
@@ -56,7 +59,7 @@ export async function generateMetadata(
   if (!merchant) return { title: "Toko Tidak Ditemukan" }
 
   return {
-    title: merchant.name, // "Nama Toko | UPJ Cart"
+    title: merchant.name,
     description: merchant.description || `Kunjungi official store ${merchant.name} di UPJ Cart.`,
     openGraph: {
       title: `${merchant.name} - Official Store UPJ Cart`,
@@ -68,15 +71,20 @@ export async function generateMetadata(
 
 export default async function MerchantPage(props: { 
   params: Promise<{ slug: string }>,
-  searchParams: Promise<{ q?: string; min?: string; max?: string; sort?: string; page?: string }> 
+  searchParams: Promise<{ q?: string; min?: string; max?: string; sort?: string; page?: string; category?: string }> 
 }) {
   const { slug } = await props.params
   const searchParams = await props.searchParams
+  
+  // Standard client for Auth and Products (which usually have public RLS)
   const supabase = await createClient()
+  
+  // [FIX] Admin client to fetch categories (Bypasses RLS)
+  const adminSupabase = createAdminClient()
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // [NEW LOGIC] Determine restrictions for Chat feature
+  // [LOGIC] Determine restrictions for Chat feature
   let isRestricted = false;
   if (user) {
     const { data: profile } = await supabase
@@ -85,10 +93,10 @@ export default async function MerchantPage(props: {
       .eq("id", user.id)
       .single();
     const userRole = profile?.role;
-    // Admins and Merchants cannot initiate chat as buyers
     isRestricted = userRole === "merchant" || userRole === "super_admin";
   }
 
+  // Fetch Merchant
   const { data: merchant } = await supabase
     .from("organizations")
     .select("*")
@@ -96,6 +104,15 @@ export default async function MerchantPage(props: {
     .single()
 
   if (!merchant) return notFound()
+
+  // [FIX] Fetch Merchant Categories using Admin Client
+  // This ensures categories are fetched even if RLS policies are missing/strict
+  const { data: categories } = await adminSupabase
+    .from("merchant_categories")
+    .select("*")
+    .eq("org_id", merchant.id)
+    .is("deleted_at", null)
+    .order("name", { ascending: true })
 
   // --- 2. STRUCTURED DATA (JSON-LD) ---
   const jsonLd = {
@@ -129,7 +146,9 @@ export default async function MerchantPage(props: {
   const start = (currentPage - 1) * PRODUCTS_PER_PAGE
   const end = start + PRODUCTS_PER_PAGE - 1
   const queryParam = searchParams.q
+  const categoryParam = searchParams.category
 
+  // Build Query for Count
   let countQuery = supabase
     .from("products")
     .select("id", { count: 'exact', head: true })
@@ -140,11 +159,14 @@ export default async function MerchantPage(props: {
   if (queryParam) countQuery = countQuery.ilike('name', `%${queryParam}%`)
   if (searchParams.min) countQuery = countQuery.gte("base_price", parseInt(searchParams.min))
   if (searchParams.max) countQuery = countQuery.lte("base_price", parseInt(searchParams.max))
+  // Filter by Category
+  if (categoryParam) countQuery = countQuery.eq("merchant_category_id", categoryParam)
 
   const { count } = await countQuery
   const totalProducts = count || 0
   const totalPages = Math.ceil(totalProducts / PRODUCTS_PER_PAGE)
 
+  // Build Query for Products
   let productQuery = supabase
     .from("products")
     .select(`
@@ -161,6 +183,8 @@ export default async function MerchantPage(props: {
   if (queryParam) productQuery = productQuery.ilike('name', `%${queryParam}%`)
   if (searchParams.min) productQuery = productQuery.gte("base_price", parseInt(searchParams.min))
   if (searchParams.max) productQuery = productQuery.lte("base_price", parseInt(searchParams.max))
+  // Filter by Category
+  if (categoryParam) productQuery = productQuery.eq("merchant_category_id", categoryParam)
 
   const sort = searchParams.sort || 'newest'
   switch (sort) {
@@ -174,12 +198,14 @@ export default async function MerchantPage(props: {
 
   const joinDate = new Date(merchant.created_at).toLocaleDateString("id-ID", { month: 'long', year: 'numeric' })
 
+  // Helper to build URL with current params + updates
   const buildUrl = (updates: Record<string, string | undefined>) => {
     const p = new URLSearchParams()
     if (searchParams.q) p.set("q", searchParams.q)
     if (searchParams.min) p.set("min", searchParams.min)
     if (searchParams.max) p.set("max", searchParams.max)
     if (searchParams.sort) p.set("sort", searchParams.sort)
+    if (searchParams.category) p.set("category", searchParams.category)
     if (searchParams.page && searchParams.page !== "1") p.set("page", searchParams.page)
 
     Object.entries(updates).forEach(([key, value]) => {
@@ -188,6 +214,37 @@ export default async function MerchantPage(props: {
     })
     return `/merchant/${slug}?${p.toString()}`
   }
+
+  // Helper component for Category List
+  const CategoryList = () => (
+    <div className="flex flex-col gap-1">
+      <Link 
+        href={buildUrl({ category: undefined, page: "1" })}
+        className={cn(
+          "text-sm px-3 py-2 rounded-md transition-colors flex items-center justify-between",
+          !categoryParam 
+            ? "bg-primary/10 text-primary font-medium" 
+            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
+      >
+        Semua Kategori
+      </Link>
+      {categories?.map((cat) => (
+        <Link 
+          key={cat.id}
+          href={buildUrl({ category: cat.id, page: "1" })}
+          className={cn(
+            "text-sm px-3 py-2 rounded-md transition-colors flex items-center justify-between",
+            categoryParam === cat.id
+              ? "bg-primary/10 text-primary font-medium" 
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}
+        >
+          {cat.name}
+        </Link>
+      ))}
+    </div>
+  )
 
   return (
     <div className="bg-muted/5 min-h-screen pb-20">
@@ -287,9 +344,8 @@ export default async function MerchantPage(props: {
                   </div>
                 </div>
                 
-                {/* ACTION BUTTONS (Updated for Responsiveness) */}
+                {/* ACTION BUTTONS */}
                 <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto shrink-0 mt-2 pt-4 md:mt-0">
-                  {/* [NEW] Chat Button */}
                   <ChatMerchantButton 
                     orgId={merchant.id} 
                     isRestricted={isRestricted}
@@ -377,18 +433,33 @@ export default async function MerchantPage(props: {
 
           <TabsContent value="products" className="mt-0 animate-in slide-in-from-bottom-2 duration-500">
             <div className="flex flex-col md:flex-row gap-6 md:gap-8">
+              
+              {/* SIDEBAR FILTER (Desktop) */}
               <aside className="w-64 hidden md:block space-y-6 sticky top-24 h-fit">
                  <div className="space-y-3">
                    <Label className="font-bold text-sm uppercase tracking-widest">Cari di Toko</Label>
                    <ShopSearch baseUrl={`/merchant/${slug}`} placeholder={`Cari di ${merchant.name}...`} />
                 </div>
+                
+                <Separator className="opacity-50" />
+                
+                {/* [NEW] Category Filter */}
+                <div className="space-y-3">
+                  <Label className="font-bold text-sm uppercase tracking-widest flex items-center gap-2">
+                    <Layers className="h-3 w-3" /> Kategori
+                  </Label>
+                  <ScrollArea className="h-[200px] pr-2">
+                    <CategoryList />
+                  </ScrollArea>
+                </div>
+
                 <Separator className="opacity-50" />
                 <PriceFilter />
                 <Separator className="opacity-50" />
                 <Card className="bg-primary/5 border-primary/10 shadow-none">
                   <CardContent className="p-4 text-xs text-muted-foreground leading-relaxed">
                     <Info className="h-4 w-4 mb-2 text-primary" />
-                    Gunakan filter harga untuk menemukan produk sesuai budget Anda di toko ini.
+                    Gunakan filter harga dan kategori untuk menemukan produk sesuai kebutuhan Anda.
                   </CardContent>
                 </Card>
               </aside>
@@ -398,7 +469,7 @@ export default async function MerchantPage(props: {
                    <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                       <div className="space-y-1">
                         <h2 className="text-xl font-bold tracking-tight">
-                          {queryParam ? `Hasil: "${queryParam}"` : "Semua Produk"}
+                          {queryParam ? `Hasil: "${queryParam}"` : categoryParam ? `Kategori: ${categories?.find(c => c.id === categoryParam)?.name || '...'}` : "Semua Produk"}
                         </h2>
                         <p className="text-sm text-muted-foreground">
                           Menampilkan {products?.length || 0} dari {totalProducts} produk
@@ -406,6 +477,8 @@ export default async function MerchantPage(props: {
                       </div>
                       <div className="flex items-center gap-2 self-start sm:self-auto w-full sm:w-auto justify-between sm:justify-end">
                          <ProductSort />
+                         
+                         {/* MOBILE FILTER SHEET */}
                          <Sheet>
                            <SheetTrigger asChild>
                              <Button variant="outline" size="icon" className="md:hidden rounded-full border-2 h-9 w-9 shrink-0">
@@ -423,6 +496,14 @@ export default async function MerchantPage(props: {
                                  <Label>Cari Produk</Label>
                                  <ShopSearch baseUrl={`/merchant/${slug}`} placeholder={`Cari di ${merchant.name}...`} />
                                </section>
+                               <Separator />
+                               
+                               {/* [NEW] Mobile Category Filter */}
+                               <section className="space-y-3">
+                                 <Label>Kategori Toko</Label>
+                                 <CategoryList />
+                               </section>
+
                                <Separator />
                                <section>
                                  <PriceFilter />
@@ -487,7 +568,7 @@ export default async function MerchantPage(props: {
                     </div>
                     <h3 className="font-bold text-lg">Produk tidak ditemukan</h3>
                     <p className="text-muted-foreground mb-6 text-sm max-w-xs text-center">
-                      Coba atur ulang filter harga atau kata kunci pencarian Anda.
+                      Coba atur ulang filter harga, kategori, atau kata kunci pencarian Anda.
                     </p>
                     <Button asChild variant="outline" className="rounded-full">
                       <Link href={`/shop/${slug}`}>Reset Filter</Link>
