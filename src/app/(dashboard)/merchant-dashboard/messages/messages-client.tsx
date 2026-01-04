@@ -107,7 +107,7 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
         <div className="p-4 border-b space-y-3 shrink-0 bg-background/50 backdrop-blur-sm z-10">
           <div className="flex items-center justify-between">
             <h1 className="font-bold text-xl flex items-center gap-2">
-              Pesan
+              Merchant Inbox
               <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                 {rooms.length}
               </span>

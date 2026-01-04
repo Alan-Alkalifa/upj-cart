@@ -48,7 +48,6 @@ export default function MerchantRegisterPage() {
   }
 
   return (
-    // UI UPDATED: Hapus wrapper container, sesuaikan Card agar seamless dengan layout split
     <Card className="w-full border-0 shadow-none bg-transparent">
       <CardHeader className="px-0 pt-0">
         <div className="flex items-center gap-3">
@@ -179,8 +178,12 @@ export default function MerchantRegisterPage() {
             </div>
 
             <Button type="submit" size="lg" className="w-full mt-4" disabled={isPending}>
-              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Register Merchant
+              {/* [UPDATED] Show ONLY loader when pending, otherwise show text */}
+              {isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Register Merchant"
+              )}
             </Button>
           </form>
         </Form>
