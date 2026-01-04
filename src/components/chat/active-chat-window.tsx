@@ -33,6 +33,7 @@ export function ActiveChatWindow({
 }: ActiveChatWindowProps) {
   const { messages, send } = useChat(room.id, currentUserId);
   const [input, setInput] = useState("");
+  const [isSending, setIsSending] = useState(false); // [!code ++]
   const scrollRef = useRef<HTMLDivElement>(null);
   
   // Ref to track the ID of the last message we notified about
@@ -88,10 +89,18 @@ export function ActiveChatWindow({
   }, [room.id]);
 
   const handleSend = async () => {
-    if (!input.trim()) return;
-    await send(input);
-    setInput("");
-    onMessageSent();
+    if (!input.trim() || isSending) return; // [!code ++]
+    
+    setIsSending(true); // [!code ++]
+    try {
+      await send(input);
+      setInput("");
+      onMessageSent();
+    } catch (error) {
+      console.error("Failed to send message", error);
+    } finally {
+      setIsSending(false); // [!code ++]
+    }
   };
 
   return (
@@ -194,10 +203,11 @@ export function ActiveChatWindow({
             placeholder="Tulis pesan..."
             className="flex-1"
             autoComplete="off"
+            disabled={isSending} // [!code ++]
           />
           <Button
             onClick={handleSend}
-            disabled={!input.trim()}
+            disabled={!input.trim() || isSending} // [!code ++]
             size="icon"
             className="shrink-0"
           >
