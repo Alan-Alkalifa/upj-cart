@@ -79,7 +79,7 @@ export default async function MerchantPage(props: {
   // Standard client for Auth and Products (which usually have public RLS)
   const supabase = await createClient()
   
-  // [FIX] Admin client to fetch categories (Bypasses RLS)
+  // Admin client to fetch categories (Bypasses RLS)
   const adminSupabase = createAdminClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -105,8 +105,7 @@ export default async function MerchantPage(props: {
 
   if (!merchant) return notFound()
 
-  // [FIX] Fetch Merchant Categories using Admin Client
-  // This ensures categories are fetched even if RLS policies are missing/strict
+  // Fetch Merchant Categories using Admin Client
   const { data: categories } = await adminSupabase
     .from("merchant_categories")
     .select("*")
@@ -148,7 +147,7 @@ export default async function MerchantPage(props: {
   const queryParam = searchParams.q
   const categoryParam = searchParams.category
 
-  // Build Query for Count
+  // --- BUILD QUERY FOR COUNT ---
   let countQuery = supabase
     .from("products")
     .select("id", { count: 'exact', head: true })
@@ -159,14 +158,14 @@ export default async function MerchantPage(props: {
   if (queryParam) countQuery = countQuery.ilike('name', `%${queryParam}%`)
   if (searchParams.min) countQuery = countQuery.gte("base_price", parseInt(searchParams.min))
   if (searchParams.max) countQuery = countQuery.lte("base_price", parseInt(searchParams.max))
-  // Filter by Category
   if (categoryParam) countQuery = countQuery.eq("merchant_category_id", categoryParam)
 
   const { count } = await countQuery
   const totalProducts = count || 0
   const totalPages = Math.ceil(totalProducts / PRODUCTS_PER_PAGE)
 
-  // Build Query for Products
+  // --- BUILD QUERY FOR PRODUCTS (FIXED ORDER) ---
+  // 1. Base constraints
   let productQuery = supabase
     .from("products")
     .select(`
@@ -178,14 +177,15 @@ export default async function MerchantPage(props: {
     .eq("org_id", merchant.id)
     .eq("is_active", true)
     .is("deleted_at", null)
-    .range(start, end)
+    // [FIX] Removed .range(start, end) from here
 
+  // 2. Apply Filters
   if (queryParam) productQuery = productQuery.ilike('name', `%${queryParam}%`)
   if (searchParams.min) productQuery = productQuery.gte("base_price", parseInt(searchParams.min))
   if (searchParams.max) productQuery = productQuery.lte("base_price", parseInt(searchParams.max))
-  // Filter by Category
   if (categoryParam) productQuery = productQuery.eq("merchant_category_id", categoryParam)
 
+  // 3. Apply Sorting
   const sort = searchParams.sort || 'newest'
   switch (sort) {
     case 'price_asc': productQuery = productQuery.order('base_price', { ascending: true }); break
@@ -193,6 +193,10 @@ export default async function MerchantPage(props: {
     case 'name_asc': productQuery = productQuery.order('name', { ascending: true }); break
     case 'newest': default: productQuery = productQuery.order('created_at', { ascending: false }); break
   }
+
+  // 4. [FIX] Apply Range LAST (Pagination)
+  // This ensures pagination happens AFTER filtering and sorting
+  productQuery = productQuery.range(start, end);
 
   const { data: products } = await productQuery
 
