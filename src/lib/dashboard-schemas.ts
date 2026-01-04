@@ -2,41 +2,43 @@ import { z } from "zod"
 
 // 1. General & Finance Settings
 export const storeSettingsSchema = z.object({
-  name: z.string().min(3, "Nama toko minimal 3 karakter"),
+  name: z.string().min(3, "Store name must be at least 3 characters"),
   description: z.string().optional(),
   address_street: z.string().optional(),
-  logo_url: z.string().optional(),   
-  banner_url: z.string().optional(), 
+  logo_url: z.string().optional(),
+  banner_url: z.string().optional(),
   
   // Finance
-  bank_name: z.string().min(2, "Nama bank wajib diisi"),
-  bank_account_number: z.string().min(5, "Nomor rekening wajib diisi"),
-  bank_account_holder: z.string().min(3, "Atas nama wajib diisi"),
+  bank_name: z.string().min(2, "Bank name is required"),
+  bank_account_number: z.string().min(5, "Account number is required"),
+  bank_account_holder: z.string().min(3, "Account holder name is required"),
 })
 
 // 2. Staff Management
 export const inviteStaffSchema = z.object({
   email: z.string()
-    .email("Email tidak valid")
-    .endsWith("@student.upj.ac.id", "Staff harus menggunakan email @student.upj.ac.id"),
+    .email("Invalid email address")
+    .endsWith("upj.ac.id", "Staff must use an name@upj.ac.id email"),
 })
 
 export const productSchema = z.object({
   name: z.string()
-    .min(3, "Nama produk minimal 3 karakter")
-    .max(25, "Nama produk maksimal 25 karakter"), 
+    .min(3, "Product name must be at least 3 characters")
+    .max(25, "Product name cannot exceed 25 characters"),
   
   description: z.string()
-    .max(500, "Deskripsi maksimal 500 karakter")
+    .max(500, "Description cannot exceed 500 characters")
     .optional(),
   
-  global_category_id: z.string().min(1, "Kategori wajib dipilih"),
+  global_category_id: z.string().min(1, "Category is required"),
   
-  base_price: z.coerce.number().min(100, "Harga minimal Rp 100"),
+  merchant_category_id: z.string().optional(),
+  
+  base_price: z.coerce.number().min(100, "Price must be at least Rp 100"),
   
   weight_grams: z.coerce.number()
-    .min(1, "Berat minimal 1 gram")
-    .max(100000, "Berat maksimal 100 kg"),
+    .min(1, "Weight must be at least 1 gram")
+    .max(100000, "Weight cannot exceed 100 kg"),
   
   image_url: z.string().optional(),
   gallery_urls: z.array(z.string()).optional(),
@@ -45,15 +47,15 @@ export const productSchema = z.object({
   
   variants: z.array(z.object({
     id: z.string().optional(),
-    name: z.string().min(1, "Nama varian wajib"),
-    stock: z.coerce.number().min(0, "Stok tidak boleh minus"),
+    name: z.string().min(1, "Variant name is required"),
+    stock: z.coerce.number().min(0, "Stock cannot be negative"),
     price_override: z.coerce.number().optional(),
-  })).min(1, "Minimal 1 varian (misal: 'Standard')"),
+  })).min(1, "At least 1 variant is required (e.g., 'Standard')"),
 })
 
 export const organizationSchema = z.object({
-  name: z.string().min(3, "Nama toko minimal 3 karakter"),
-  slug: z.string().min(3, "Slug minimal 3 karakter").regex(/^[a-z0-9-]+$/, "Hanya huruf kecil, angka, dan strip"),
+  name: z.string().min(3, "Store name must be at least 3 characters"),
+  slug: z.string().min(3, "Slug must be at least 3 characters").regex(/^[a-z0-9-]+$/, "Only lowercase letters, numbers, and hyphens allowed"),
   description: z.string().optional(),
   logo_url: z.string().optional(),
   banner_url: z.string().optional(),

@@ -31,7 +31,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,13 +46,15 @@ import { Trash2, Plus, Loader2, Upload, AlertTriangle, X } from "lucide-react";
 type ProductFormValues = z.infer<typeof productSchema>;
 
 interface ProductFormProps {
-  categories: any[];
+  categories: any[];         // Global Categories
+  merchantCategories: any[]; // Merchant Specific Categories
   orgId: string;
   initialData?: any;
 }
 
 export function ProductForm({
   categories,
+  merchantCategories,
   orgId,
   initialData,
 }: ProductFormProps) {
@@ -77,6 +78,7 @@ export function ProductForm({
       name: initialData?.name || "",
       description: initialData?.description || "",
       global_category_id: initialData?.global_category_id || "",
+      merchant_category_id: initialData?.merchant_category_id || "", // Default value for merchant category
       base_price: initialData?.base_price || 0,
       weight_grams: initialData?.weight_grams || 100,
       image_url: initialData?.image_url || "",
@@ -410,12 +412,85 @@ export function ProductForm({
                 </CardContent>
               </Card>
 
-              {/* 4. Details */}
+              {/* 4. Details & Categories */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Detail</CardTitle>
+                  <CardTitle>Detail & Kategori</CardTitle>
                 </CardHeader>
                 <CardContent className="grid gap-4">
+                   {/* Global Category */}
+                   <FormField
+                    control={form.control}
+                    name="global_category_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Kategori Global (System)</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Pilih Kategori Global" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {categories.length === 0 ? (
+                              <SelectItem value="disabled" disabled>
+                                Tidak ada kategori (Cek DB)
+                              </SelectItem>
+                            ) : (
+                              categories.map((c) => (
+                                <SelectItem key={c.id} value={c.id}>
+                                  {c.name}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Merchant Category (NEW) */}
+                  <FormField
+                    control={form.control}
+                    name="merchant_category_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Kategori Toko Anda</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value || undefined}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Pilih Kategori Toko" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {merchantCategories.length === 0 ? (
+                              <SelectItem value="empty" disabled>
+                                Belum ada kategori toko
+                              </SelectItem>
+                            ) : (
+                              merchantCategories.map((c) => (
+                                <SelectItem key={c.id} value={c.id}>
+                                  {c.name}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <FormDescription className="text-xs">
+                          Kategori ini khusus untuk toko Anda (opsional).
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
                   <FormField
                     control={form.control}
                     name="base_price"
@@ -455,44 +530,10 @@ export function ProductForm({
                       </FormItem>
                     )}
                   />
-
-                  <FormField
-                    control={form.control}
-                    name="global_category_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Kategori</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Pilih Kategori" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {categories.length === 0 ? (
-                              <SelectItem value="disabled" disabled>
-                                Tidak ada kategori (Cek DB)
-                              </SelectItem>
-                            ) : (
-                              categories.map((c) => (
-                                <SelectItem key={c.id} value={c.id}>
-                                  {c.name}
-                                </SelectItem>
-                              ))
-                            )}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
                 </CardContent>
               </Card>
 
-              {/* 5. Image Upload (UPDATED for Gallery) */}
+              {/* 5. Image Upload */}
               <Card>
                 <CardHeader>
                   <CardTitle>Galeri Foto</CardTitle>
@@ -552,8 +593,7 @@ export function ProductForm({
                     </label>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Foto pertama akan menjadi cover produk. Anda bisa upload
-                    banyak foto sekaligus.
+                    Foto pertama akan menjadi cover produk.
                   </p>
                 </CardContent>
               </Card>

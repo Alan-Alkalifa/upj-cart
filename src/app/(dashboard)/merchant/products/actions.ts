@@ -50,7 +50,7 @@ export async function createProduct(orgId: string, values: z.infer<typeof produc
       .from("product_variants")
       .insert(variantsData)
 
-    if (varError) return { error: "Produk dibuat, tapi gagal simpan varian: " + varError.message }
+    if (varError) return { error: "Product created, but failed to save variants: " + varError.message }
   }
 
   revalidatePath("/merchant/products")
@@ -135,5 +135,41 @@ export async function deleteProductVariant(variantId: string) {
   if (error) return { error: error.message }
 
   revalidatePath("/merchant/products")
+  return { success: true }
+}
+
+export async function createMerchantCategory(orgId: string, name: string) {
+  const supabase = await createClient()
+
+  if (!name || name.trim().length === 0) {
+    return { error: "Category name cannot be empty" }
+  }
+
+  const { error } = await supabase
+    .from("merchant_categories")
+    .insert({
+      org_id: orgId,
+      name: name,
+    })
+
+  if (error) return { error: error.message }
+
+  revalidatePath("/merchant/products")
+  revalidatePath("/merchant/products/create")
+  return { success: true }
+}
+
+export async function deleteMerchantCategory(categoryId: string) {
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from("merchant_categories")
+    .update({ deleted_at: new Date().toISOString() }) 
+    .eq("id", categoryId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath("/merchant/products")
+  revalidatePath("/merchant/products/create")
   return { success: true }
 }

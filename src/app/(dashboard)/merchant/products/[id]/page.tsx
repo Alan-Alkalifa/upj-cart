@@ -6,17 +6,30 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
   const { id } = await params
   const supabase = await createClient()
 
-  // 1. Ambil Kategori
-  const { data: categories } = await supabase.from("global_categories").select("*")
-
-  // 2. Ambil Produk beserta Variannya
+  // 1. Ambil Produk beserta Variannya terlebih dahulu untuk mendapatkan org_id
   const { data: product } = await supabase
     .from("products")
-    .select("*, product_variants(*)") // Ambil semua varian dulu
+    .select("*, product_variants(*)") // Ambil semua varian
     .eq("id", id)
     .single()
 
   if (!product) redirect("/merchant/products")
+
+  const orgId = product.org_id
+
+  // 2. Ambil Global Categories (System)
+  const { data: categories } = await supabase
+    .from("global_categories")
+    .select("*")
+    .order("name", { ascending: true })
+
+  // 3. Ambil Merchant Categories (Spesifik Toko & Tidak Terhapus)
+  const { data: merchantCategories } = await supabase
+    .from("merchant_categories")
+    .select("*")
+    .eq("org_id", orgId)
+    .is("deleted_at", null) // Filter Soft Delete
+    .order("name", { ascending: true })
 
   // --- FILTERING LOGIC (SANGAT PENTING) ---
   // Kita harus membuang varian yang memiliki deleted_at tidak null
@@ -27,14 +40,11 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
     )
   }
 
-  // Ambil Org ID dari session/produk (tergantung struktur DB anda)
-  // Asumsi produk punya org_id
-  const orgId = product.org_id 
-
   return (
     <div className="space-y-6">
       <ProductForm 
         categories={categories || []} 
+        merchantCategories={merchantCategories || []}
         orgId={orgId} 
         initialData={product} // Data yang dikirim sudah bersih dari soft-deleted items
       />

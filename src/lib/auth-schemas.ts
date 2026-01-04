@@ -22,27 +22,27 @@ function countWords(str: string) {
 
 // Login Schema
 export const loginSchema = z.object({
-  email: z.string().email({ message: "Email tidak valid" }),
-  password: z.string().min(1, { message: "Password wajib diisi" }),
+  email: z.string().email({ message: "Invalid email address" }),
+  password: z.string().min(1, { message: "Password is required" }),
 });
 
 // Register Buyer Schema (Nama & Password ketat)
 export const registerSchema = z.object({
   fullName: z
     .string()
-    .min(3, { message: "Nama minimal 3 karakter" })
-    .regex(nameValidation, { message: "Nama hanya boleh berisi huruf dan spasi" }),
-  email: z.string().email({ message: "Email tidak valid" }),
+    .min(3, { message: "Name must be at least 3 characters" })
+    .regex(nameValidation, { message: "Name can only contain letters and spaces" }),
+  email: z.string().email({ message: "Invalid email address" }),
   password: z
     .string()
-    .min(8, { message: "Password minimal 8 karakter" })
-    .regex(/[a-z]/, { message: "Harus ada huruf kecil" })
-    .regex(/[A-Z]/, { message: "Harus ada huruf besar" })
-    .regex(/[0-9]/, { message: "Harus ada angka" })
-    .regex(/[^a-zA-Z0-9]/, { message: "Harus ada simbol (contoh: !@#$)" }),
-  confirmPassword: z.string().min(1, { message: "Konfirmasi password wajib diisi" }),
+    .min(8, { message: "Password must be at least 8 characters" })
+    .regex(/[a-z]/, { message: "Must contain a lowercase letter" })
+    .regex(/[A-Z]/, { message: "Must contain an uppercase letter" })
+    .regex(/[0-9]/, { message: "Must contain a number" })
+    .regex(/[^a-zA-Z0-9]/, { message: "Must contain a symbol (e.g. !@#$)" }),
+  confirmPassword: z.string().min(1, { message: "Confirm password is required" }),
 }).refine((data) => data.password === data.confirmPassword, {
-  message: "Password tidak cocok",
+  message: "Passwords do not match",
   path: ["confirmPassword"],
 });
 
@@ -51,40 +51,40 @@ export const merchantRegisterSchema = z.object({
   // 1. Owner Info
   fullName: z
     .string()
-    .min(3, { message: "Nama minimal 3 karakter" })
-    .regex(nameValidation, { message: "Nama hanya boleh berisi huruf dan spasi" }),
+    .min(3, { message: "Name must be at least 3 characters" })
+    .regex(nameValidation, { message: "Name can only contain letters and spaces" }),
     
   // 2. Email Kampus (Wajib domain upj.ac.id)
   email: z
     .string()
-    .email({ message: "Email tidak valid" })
+    .email({ message: "Invalid email address" })
     .refine((val) => val.endsWith("upj.ac.id"), {
-      message: "Wajib menggunakan email kampus (*.upj.ac.id)",
+      message: "Must use a campus email (*.upj.ac.id)",
     }),
 
   // 3. Password Ketat
   password: z
     .string()
-    .min(8, { message: "Password minimal 8 karakter" })
-    .regex(/[a-z]/, { message: "Harus ada huruf kecil" })
-    .regex(/[A-Z]/, { message: "Harus ada huruf besar" })
-    .regex(/[0-9]/, { message: "Harus ada angka" })
-    .regex(/[^a-zA-Z0-9]/, { message: "Harus ada simbol (contoh: !@#$)" }),
+    .min(8, { message: "Password must be at least 8 characters" })
+    .regex(/[a-z]/, { message: "Must contain a lowercase letter" })
+    .regex(/[A-Z]/, { message: "Must contain an uppercase letter" })
+    .regex(/[0-9]/, { message: "Must contain a number" })
+    .regex(/[^a-zA-Z0-9]/, { message: "Must contain a symbol (e.g. !@#$)" }),
     
-  confirmPassword: z.string().min(1, { message: "Konfirmasi password wajib diisi" }),
+  confirmPassword: z.string().min(1, { message: "Confirm password is required" }),
 
   // 4. Store Info
   storeName: z
     .string()
-    .min(3, { message: "Nama toko minimal 3 karakter" })
-    .regex(storeNameValidation, { message: "Nama toko tidak boleh mengandung simbol" }),
+    .min(3, { message: "Store name must be at least 3 characters" })
+    .regex(storeNameValidation, { message: "Store name cannot contain symbols" }),
 
   // 5. URL Toko (Tanpa Spasi)
   storeSlug: z
     .string()
-    .min(3, { message: "Slug minimal 3 karakter" })
+    .min(3, { message: "Slug must be at least 3 characters" })
     .regex(/^[a-z0-9-]+$/, {
-      message: "URL hanya boleh huruf kecil, angka, dan strip (tanpa spasi)",
+      message: "URL can only contain lowercase letters, numbers, and hyphens (no spaces)",
     }),
 
   // 6. Deskripsi (Max 200 Kata)
@@ -92,29 +92,29 @@ export const merchantRegisterSchema = z.object({
     .string()
     .optional()
     .refine((val) => !val || countWords(val) <= 200, {
-      message: "Deskripsi maksimal 200 kata",
+      message: "Description cannot exceed 200 words",
     }),
 }).refine((data) => data.password === data.confirmPassword, {
-  message: "Password tidak cocok",
+  message: "Passwords do not match",
   path: ["confirmPassword"],
 });
 
 // Forgot Password
 export const forgotPasswordSchema = z.object({
-  email: z.string().email({ message: "Email tidak valid" }),
+  email: z.string().email({ message: "Invalid email address" }),
 });
 
 // Update Password
 export const updatePasswordSchema = z.object({
   password: z
     .string()
-    .min(8, { message: "Password minimal 8 karakter" })
-    .regex(/[a-z]/, { message: "Harus ada huruf kecil" })
-    .regex(/[A-Z]/, { message: "Harus ada huruf besar" })
-    .regex(/[0-9]/, { message: "Harus ada angka" })
-    .regex(/[^a-zA-Z0-9]/, { message: "Harus ada simbol (contoh: !@#$)" }),
-  confirmPassword: z.string().min(1, { message: "Konfirmasi password wajib diisi" }),
+    .min(8, { message: "Password must be at least 8 characters" })
+    .regex(/[a-z]/, { message: "Must contain a lowercase letter" })
+    .regex(/[A-Z]/, { message: "Must contain an uppercase letter" })
+    .regex(/[0-9]/, { message: "Must contain a number" })
+    .regex(/[^a-zA-Z0-9]/, { message: "Must contain a symbol (e.g. !@#$)" }),
+  confirmPassword: z.string().min(1, { message: "Confirm password is required" }),
 }).refine((data) => data.password === data.confirmPassword, {
-  message: "Password tidak cocok",
+  message: "Passwords do not match",
   path: ["confirmPassword"],
 });

@@ -105,83 +105,72 @@ export async function signup(values: z.infer<typeof registerSchema>) {
 export async function registerMerchant(
   values: z.infer<typeof merchantRegisterSchema>
 ) {
-  const supabase = await createClient();      // Public Client (for SignUp)
-  const supabaseAdmin = createAdminClient();  // Admin Client (for Checks & Rollback)
+  const supabase = await createClient();
+  const supabaseAdmin = createAdminClient();
+  const validatedFields = merchantRegisterSchema.safeParse(values);
+  
+  if (!validatedFields.success) {
+    return { 
+      error: "Data tidak valid. Pastikan email menggunakan domain @upj.ac.id dan format lainnya sesuai." 
+    };
+  }
+
+  // Gunakan data yang sudah terverifikasi aman
+  const data = validatedFields.data;
 
   // 1. Guard: User must be logged out
   const { data: { session } } = await supabase.auth.getSession();
-  if (session) return { error: "You are already logged in. Please log out first." };
+  if (session) return { error: "Anda sudah login. Silakan logout terlebih dahulu." };
 
-  // 2. Check Existing User (Using Admin to peek at DB)
+  // 2. Check Existing User
   const { data: existingUser } = await supabaseAdmin
     .from("profiles")
     .select("role")
-    .eq("email", values.email)
+    .eq("email", data.email) 
     .maybeSingle();
 
   if (existingUser) {
-    if (existingUser.role === "buyer") {
-      return { 
-        error: "Email already registered as a Buyer. Cannot register again as Merchant." 
-      };
-    } else {
-      return { error: "Email already used." };
-    }
+    return { error: "Email sudah terdaftar." };
   }
 
-  // 3. Check Slug Availability
   const { data: existingSlug } = await supabaseAdmin
     .from("organizations")
     .select("id")
-    .eq("slug", values.storeSlug)
+    .eq("slug", data.storeSlug)
     .single();
 
-  if (existingSlug) return { error: "Merchant URL already used." };
+  if (existingSlug) return { error: "URL Toko (Slug) sudah digunakan." };
 
-  // 4. Create User using Public SIGNUP 
-  // (This forces Supabase to send the email immediately)
   const { data: authData, error: authError } = await supabase.auth.signUp({
-    email: values.email,
-    password: values.password,
+    email: data.email,
+    password: data.password,
     options: {
-      data: { full_name: values.fullName }, // Meta data
-      emailRedirectTo: `${origin}/merchant`, // Where to go after clicking email
+      data: { full_name: data.fullName },
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/merchant`,
     },
   });
 
   if (authError) return { error: authError.message };
-  if (!authData.user) return { error: "Failed to create user." };
+  if (!authData.user) return { error: "Gagal membuat user." };
 
-  // 5. RPC Transaction (Create Profile & Organization)
+  // 5. RPC Transaction
   const { error: rpcError } = await supabaseAdmin.rpc(
     "register_merchant_transaction",
     {
       p_user_id: authData.user.id,
-      p_email: values.email,
-      p_full_name: values.fullName,
-      p_store_name: values.storeName,
-      p_store_slug: values.storeSlug,
-      p_store_desc: values.description || "",
+      p_email: data.email,
+      p_full_name: data.fullName,
+      p_store_name: data.storeName,
+      p_store_slug: data.storeSlug,
+      p_store_desc: data.description || "",
     }
   );
 
-  // 6. ROLLBACK: If DB Transaction fails, delete the Auth User
-  // If we don't do this, the user exists in Auth but has no Merchant Data.
   if (rpcError) {
     console.error("RPC Error:", rpcError);
-    // Delete the user we just created so they can try again
     await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-    return { error: "Failed to create store data. Please try again." };
+    return { error: "Gagal membuat data toko. Silakan coba lagi." };
   }
-
-  // 7. Success
-  // The email was sent automatically by step #4.
-  (await cookies()).set("pending_verification_signup", "true", {
-    path: "/",
-    httpOnly: true,
-    secure: isProduction,
-    maxAge: 300,
-  });
 
   return { success: true };
 }

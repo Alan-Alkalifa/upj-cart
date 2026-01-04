@@ -102,7 +102,7 @@ export async function getAnalyticsData(days: number = 7) {
     };
 
   } catch (error) {
-    console.error("Gagal mengambil data Analytics:", error);
+    console.error("Failed to fetch data Analytics:", error);
     // Return nilai 0 agar aplikasi tidak crash jika GA error
     return {
       stats: { users: 0, views: 0, sessions: 0 },
