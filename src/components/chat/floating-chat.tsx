@@ -14,7 +14,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-// [FIX] Import getAdminChatRooms to handle admin view
 import { getMyChatRooms, getAdminChatRooms } from "@/app/actions/chat-list";
 import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
@@ -42,7 +41,6 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [orgId, setOrgId] = useState<string | null>(null);
-  // [FIX] New state to track if user is admin
   const [isAdmin, setIsAdmin] = useState(false);
 
   // Memoize the client to ensure stability across renders
@@ -58,7 +56,7 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
 
   const totalUnread = rooms.reduce((acc, room) => acc + room.unreadCount, 0);
 
-  // [FIX] Fetch Org ID AND User Role
+  // Fetch Org ID AND User Role
   useEffect(() => {
     const fetchUserDetails = async () => {
       if (!currentUserId) return;
@@ -86,53 +84,52 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
     fetchUserDetails();
   }, [currentUserId, supabase]);
 
-  // [FIX] Fetch rooms based on role
+  // [FIX] Fetch rooms safely handling Union Types
   const fetchRooms = useCallback(async () => {
     let result;
     
-    // Choose the correct server action based on role
     if (isAdmin) {
       result = await getAdminChatRooms();
     } else {
       result = await getMyChatRooms();
     }
 
-    const { rooms: fetchedRooms, error } = result;
-
-    if (error) {
-      console.error("Error fetching rooms:", error);
+    // FIX: Check if 'error' exists before accessing 'rooms'
+    if ("error" in result) {
+      console.error("Error fetching rooms:", result.error);
     } else {
-      setRooms(fetchedRooms || []);
+      // TypeScript now knows 'result' is the success type here
+      setRooms(result.rooms || []);
     }
     setLoading(false);
-  }, [isAdmin]); // Re-create function when isAdmin changes
+  }, [isAdmin]);
 
-  // --- [NEW FEATURE] Listen for 'open-chat-room' event ---
+  // Listen for 'open-chat-room' event
   useEffect(() => {
     const handleOpenChat = async (e: any) => {
       const targetRoomId = e.detail?.roomId;
       
-      // 1. Open the widget
       setIsOpen(true);
 
       if (targetRoomId) {
         setLoading(true);
-        // 2. Refresh rooms to ensure we have the latest (including the new one)
-        // [FIX] Use the correct fetcher here too
         let freshRooms: ChatRoom[] = [];
+        let res;
         
         if (isAdmin) {
-           const res = await getAdminChatRooms();
-           freshRooms = res.rooms || [];
+           res = await getAdminChatRooms();
         } else {
-           const res = await getMyChatRooms();
+           res = await getMyChatRooms();
+        }
+
+        // FIX: Safely extract rooms
+        if (res && !("error" in res)) {
            freshRooms = res.rooms || [];
         }
 
         setRooms(freshRooms);
         setLoading(false);
 
-        // 3. Find and select the target room
         const target = freshRooms?.find((r) => r.id === targetRoomId);
         if (target) {
           setSelectedRoom(target);
@@ -142,10 +139,9 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
 
     window.addEventListener("open-chat-room", handleOpenChat);
     return () => window.removeEventListener("open-chat-room", handleOpenChat);
-  }, [isAdmin]); // [FIX] Re-bind listener if isAdmin status updates
-  // --------------------------------------------------------
+  }, [isAdmin]);
 
-  // Add 'supabase' to dependency array to ensure subscription stays alive
+  // Realtime subscription
   useEffect(() => {
     if (!currentUserId) return;
 
@@ -158,14 +154,10 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
         "postgres_changes",
         { event: "*", schema: "public", table: "chat_messages" },
         (payload) => {
-          // Refresh list on any message change
           fetchRooms();
 
-          // Play sound if widget is closed and new message received
           if (payload.eventType === "INSERT" && !isOpenRef.current) {
             const newMessage = payload.new as { sender_id: string };
-            
-            // Only play if the message is NOT from the current user
             if (newMessage.sender_id !== currentUserId) {
               const audio = new Audio("/mp3/notify.mp3");
               audio.play().catch((err) => {
@@ -179,7 +171,6 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
         "postgres_changes",
         { event: "*", schema: "public", table: "chat_rooms" },
         () => {
-          // Refresh list on room updates (e.g. read status)
           fetchRooms();
         }
       )
@@ -194,7 +185,6 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
     };
   }, [currentUserId, fetchRooms, supabase]);
 
-  // Refresh when room selection changes (to clear unread counts immediately in UI)
   useEffect(() => {
     fetchRooms();
   }, [selectedRoom, fetchRooms]);
@@ -255,7 +245,6 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  {/* [FIX] Only show merchant-specific buttons if orgId exists */}
                   {orgId && <SidebarBadge role="merchant" orgId={orgId} />}
                   {orgId && (
                     <SupportChatButton
