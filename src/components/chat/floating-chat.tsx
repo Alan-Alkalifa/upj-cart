@@ -14,7 +14,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { getMyChatRooms } from "@/app/actions/chat-list";
+// [FIX] Import getAdminChatRooms to handle admin view
+import { getMyChatRooms, getAdminChatRooms } from "@/app/actions/chat-list";
 import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
 import { ActiveChatWindow } from "@/components/chat/active-chat-window";
@@ -41,6 +42,8 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [orgId, setOrgId] = useState<string | null>(null);
+  // [FIX] New state to track if user is admin
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Memoize the client to ensure stability across renders
   const supabase = useMemo(() => createClient(), []);
@@ -55,27 +58,54 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
 
   const totalUnread = rooms.reduce((acc, room) => acc + room.unreadCount, 0);
 
+  // [FIX] Fetch Org ID AND User Role
   useEffect(() => {
-    const fetchOrg = async () => {
-      const { data } = await supabase
+    const fetchUserDetails = async () => {
+      if (!currentUserId) return;
+
+      // 1. Fetch Organization (for Merchants)
+      const { data: orgData } = await supabase
         .from("organization_members")
         .select("org_id")
         .eq("profile_id", currentUserId)
+        .maybeSingle();
+      if (orgData) setOrgId(orgData.org_id);
+
+      // 2. Fetch Role (to check for Admin)
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", currentUserId)
         .single();
-      if (data) setOrgId(data.org_id);
+      
+      if (profileData?.role === "super_admin") {
+        setIsAdmin(true);
+      }
     };
-    if (currentUserId) fetchOrg();
+    
+    fetchUserDetails();
   }, [currentUserId, supabase]);
 
+  // [FIX] Fetch rooms based on role
   const fetchRooms = useCallback(async () => {
-    const { rooms, error } = await getMyChatRooms();
+    let result;
+    
+    // Choose the correct server action based on role
+    if (isAdmin) {
+      result = await getAdminChatRooms();
+    } else {
+      result = await getMyChatRooms();
+    }
+
+    const { rooms: fetchedRooms, error } = result;
+
     if (error) {
       console.error("Error fetching rooms:", error);
     } else {
-      setRooms(rooms || []);
+      setRooms(fetchedRooms || []);
     }
     setLoading(false);
-  }, []);
+  }, [isAdmin]); // Re-create function when isAdmin changes
 
   // --- [NEW FEATURE] Listen for 'open-chat-room' event ---
   useEffect(() => {
@@ -88,8 +118,18 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
       if (targetRoomId) {
         setLoading(true);
         // 2. Refresh rooms to ensure we have the latest (including the new one)
-        const { rooms: freshRooms } = await getMyChatRooms();
-        setRooms(freshRooms || []);
+        // [FIX] Use the correct fetcher here too
+        let freshRooms: ChatRoom[] = [];
+        
+        if (isAdmin) {
+           const res = await getAdminChatRooms();
+           freshRooms = res.rooms || [];
+        } else {
+           const res = await getMyChatRooms();
+           freshRooms = res.rooms || [];
+        }
+
+        setRooms(freshRooms);
         setLoading(false);
 
         // 3. Find and select the target room
@@ -102,7 +142,7 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
 
     window.addEventListener("open-chat-room", handleOpenChat);
     return () => window.removeEventListener("open-chat-room", handleOpenChat);
-  }, []);
+  }, [isAdmin]); // [FIX] Re-bind listener if isAdmin status updates
   // --------------------------------------------------------
 
   // Add 'supabase' to dependency array to ensure subscription stays alive
@@ -208,13 +248,14 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <h3 className="font-semibold text-lg tracking-tight">
-                    Inbox
+                    {isAdmin ? "Admin Inbox" : "Inbox"}
                   </h3>
                   <span className="bg-muted text-muted-foreground text-xs px-2 py-0.5 rounded-full font-medium">
                     {rooms.length}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
+                  {/* [FIX] Only show merchant-specific buttons if orgId exists */}
                   {orgId && <SidebarBadge role="merchant" orgId={orgId} />}
                   {orgId && (
                     <SupportChatButton
@@ -228,7 +269,7 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
               <div className="relative">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Cari percakapan..."
+                  placeholder={isAdmin ? "Cari merchant..." : "Cari percakapan..."}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-9 bg-background h-9"
@@ -254,7 +295,9 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
                   <MessageCircle className="size-12 mb-2 opacity-10" />
                   <p className="font-medium text-sm">Belum ada pesan</p>
                   <p className="text-xs max-w-[200px]">
-                    Percakapan dengan penjual atau pembeli akan muncul di sini.
+                    {isAdmin 
+                      ? "Pesan bantuan dari merchant akan muncul di sini."
+                      : "Percakapan dengan penjual atau pembeli akan muncul di sini."}
                   </p>
                 </div>
               ) : (

@@ -8,11 +8,20 @@ import { createClient } from "@/utils/supabase/server";
  */
 export async function getMyChatRooms() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) return { error: "Unauthorized" };
-
-  // 1. Identify User's Organizations
+// 1. Check User Role
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (profile?.role === "super_admin") {
+    return getAdminChatRooms();
+  }
   const { data: members } = await supabase
     .from("organization_members")
     .select("org_id")
@@ -23,16 +32,20 @@ export async function getMyChatRooms() {
   // 2. Build Query
   let query = supabase
     .from("chat_rooms")
-    .select(`
+    .select(
+      `
       *,
       organizations (id, name, logo_url),
       profiles (id, full_name, avatar_url),
       last_message:chat_messages(content, created_at)
-    `)
+    `
+    )
     .order("updated_at", { ascending: false });
 
   if (myOrgIds.length > 0) {
-    query = query.or(`customer_id.eq.${user.id},org_id.in.(${myOrgIds.join(',')})`);
+    query = query.or(
+      `customer_id.eq.${user.id},org_id.in.(${myOrgIds.join(",")})`
+    );
   } else {
     query = query.eq("customer_id", user.id);
   }
@@ -44,9 +57,9 @@ export async function getMyChatRooms() {
   // 3. [FIXED] Fetch Unread Counts for these rooms
   // Logic: Check 'is_read' instead of 'read_at'
   let unreadCounts: Record<string, number> = {};
-  
+
   if (rooms.length > 0) {
-    const roomIds = rooms.map(r => r.id);
+    const roomIds = rooms.map((r) => r.id);
     const { data: unreadData } = await supabase
       .from("chat_messages")
       .select("room_id")
@@ -65,10 +78,10 @@ export async function getMyChatRooms() {
   const formattedRooms = rooms.map((room) => {
     const isBuyer = room.customer_id === user.id;
 
-    if (room.type === 'store_to_admin' && !isBuyer) {
-       return {
+    if (room.type === "store_to_admin" && !isBuyer) {
+      return {
         id: room.id,
-        otherPartyName: "Admin Support", 
+        otherPartyName: "Admin Support",
         otherPartyImage: null,
         lastMessage: getLatestMessage(room.last_message),
         updatedAt: room.updated_at,
@@ -76,9 +89,15 @@ export async function getMyChatRooms() {
       };
     }
 
-    const otherParty = isBuyer 
-      ? { name: room.organizations?.name || "Store", image: room.organizations?.logo_url }
-      : { name: room.profiles?.full_name || "Guest", image: room.profiles?.avatar_url };
+    const otherParty = isBuyer
+      ? {
+          name: room.organizations?.name || "Store",
+          image: room.organizations?.logo_url,
+        }
+      : {
+          name: room.profiles?.full_name || "Guest",
+          image: room.profiles?.avatar_url,
+        };
 
     return {
       id: room.id,
@@ -98,20 +117,28 @@ export async function getMyChatRooms() {
  */
 export async function getAdminChatRooms() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) return { error: "Unauthorized" };
 
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
   if (profile?.role !== "super_admin") return { error: "Forbidden" };
 
   const { data: rooms, error } = await supabase
     .from("chat_rooms")
-    .select(`
+    .select(
+      `
       *,
       organizations (id, name, logo_url),
       last_message:chat_messages(content, created_at)
-    `)
+    `
+    )
     .eq("type", "store_to_admin")
     .order("updated_at", { ascending: false });
 
@@ -120,7 +147,7 @@ export async function getAdminChatRooms() {
   // [FIXED] Fetch Admin Unread Counts
   let unreadCounts: Record<string, number> = {};
   if (rooms.length > 0) {
-    const roomIds = rooms.map(r => r.id);
+    const roomIds = rooms.map((r) => r.id);
     const { data: unreadData } = await supabase
       .from("chat_messages")
       .select("room_id")
@@ -148,7 +175,11 @@ export async function getAdminChatRooms() {
 }
 
 function getLatestMessage(messages: any) {
-  if (!Array.isArray(messages) || messages.length === 0) return "No messages yet";
-  messages.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  if (!Array.isArray(messages) || messages.length === 0)
+    return "No messages yet";
+  messages.sort(
+    (a: any, b: any) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
   return messages[0].content;
 }
