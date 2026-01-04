@@ -7,12 +7,15 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge"; 
-import { getMyChatRooms } from "@/app/actions/chat-list";
+// ✅ CHANGE 1: Import the correct action
+import { getAdminChatRooms } from "@/app/actions/chat-list"; 
 import { cn } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/client";
-import { SupportChatButton } from "@/components/dashboard/support-chat-button"; 
+// ❌ REMOVE: SupportChatButton is for Merchants to contact Admin, not vice versa
+// import { SupportChatButton } from "@/components/dashboard/support-chat-button"; 
 import { ActiveChatWindow } from "@/components/chat/active-chat-window"; 
-import { SidebarBadge } from "@/components/dashboard/sidebar-badge";
+// ❌ REMOVE: SidebarBadge is likely not needed here or needs adjustment
+// import { SidebarBadge } from "@/components/dashboard/sidebar-badge";
 
 export type ChatRoom = {
   id: string;
@@ -28,29 +31,20 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
   const [selectedRoom, setSelectedRoom] = useState<ChatRoom | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [orgId, setOrgId] = useState<string | null>(null);
+  
+  // Admin doesn't need to fetch "orgId" for themselves generally
+  // unless you need it for some specific admin profile logic.
 
   const searchParams = useSearchParams();
   const supabase = createClient();
 
-  // 1. Fetch Org ID
-  useEffect(() => {
-    const fetchOrg = async () => {
-      const { data } = await supabase
-        .from('organization_members')
-        .select('org_id')
-        .eq('profile_id', currentUserId)
-        .single();
-      if (data) setOrgId(data.org_id);
-    };
-    fetchOrg();
-  }, [currentUserId]);
-
-  // 2. Fetch Rooms Function
+  // 1. Fetch Admin Rooms Function
   const fetchRooms = async () => {
-    const { rooms, error } = await getMyChatRooms();
+    // ✅ CHANGE 2: Call the Admin specific action
+    const { rooms, error } = await getAdminChatRooms();
+    
     if (error) {
-      console.error("Error fetching rooms:", error);
+      console.error("Error fetching admin rooms:", error);
     } else {
       setRooms(rooms || []);
       // Handle URL param selection
@@ -63,25 +57,34 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
     setLoading(false);
   };
 
-  // 3. Initial Load
+  // 2. Initial Load
   useEffect(() => { fetchRooms(); }, [searchParams]);
 
-  // 4. Refresh List on Room Change
+  // 3. Refresh List on Room Change
   useEffect(() => {
     fetchRooms();
   }, [selectedRoom]);
 
-  // 5. REALTIME LISTENER
+  // 4. REALTIME LISTENER (Updated for Admin)
   useEffect(() => {
     if (!currentUserId) return;
 
-    const channelName = `merchant_messages_list_${currentUserId}`;
-
-    const channel = supabase.channel(channelName)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_messages' }, () => {
+    // Listen for ALL messages in the system or specifically support messages
+    // Ideally, filter by type='store_to_admin' on the 'chat_rooms' table
+    const channel = supabase.channel(`admin_messages_support`)
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'chat_messages' 
+      }, () => {
           fetchRooms();
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_rooms' }, () => {
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'chat_rooms',
+        filter: "type=eq.store_to_admin" // ✅ Only listen to support rooms
+      }, () => {
           fetchRooms();
       })
       .subscribe();
@@ -107,20 +110,17 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
         <div className="p-4 border-b space-y-3 shrink-0 bg-background/50 backdrop-blur-sm z-10">
           <div className="flex items-center justify-between">
             <h1 className="font-bold text-xl flex items-center gap-2">
-              Pesan
+              Admin Inbox
               <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                 {rooms.length}
               </span>
             </h1>
-            {orgId && <SidebarBadge role="merchant" orgId={orgId} />}
           </div>
-
-          {orgId && <SupportChatButton orgId={orgId} currentUserId={currentUserId} />}
 
           <div className="relative mt-2">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input 
-              placeholder="Cari pembeli..." 
+              placeholder="Cari merchant..." 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 bg-background/50"
@@ -138,7 +138,7 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
             ) : filteredRooms.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground text-center p-6">
                 <MessageCircle className="size-10 mb-3 opacity-20" />
-                <p>Belum ada pesan</p>
+                <p>Belum ada pesan masuk</p>
               </div>
             ) : (
               <div className="flex flex-col">
@@ -207,8 +207,8 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
         ) : (
           <div className="hidden md:flex flex-col items-center justify-center h-full text-muted-foreground">
             <div className="bg-muted/30 p-6 rounded-full mb-4"><Store className="size-12 opacity-20" /></div>
-            <h3 className="font-semibold text-lg">UPJ Cart Messenger</h3>
-            <p className="text-sm mt-1">Pilih percakapan dari daftar untuk memulai.</p>
+            <h3 className="font-semibold text-lg">Admin Support Center</h3>
+            <p className="text-sm mt-1">Pilih chat merchant untuk membalas.</p>
           </div>
         )}
       </div>

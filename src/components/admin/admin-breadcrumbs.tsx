@@ -65,7 +65,7 @@ export function AdminBreadcrumbs({ items }: AdminBreadcrumbsProps) {
     finance: "Finance",
     messages: "Messages",
     settings: "Settings",
-    analytics: "Analytics", // Tambahkan analytics agar rapi jika mode auto dipakai
+    analytics: "Analytics", 
   }
 
   return (
