@@ -1,8 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter, usePathname } from "next/navigation" // Import usePathname
-import { ShoppingCart, Search, Menu, User, LogOut, Package, Store, LayoutDashboard } from "lucide-react"
+import { useRouter, usePathname } from "next/navigation" 
+import { ShoppingCart, Search, Store, LayoutDashboard, User, LogOut, Package } from "lucide-react"
 import { toast } from "sonner"
 import { ShopSearch } from "@/components/shop/shop-search" 
 
@@ -26,18 +26,18 @@ interface NavbarProps {
 
 export function Navbar({ user, cartCount = 0 }: NavbarProps) {
   const router = useRouter()
-  const pathname = usePathname() // Ambil path saat ini
+  const pathname = usePathname()
   
   const userRole = user?.app_metadata?.role || user?.role
   
+  // Restricted users (Admin & Merchant) still cannot see the Cart
   const isRestrictedUser = userRole === 'super_admin' || userRole === 'merchant'
-  const isSuperAdmin = userRole === 'super_admin'
-
-  // LOGIKA: Sembunyikan search bar navbar jika:
-  // 1. User adalah Super Admin (sesuai request sebelumnya)
-  // 2. Sedang di halaman /search (karena sudah ada search bar di page)
-  // 3. Sedang di halaman /merchant/... (karena kita akan pakai search lokal toko)
-  const isSearchHidden = isSuperAdmin || pathname === '/search' || pathname?.startsWith('/merchant-dashboard/')
+  
+  // LOGIKA UPDATE: 
+  // 1. Super Admin SEKARANG BISA melihat search bar (hapus isSuperAdmin dari kondisi).
+  // 2. Search bar tetap sembunyi di halaman /search (karena redundan).
+  // 3. Search bar tetap sembunyi di dashboard merchant.
+  const isSearchHidden = pathname === '/search' || pathname?.startsWith('/merchant-dashboard/')
 
   const handleLogout = async () => {
     const supabase = createClient()
@@ -68,7 +68,6 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
         {/* 2. SEARCH BAR (Desktop) - Conditional Rendering */}
         {!isSearchHidden && (
           <div className="flex-1 max-w-xl hidden md:block">
-            {/* Navbar selalu menggunakan global search ke /search */}
             <ShopSearch baseUrl="/search" />
           </div>
         )}
@@ -122,9 +121,9 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
                       {user.email}
                     </p>
                     {isRestrictedUser && (
-                       <Badge variant="outline" className="w-fit mt-1 text-[10px] h-5 px-1">
-                         {userRole === 'super_admin' ? 'Admin' : 'Merchant'}
-                       </Badge>
+                        <Badge variant="outline" className="w-fit mt-1 text-[10px] h-5 px-1">
+                          {userRole === 'super_admin' ? 'Admin' : 'Merchant'}
+                        </Badge>
                     )}
                   </div>
                 </DropdownMenuLabel>
