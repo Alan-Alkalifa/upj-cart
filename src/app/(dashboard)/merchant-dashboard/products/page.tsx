@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ProductActions } from "./product-actions"
-import { ProductSearch } from "./product-search" // Import Component Baru
+import { ProductSearch } from "./product-search"
+import { CategoryManager } from "./category-manager" // Import CategoryManager
 import Link from "next/link"
 import { Plus, Package, CheckCircle, Layers, AlertTriangle, FileText, AlertCircle } from "lucide-react"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -68,14 +69,24 @@ export default async function ProductsPage(props: { searchParams: Promise<{ page
   // Apply Pagination
   const { data: products, count: totalCount } = await query.range(start, end)
 
-  // --- STATS QUERY (Global stats, independent of search/filter) ---
-  const { data: allStatsData } = await supabase
-    .from("products")
-    .select("is_active, product_variants(stock)")
-    .eq("org_id", member.org_id)
-    .is("deleted_at", null)
+  // --- STATS & CATEGORIES QUERY ---
+  const [allStatsData, categoriesData] = await Promise.all([
+    supabase
+      .from("products")
+      .select("is_active, product_variants(stock)")
+      .eq("org_id", member.org_id)
+      .is("deleted_at", null),
+    
+    supabase
+      .from("merchant_categories")
+      .select("id, name")
+      .eq("org_id", member.org_id)
+      .is("deleted_at", null)
+      .order("name")
+  ])
 
-  const allStats = allStatsData || []
+  const allStats = allStatsData.data || []
+  const categories = categoriesData.data || []
   
   const totalProducts = allStats.length
   const activeProducts = allStats.filter(p => p.is_active).length
@@ -131,11 +142,16 @@ export default async function ProductsPage(props: { searchParams: Promise<{ page
            <p className="text-muted-foreground">Kelola katalog, harga, dan stok produk toko Anda.</p>
         </div>
         
-        {hasAddress ? (
-          <Button asChild><Link href="/merchant/products/create"><Plus className="mr-2 h-4 w-4" /> Tambah Produk</Link></Button>
-        ) : (
-          <Button disabled><Plus className="mr-2 h-4 w-4" /> Tambah Produk</Button>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Category Manager Added Here */}
+          <CategoryManager orgId={member.org_id} categories={categories} />
+          
+          {hasAddress ? (
+            <Button asChild><Link href="/merchant-dashboard/products/create"><Plus className="mr-2 h-4 w-4" /> Tambah Produk</Link></Button>
+          ) : (
+            <Button disabled><Plus className="mr-2 h-4 w-4" /> Tambah Produk</Button>
+          )}
+        </div>
       </div>
 
       {!hasAddress && (
@@ -145,7 +161,7 @@ export default async function ProductsPage(props: { searchParams: Promise<{ page
           <AlertDescription className="flex items-center justify-between text-orange-800/90">
             <span>Anda belum mengatur alamat toko. Produk tidak dapat dibuat karena diperlukan untuk perhitungan ongkir.</span>
             <Button asChild size="sm" variant="outline" className="bg-white hover:bg-orange-100 border-orange-300 text-orange-800 ml-4">
-              <Link href="/merchant/settings?tab=address">Lengkapi Alamat</Link>
+              <Link href="/merchant-dashboard/settings?tab=address">Lengkapi Alamat</Link>
             </Button>
           </AlertDescription>
         </Alert>
@@ -203,17 +219,17 @@ export default async function ProductsPage(props: { searchParams: Promise<{ page
         <Tabs defaultValue={statusFilter} className="w-full md:w-auto">
           <TabsList>
             <TabsTrigger value="all" asChild>
-              <Link href={`/merchant/products?${new URLSearchParams({ ...searchParams, status: 'all' }).toString()}`}>
+              <Link href={`/merchant-dashboard/products?${new URLSearchParams({ ...searchParams, status: 'all' }).toString()}`}>
                 Semua ({totalProducts})
               </Link>
             </TabsTrigger>
             <TabsTrigger value="active" asChild>
-              <Link href={`/merchant/products?${new URLSearchParams({ ...searchParams, status: 'active' }).toString()}`}>
+              <Link href={`/merchant-dashboard/products?${new URLSearchParams({ ...searchParams, status: 'active' }).toString()}`}>
                 Aktif ({activeProducts})
               </Link>
             </TabsTrigger>
             <TabsTrigger value="draft" asChild>
-              <Link href={`/merchant/products?${new URLSearchParams({ ...searchParams, status: 'draft' }).toString()}`}>
+              <Link href={`/merchant-dashboard/products?${new URLSearchParams({ ...searchParams, status: 'draft' }).toString()}`}>
                 Draft ({draftProducts})
               </Link>
             </TabsTrigger>
@@ -300,7 +316,7 @@ export default async function ProductsPage(props: { searchParams: Promise<{ page
               <PaginationContent>
                 <PaginationItem>
                   <PaginationPrevious 
-                    href={hasPrev ? `/merchant/products?page=${currentPage - 1}&status=${statusFilter}&q=${queryParam}` : "#"} 
+                    href={hasPrev ? `/merchant-dashboard/products?page=${currentPage - 1}&status=${statusFilter}&q=${queryParam}` : "#"} 
                     className={!hasPrev ? "pointer-events-none opacity-50" : "cursor-pointer"}
                     aria-disabled={!hasPrev}
                   />
@@ -311,7 +327,7 @@ export default async function ProductsPage(props: { searchParams: Promise<{ page
                       <PaginationEllipsis />
                     ) : (
                       <PaginationLink 
-                        href={`/merchant/products?page=${page}&status=${statusFilter}&q=${queryParam}`}
+                        href={`/merchant-dashboard/products?page=${page}&status=${statusFilter}&q=${queryParam}`}
                         isActive={currentPage === page}
                       >
                         {page}
@@ -321,7 +337,7 @@ export default async function ProductsPage(props: { searchParams: Promise<{ page
                 ))}
                 <PaginationItem>
                   <PaginationNext 
-                    href={hasNext ? `/merchant/products?page=${currentPage + 1}&status=${statusFilter}&q=${queryParam}` : "#"}
+                    href={hasNext ? `/merchant-dashboard/products?page=${currentPage + 1}&status=${statusFilter}&q=${queryParam}` : "#"}
                     className={!hasNext ? "pointer-events-none opacity-50" : "cursor-pointer"}
                     aria-disabled={!hasNext}
                   />

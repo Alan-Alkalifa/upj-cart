@@ -59,8 +59,8 @@ export async function updateOrganization(orgId: string, values: z.infer<typeof o
     return { error: "Database error: " + error.message }
   }
 
-  revalidatePath("/merchant/settings")
-  revalidatePath("/merchant", "layout") 
-  
+  revalidatePath("/merchant-dashboard/settings")
+  revalidatePath("/merchant-dashboard", "layout") 
+
   return { success: true }
 }

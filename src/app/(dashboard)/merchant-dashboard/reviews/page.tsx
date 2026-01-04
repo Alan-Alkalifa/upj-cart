@@ -117,7 +117,7 @@ export default async function ReviewsPage(props: { searchParams: Promise<{ page?
     const params = new URLSearchParams()
     if (page > 1) params.set('page', String(page))
     if (queryParam) params.set('q', queryParam)
-    return `/merchant/reviews?${params.toString()}`
+    return `/merchant-dashboard/reviews?${params.toString()}`
   }
 
   return (

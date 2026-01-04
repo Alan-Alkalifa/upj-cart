@@ -46,8 +46,8 @@ export async function proxy(request: NextRequest) {
     "/verify-email-sign-up",
     "/verify-email-reset-password",
   ];
-  const protectedRoutes = ["/merchant", "/admin"];
-  const adminRoutes = ["/admin"];
+  const protectedRoutes = ["/merchant-dashboard", "/admin-dashboard"];
+  const adminRoutes = ["/admin-dashboard"];
 
   const isAuthRoute = authRoutes.some((route) => path.startsWith(route));
   const isProtectedRoute = protectedRoutes.some(
@@ -100,8 +100,8 @@ export async function proxy(request: NextRequest) {
         }
         // -------------------------------------
 
-        if (role === "super_admin") targetUrl = "/admin";
-        else if (isMerchant) targetUrl = "/merchant";
+        if (role === "super_admin") targetUrl = "/admin-dashboard";
+        else if (isMerchant) targetUrl = "/merchant-dashboard";
       } catch (e) {
         console.error("Proxy Role Check Error:", e);
       }

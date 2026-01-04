@@ -49,9 +49,9 @@ export async function login(values: z.infer<typeof loginSchema>) {
 
   let redirectUrl = "/";
   if (role === "super_admin") {
-    redirectUrl = "/admin";
+    redirectUrl = "/admin-dashboard";
   } else if (isMerchant) {
-    redirectUrl = "/merchant";
+    redirectUrl = "/merchant-dashboard";
   }
 
   return { success: true, redirectUrl };
@@ -146,7 +146,7 @@ export async function registerMerchant(
     password: data.password,
     options: {
       data: { full_name: data.fullName },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/merchant`,
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/merchant-dashboard`,
     },
   });
 

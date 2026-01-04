@@ -77,7 +77,7 @@ export default async function AdminProductsPage(props: {
       { count: "exact" }
     )
     .order("created_at", { ascending: false });
-console.log(mainQuery)
+
   // 1. Filter Tab (Active vs Deleted)
   if (currentTab === "active") {
     mainQuery = mainQuery.is("deleted_at", null);
@@ -160,7 +160,7 @@ console.log(mainQuery)
     params.set("tab", tab);
     params.set("page", String(page));
     if (queryParam) params.set("q", queryParam);
-    return `/admin/products?${params.toString()}`;
+    return `/admin-dashboard/products?${params.toString()}`;
   };
 
   return (
@@ -393,7 +393,7 @@ function ProductTable({
                 </TableCell>
                 <TableCell className="font-medium">
                   {product.name}
-                  <div className="text-xs text-muted-foreground line-clamp-1 max-w-[200px]">
+                  <div className="text-xs text-muted-foreground line-clamp-1 max-w-50">
                     {product.description}
                   </div>
                 </TableCell>

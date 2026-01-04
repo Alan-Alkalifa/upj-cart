@@ -49,7 +49,7 @@ export default function LoginPage() {
               toast.dismiss(toastId);
               toast.success("Login Successful!");
               window.history.replaceState(null, "", window.location.pathname);
-              router.push("/merchant"); 
+              router.push("/merchant-dashboard"); 
               router.refresh();
             } else {
               toast.error("Failed to verify session.");

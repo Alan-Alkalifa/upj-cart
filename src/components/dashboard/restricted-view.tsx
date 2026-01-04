@@ -89,10 +89,6 @@ export function RestrictedView({ status, settings }: RestrictedViewProps) {
               Hubungi Admin ({settings.support_email})
             </Link>
           </Button>
-          
-          <Button variant="ghost" className="text-xs" asChild>
-            <Link href="/login">Kembali ke Login</Link>
-          </Button>
         </CardFooter>
       </Card>
     </div>

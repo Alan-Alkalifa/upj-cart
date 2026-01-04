@@ -27,7 +27,7 @@ export default async function AnalyticsPage() {
         {/* Pastikan admin-breadcrumbs.tsx sudah diupdate untuk menerima prop 'items' */}
         <AdminBreadcrumbs 
           items={[
-            { label: "Dashboard", href: "/admin" },
+            { label: "Dashboard", href: "/admin-dashboard" },
             { label: "Analytics", href: "/admin/analytics", active: true },
           ]} 
         />

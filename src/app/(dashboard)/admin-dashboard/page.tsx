@@ -197,12 +197,12 @@ export default async function AdminDashboardPage({
         </div>
         <div className="flex gap-2">
           <Button asChild variant="outline" size="sm">
-            <Link href="/admin/finance">
+            <Link href="/admin-dashboard/finance">
               <Wallet className="mr-2 h-4 w-4" /> Finance
             </Link>
           </Button>
           <Button asChild size="sm">
-            <Link href="/admin/merchants">
+            <Link href="/admin-dashboard/merchants">
               <Store className="mr-2 h-4 w-4" /> Manage Merchants
             </Link>
           </Button>
@@ -305,7 +305,7 @@ export default async function AdminDashboardPage({
                       </div>
                     </div>
                     <Button size="sm" variant="outline" asChild>
-                      <Link href={`/admin/merchants?id=${merchant.id}`}>Review</Link>
+                      <Link href={`/admin-dashboard/merchants?id=${merchant.id}`}>Review</Link>
                     </Button>
                   </div>
                 ))}

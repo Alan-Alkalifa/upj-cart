@@ -80,24 +80,24 @@ export function AppSidebar({ user, org }: { user: any; org: any }) {
           <SidebarGroupLabel>Operasional</SidebarGroupLabel>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname === "/merchant"} tooltip="Dashboard">
-                <a href="/merchant">
+              <SidebarMenuButton asChild isActive={pathname === "/merchant-dashboard"} tooltip="Dashboard">
+                <a href="/merchant-dashboard">
                   <LayoutDashboard />
                   <span>Dashboard</span>
                 </a>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname.startsWith("/merchant/products")} tooltip="Produk">
-                <a href="/merchant/products">
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/merchant-dashboard/products")} tooltip="Produk">
+                <a href="/merchant-dashboard/products">
                   <Package />
                   <span>Produk</span>
                 </a>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname.startsWith("/merchant/orders")} tooltip="Pesanan">
-                <a href="/merchant/orders">
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/merchant-dashboard/orders")} tooltip="Pesanan">
+                <a href="/merchant-dashboard/orders">
                   <ShoppingCart />
                   <span>Pesanan</span>
                 </a>
@@ -106,8 +106,8 @@ export function AppSidebar({ user, org }: { user: any; org: any }) {
             
             {/* MESSAGES WITH BADGE */}
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname.startsWith("/merchant/messages")} tooltip="Pesan Chat">
-                <a href="/merchant/messages" className="flex items-center w-full">
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/merchant-dashboard/messages")} tooltip="Pesan Chat">
+                <a href="/merchant-dashboard/messages" className="flex items-center w-full">
                   <MessageCircle />
                   <span className="flex-1">Pesan Chat</span>
                   {/* [BADGE HERE] */}
@@ -117,8 +117,8 @@ export function AppSidebar({ user, org }: { user: any; org: any }) {
             </SidebarMenuItem>
 
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname.startsWith("/merchant/finance")} tooltip="Keuangan">
-                <a href="/merchant/finance">
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/merchant-dashboard/finance")} tooltip="Keuangan">
+                <a href="/merchant-dashboard/finance">
                   <Wallet />
                   <span>Keuangan</span>
                 </a>
@@ -132,16 +132,16 @@ export function AppSidebar({ user, org }: { user: any; org: any }) {
           <SidebarGroupLabel>Pemasaran</SidebarGroupLabel>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname.startsWith("/merchant/coupons")} tooltip="Kupon Diskon">
-                <a href="/merchant/coupons">
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/merchant-dashboard/coupons")} tooltip="Kupon Diskon">
+                <a href="/merchant-dashboard/coupons">
                   <TicketPercent />
                   <span>Kupon</span>
                 </a>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname.startsWith("/merchant/reviews")} tooltip="Ulasan Pembeli">
-                <a href="/merchant/reviews">
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/merchant-dashboard/reviews")} tooltip="Ulasan Pembeli">
+                <a href="/merchant-dashboard/reviews">
                   <Star />
                   <span>Ulasan</span>
                 </a>
@@ -155,8 +155,8 @@ export function AppSidebar({ user, org }: { user: any; org: any }) {
           <SidebarGroupLabel>Konfigurasi</SidebarGroupLabel>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname.startsWith("/merchant/settings")} tooltip="Pengaturan">
-                <a href="/merchant/settings">
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/merchant-dashboard/settings")} tooltip="Pengaturan">
+                <a href="/merchant-dashboard/settings">
                   <Settings />
                   <span>Pengaturan</span>
                 </a>

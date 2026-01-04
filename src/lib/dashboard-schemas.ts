@@ -41,7 +41,7 @@ export const productSchema = z.object({
     .max(100000, "Weight cannot exceed 100 kg"),
   
   image_url: z.string().optional(),
-  gallery_urls: z.array(z.string()).optional(),
+  gallery_urls: z.array(z.string()).min(1, "Minimal upload 1 gambar produk."),
 
   is_active: z.boolean().default(true),
   

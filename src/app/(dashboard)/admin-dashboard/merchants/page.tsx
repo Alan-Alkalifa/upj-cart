@@ -109,7 +109,7 @@ export default async function MerchantsPage(props: {
     params.set('tab', tab)
     params.set('page', String(page))
     if (queryParam) params.set('q', queryParam)
-    return `/admin/merchants?${params.toString()}`
+    return `/admin-dashboard/merchants?${params.toString()}`
   }
 
   return (

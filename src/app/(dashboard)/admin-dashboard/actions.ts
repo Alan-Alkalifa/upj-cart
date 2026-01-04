@@ -31,7 +31,7 @@ export async function approveMerchant(orgId: string, merchantEmail: string) {
     console.error("Email failed:", e)
   }
 
-  revalidatePath("/admin/merchants")
+  revalidatePath("/admin-dashboard/merchants")
   return { success: true }
 }
 
@@ -60,7 +60,7 @@ export async function rejectMerchant(orgId: string, merchantEmail: string, reaso
     console.error("Email failed:", e)
   }
 
-  revalidatePath("/admin/merchants")
+  revalidatePath("/admin-dashboard/merchants")
   return { success: true }
 }
 
@@ -86,7 +86,7 @@ export async function suspendMerchant(orgId: string, merchantEmail: string) {
     console.error("Email failed:", e)
   }
 
-  revalidatePath("/admin/merchants")
+  revalidatePath("/admin-dashboard/merchants")
   return { success: true }
 }
 
@@ -102,7 +102,7 @@ export async function hardDeleteMerchant(orgId: string) {
 
   if (error) return { error: error.message }
 
-  revalidatePath("/admin/merchants")
+  revalidatePath("/admin-dashboard/merchants")
   return { success: true }
 }
 
@@ -115,7 +115,7 @@ export async function deleteProduct(productId: string) {
 
   if (error) return { error: error.message }
 
-  revalidatePath("/admin/products")
+  revalidatePath("/admin-dashboard/products")
   return { success: true }
 }
 
@@ -128,7 +128,7 @@ export async function restoreProduct(productId: string) {
     .eq("id", productId)
 
   if (error) return { error: error.message }
-  revalidatePath("/admin/products")
+  revalidatePath("/admin-dashboard/products")
   return { success: true }
 }
 
@@ -193,7 +193,7 @@ export async function approveWithdrawal(withdrawalId: string, note: string) {
     }
   }
   
-  revalidatePath("/admin/finance")
+  revalidatePath("/admin-dashboard/finance")
   return { success: true }
 }
 
@@ -255,7 +255,7 @@ export async function rejectWithdrawal(withdrawalId: string, reason: string) {
     }
   }
 
-  revalidatePath("/admin/finance")
+  revalidatePath("/admin-dashboard/finance")
   return { success: true }
 }
 
@@ -277,7 +277,7 @@ export async function updatePlatformSettings(formData: {
 
   if (error) return { error: error.message }
 
-  revalidatePath("/admin/settings")
+  revalidatePath("/admin-dashboard/settings")
   return { success: true }
 }
 

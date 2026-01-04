@@ -78,11 +78,10 @@ export function ProductForm({
       name: initialData?.name || "",
       description: initialData?.description || "",
       global_category_id: initialData?.global_category_id || "",
-      merchant_category_id: initialData?.merchant_category_id || "", // Default value for merchant category
+      merchant_category_id: initialData?.merchant_category_id || "", 
       base_price: initialData?.base_price || 0,
       weight_grams: initialData?.weight_grams || 100,
       image_url: initialData?.image_url || "",
-      // Initialize gallery_urls (fallback to image_url if gallery is empty)
       gallery_urls:
         initialData?.gallery_urls && initialData.gallery_urls.length > 0
           ? initialData.gallery_urls
@@ -115,7 +114,6 @@ export function ProductForm({
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const fileExt = file.name.split(".").pop();
-      // Unique name with timestamp and index
       const filePath = `${orgId}/${Date.now()}-${i}.${fileExt}`;
 
       const { error } = await supabase.storage
@@ -130,13 +128,11 @@ export function ProductForm({
       }
     }
 
-    // Append new URLs to existing gallery
     const currentGallery = form.getValues("gallery_urls") || [];
     const updatedGallery = [...currentGallery, ...newUrls];
 
     form.setValue("gallery_urls", updatedGallery);
 
-    // Set the first image as the main image_url automatically
     if (updatedGallery.length > 0) {
       form.setValue("image_url", updatedGallery[0]);
     }
@@ -155,7 +151,6 @@ export function ProductForm({
 
     form.setValue("gallery_urls", updatedGallery);
 
-    // Update main image logic
     if (updatedGallery.length > 0) {
       form.setValue("image_url", updatedGallery[0]);
     } else {
@@ -212,7 +207,7 @@ export function ProductForm({
         toast.success(
           isEdit ? "Produk diperbarui!" : "Produk berhasil dibuat!"
         );
-        router.push("/merchant/products");
+        router.push("/merchant-dashboard/products");
       }
     });
   }
@@ -222,7 +217,7 @@ export function ProductForm({
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           {/* HEADER */}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-2xl font-bold tracking-tight">
                 {isEdit ? "Edit Produk" : "Tambah Produk Baru"}
@@ -231,22 +226,27 @@ export function ProductForm({
                 Isi detail produk, varian, dan stok.
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full sm:w-auto">
               <Button
                 type="button"
                 variant="outline"
+                className="flex-1 sm:flex-none"
                 onClick={() => router.back()}
               >
                 Batal
               </Button>
-              <Button type="submit" disabled={isPending || uploading}>
+              <Button 
+                type="submit" 
+                className="flex-1 sm:flex-none" 
+                disabled={isPending || uploading}
+              >
                 {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isEdit ? "Simpan Perubahan" : "Terbitkan Produk"}
+                {isEdit ? "Simpan" : "Terbitkan"}
               </Button>
             </div>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-[2fr_1fr]">
+          <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
             {/* LEFT COLUMN */}
             <div className="space-y-6">
               {/* 1. Basic Info */}
@@ -307,14 +307,14 @@ export function ProductForm({
                   {fields.map((fieldItem, index) => (
                     <div
                       key={fieldItem.id}
-                      className="grid grid-cols-[2fr_1fr_1fr_auto] items-end gap-3 rounded-md border p-4 bg-muted/20"
+                      className="flex flex-col gap-4 rounded-md border p-4 bg-muted/20 sm:grid sm:grid-cols-[2fr_1fr_1fr_auto] sm:items-start sm:gap-3"
                     >
                       <FormField
                         control={form.control}
                         name={`variants.${index}.name`}
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Nama Varian</FormLabel>
+                          <FormItem className="w-full">
+                            <FormLabel className="sm:hidden lg:block">Nama Varian</FormLabel>
                             <FormControl>
                               <Input placeholder="Size L / Merah" {...field} />
                             </FormControl>
@@ -327,8 +327,8 @@ export function ProductForm({
                         control={form.control}
                         name={`variants.${index}.stock`}
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Stok</FormLabel>
+                          <FormItem className="w-full">
+                            <FormLabel className="sm:hidden lg:block">Stok</FormLabel>
                             <FormControl>
                               <Input
                                 type="number"
@@ -347,8 +347,8 @@ export function ProductForm({
                         control={form.control}
                         name={`variants.${index}.price_override`}
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Harga Khusus</FormLabel>
+                          <FormItem className="w-full">
+                            <FormLabel className="sm:hidden lg:block">Harga Khusus</FormLabel>
                             <FormControl>
                               <Input
                                 type="number"
@@ -371,7 +371,7 @@ export function ProductForm({
                         size="icon"
                         onClick={() => onRemoveClick(index)}
                         disabled={fields.length === 1 || isPending}
-                        className="text-destructive"
+                        className="text-destructive mt-auto sm:mt-8"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -418,78 +418,78 @@ export function ProductForm({
                   <CardTitle>Detail & Kategori</CardTitle>
                 </CardHeader>
                 <CardContent className="grid gap-4">
-                   {/* Global Category */}
-                   <FormField
-                    control={form.control}
-                    name="global_category_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Kategori Global (System)</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Pilih Kategori Global" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {categories.length === 0 ? (
-                              <SelectItem value="disabled" disabled>
-                                Tidak ada kategori (Cek DB)
-                              </SelectItem>
-                            ) : (
-                              categories.map((c) => (
-                                <SelectItem key={c.id} value={c.id}>
-                                  {c.name}
+                   {/* Global Category & Merchant Category - Side by Side */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                     {/* Global Category */}
+                     <FormField
+                      control={form.control}
+                      name="global_category_id"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Kategori Global</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Pilih Kategori" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {categories.length === 0 ? (
+                                <SelectItem value="disabled" disabled>
+                                  Tidak ada data
                                 </SelectItem>
-                              ))
-                            )}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                              ) : (
+                                categories.map((c) => (
+                                  <SelectItem key={c.id} value={c.id}>
+                                    {c.name}
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  {/* Merchant Category (NEW) */}
-                  <FormField
-                    control={form.control}
-                    name="merchant_category_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Kategori Toko Anda</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value || undefined}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Pilih Kategori Toko" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {merchantCategories.length === 0 ? (
-                              <SelectItem value="empty" disabled>
-                                Belum ada kategori toko
-                              </SelectItem>
-                            ) : (
-                              merchantCategories.map((c) => (
-                                <SelectItem key={c.id} value={c.id}>
-                                  {c.name}
+                    {/* Merchant Category */}
+                    <FormField
+                      control={form.control}
+                      name="merchant_category_id"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Kategori Toko</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value || undefined}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Pilih Kategori" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {merchantCategories.length === 0 ? (
+                                <SelectItem value="empty" disabled>
+                                  Belum ada kategori
                                 </SelectItem>
-                              ))
-                            )}
-                          </SelectContent>
-                        </Select>
-                        <FormDescription className="text-xs">
-                          Kategori ini khusus untuk toko Anda (opsional).
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                              ) : (
+                                merchantCategories.map((c) => (
+                                  <SelectItem key={c.id} value={c.id}>
+                                    {c.name}
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
                   <FormField
                     control={form.control}
@@ -532,73 +532,73 @@ export function ProductForm({
                   />
                 </CardContent>
               </Card>
-
-              {/* 5. Image Upload */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Galeri Foto</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-3 gap-4">
-                    {/* Render existing images */}
-                    {form.watch("gallery_urls")?.map((url, index) => (
-                      <div
-                        key={index}
-                        className="relative aspect-square rounded-md overflow-hidden border group bg-muted"
-                      >
-                        <img
-                          src={url}
-                          alt="Product"
-                          className="w-full h-full object-cover"
-                        />
-
-                        {/* Main Badge */}
-                        {index === 0 && (
-                          <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] text-center py-1">
-                            Cover
-                          </div>
-                        )}
-
-                        {/* Remove Button */}
-                        <button
-                          type="button"
-                          onClick={() => removeImage(index)}
-                          className="absolute top-1 right-1 bg-white/80 p-1 rounded-full text-red-600 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
-
-                    {/* Upload Button */}
-                    <label className="flex flex-col items-center justify-center aspect-square rounded-md border border-dashed hover:bg-muted/50 cursor-pointer transition-colors">
-                      <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                        {uploading ? (
-                          <Loader2 className="h-6 w-6 animate-spin" />
-                        ) : (
-                          <Upload className="h-6 w-6" />
-                        )}
-                        <span className="text-xs text-center px-2">
-                          {uploading ? "Uploading..." : "Tambah Foto"}
-                        </span>
-                      </div>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handleImageUpload}
-                        disabled={uploading}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Foto pertama akan menjadi cover produk.
-                  </p>
-                </CardContent>
-              </Card>
             </div>
           </div>
+
+          {/* 5. Image Upload - Moved to Bottom (Full Width) */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Galeri Foto</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
+                {/* Render existing images */}
+                {form.watch("gallery_urls")?.map((url, index) => (
+                  <div
+                    key={index}
+                    className="relative aspect-square rounded-md overflow-hidden border group bg-muted"
+                  >
+                    <img
+                      src={url}
+                      alt="Product"
+                      className="w-full h-full object-cover"
+                    />
+
+                    {/* Main Badge */}
+                    {index === 0 && (
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] text-center py-1">
+                        Cover
+                      </div>
+                    )}
+
+                    {/* Remove Button */}
+                    <button
+                      type="button"
+                      onClick={() => removeImage(index)}
+                      className="absolute top-1 right-1 bg-white/80 p-1 rounded-full text-red-600 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+
+                {/* Upload Button */}
+                <label className="flex flex-col items-center justify-center aspect-square rounded-md border border-dashed hover:bg-muted/50 cursor-pointer transition-colors">
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    {uploading ? (
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    ) : (
+                      <Upload className="h-6 w-6" />
+                    )}
+                    <span className="text-xs text-center px-2">
+                      {uploading ? "Uploading..." : "Tambah Foto"}
+                    </span>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleImageUpload}
+                    disabled={uploading}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Foto pertama akan menjadi cover produk.
+              </p>
+            </CardContent>
+          </Card>
         </form>
       </Form>
 

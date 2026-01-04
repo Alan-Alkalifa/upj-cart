@@ -49,7 +49,7 @@ export function ProductActions({ productId, productName }: { productId: string, 
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem asChild>
-            <Link href={`/merchant/products/${productId}`}>
+            <Link href={`/merchant-dashboard/products/${productId}`}>
               <Pencil className="mr-2 h-4 w-4" /> Edit
             </Link>
           </DropdownMenuItem>

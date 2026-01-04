@@ -12,6 +12,15 @@ export async function startBuyerChat(orgId: string) {
 
   if (!user) return { error: "Unauthorized" };
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (profile?.role === "merchant" || profile?.role === "super_admin") {
+    return { error: "Akun Merchant/Admin tidak dapat memulai chat sebagai pembeli." };
+  }
   // Check if room exists
   const { data: existingRoom } = await supabase
     .from("chat_rooms")

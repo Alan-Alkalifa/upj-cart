@@ -80,8 +80,8 @@ export function AppSidebar({ user }: { user: any }) {
           <SidebarGroupLabel>Platform</SidebarGroupLabel>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname === "/admin"} tooltip="Overview">
-                <a href="/admin">
+              <SidebarMenuButton asChild isActive={pathname === "/admin-dashboard"} tooltip="Overview">
+                <a href="/admin-dashboard">
                   <LayoutDashboard />
                   <span>Overview</span>
                 </a>
@@ -89,8 +89,8 @@ export function AppSidebar({ user }: { user: any }) {
             </SidebarMenuItem>
 
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname.startsWith("/admin/merchants")} tooltip="Merchants">
-                <a href="/admin/merchants">
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/admin-dashboard/merchants")} tooltip="Merchants">
+                <a href="/admin-dashboard/merchants">
                   <Store />
                   <span>Merchants</span>
                 </a>
@@ -98,8 +98,8 @@ export function AppSidebar({ user }: { user: any }) {
             </SidebarMenuItem>
 
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname.startsWith("/admin/products")} tooltip="Products">
-                <a href="/admin/products">
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/admin-dashboard/products")} tooltip="Products">
+                <a href="/admin-dashboard/products">
                   <Package />
                   <span>Products</span>
                 </a>
@@ -107,8 +107,8 @@ export function AppSidebar({ user }: { user: any }) {
             </SidebarMenuItem>
 
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname.startsWith("/admin/users")} tooltip="Users">
-                <a href="/admin/users">
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/admin-dashboard/users")} tooltip="Users">
+                <a href="/admin-dashboard/users">
                   <Users />
                   <span>Users</span>
                 </a>
@@ -124,8 +124,8 @@ export function AppSidebar({ user }: { user: any }) {
             
             {/* [NEW] MENU ANALYTICS */}
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname.startsWith("/admin/analytics")} tooltip="Analytics">
-                <a href="/admin/analytics">
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/admin-dashboard/analytics")} tooltip="Analytics">
+                <a href="/admin-dashboard/analytics">
                   <LineChart />
                   <span>Analytics</span>
                 </a>
@@ -133,8 +133,8 @@ export function AppSidebar({ user }: { user: any }) {
             </SidebarMenuItem>
 
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname.startsWith("/admin/finance")} tooltip="Finance">
-                <a href="/admin/finance">
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/admin-dashboard/finance")} tooltip="Finance">
+                <a href="/admin-dashboard/finance">
                   <Wallet />
                   <span>Finance</span>
                 </a>
@@ -143,8 +143,8 @@ export function AppSidebar({ user }: { user: any }) {
 
             {/* MESSAGES WITH BADGE */}
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname.startsWith("/admin/messages")} tooltip="Messages">
-                <a href="/admin/messages" className="flex items-center w-full">
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/admin-dashboard/messages")} tooltip="Messages">
+                <a href="/admin-dashboard/messages" className="flex items-center w-full">
                   <MessageCircle />
                   <span className="flex-1">Messages</span>
                   <SidebarBadge role="admin" />
@@ -159,8 +159,8 @@ export function AppSidebar({ user }: { user: any }) {
           <SidebarGroupLabel>Configuration</SidebarGroupLabel>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname.startsWith("/admin/settings")} tooltip="Settings">
-                <a href="/admin/settings">
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/admin-dashboard/settings")} tooltip="Settings">
+                <a href="/admin-dashboard/settings">
                   <Settings />
                   <span>Settings</span>
                 </a>

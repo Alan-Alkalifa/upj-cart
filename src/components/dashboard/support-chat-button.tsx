@@ -27,7 +27,7 @@ export function SupportChatButton({
         toast.error(res.error);
       } else if (res.roomId) {
         // 2. Redirect to Messages Page with the ID
-        router.push(`/merchant/messages?id=${res.roomId}`);
+        router.push(`/merchant-dashboard/messages?id=${res.roomId}`);
       }
     } catch (error) {
       toast.error("Gagal membuka tiket support");

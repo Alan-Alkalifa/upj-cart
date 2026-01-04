@@ -37,7 +37,7 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
   // 1. User adalah Super Admin (sesuai request sebelumnya)
   // 2. Sedang di halaman /search (karena sudah ada search bar di page)
   // 3. Sedang di halaman /merchant/... (karena kita akan pakai search lokal toko)
-  const isSearchHidden = isSuperAdmin || pathname === '/search' || pathname?.startsWith('/merchant/')
+  const isSearchHidden = isSuperAdmin || pathname === '/search' || pathname?.startsWith('/merchant-dashboard/')
 
   const handleLogout = async () => {
     const supabase = createClient()
@@ -150,7 +150,7 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
                     <>
                       <DropdownMenuItem asChild>
                         <Link 
-                          href={userRole === 'super_admin' ? "/admin" : "/merchant"} 
+                          href={userRole === 'super_admin' ? "/admin-dashboard" : "/merchant-dashboard"} 
                           className="cursor-pointer font-medium text-blue-600 focus:text-blue-600 focus:bg-blue-50"
                         >
                           <LayoutDashboard className="mr-2 h-4 w-4" /> 

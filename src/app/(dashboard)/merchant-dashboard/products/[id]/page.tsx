@@ -13,7 +13,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
     .eq("id", id)
     .single()
 
-  if (!product) redirect("/merchant/products")
+  if (!product) redirect("/merchant-dashboard/products")
 
   const orgId = product.org_id
 

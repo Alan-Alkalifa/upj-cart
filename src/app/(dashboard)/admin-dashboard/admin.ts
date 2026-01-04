@@ -61,6 +61,6 @@ export async function updatePlatformSettings(formData: {
 
   if (error) return { error: error.message }
 
-  revalidatePath("/admin/settings")
+  revalidatePath("/admin-dashboard/settings")
   return { success: true }
 }

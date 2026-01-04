@@ -173,3 +173,25 @@ export async function deleteMerchantCategory(categoryId: string) {
   revalidatePath("/merchant/products/create")
   return { success: true }
 }
+
+export async function updateMerchantCategory(categoryId: string, name: string) {
+  const supabase = await createClient()
+
+  if (!name || name.trim().length === 0) {
+    return { error: "Category name cannot be empty" }
+  }
+
+  const { error } = await supabase
+    .from("merchant_categories")
+    .update({ 
+        name: name,
+        updated_at: new Date().toISOString()
+    })
+    .eq("id", categoryId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath("/merchant-dashboard/products")
+  revalidatePath("/merchant-dashboard/products/create")
+  return { success: true }
+}
