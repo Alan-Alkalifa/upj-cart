@@ -150,10 +150,10 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
                       <DropdownMenuItem asChild>
                         <Link 
                           href={userRole === 'super_admin' ? "/admin-dashboard" : "/merchant-dashboard"} 
-                          className="cursor-pointer font-medium text-blue-600 focus:text-blue-600 focus:bg-blue-50"
+                          className="cursor-pointer font-medium"
                         >
                           <LayoutDashboard className="mr-2 h-4 w-4" /> 
-                          {userRole === 'super_admin' ? "Dashboard Admin" : "Dashboard Toko"}
+                          {userRole === 'super_admin' ? "Dashboard Admin" : "Dashboard Merchant"}
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
