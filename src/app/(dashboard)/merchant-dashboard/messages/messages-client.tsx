@@ -48,16 +48,20 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
 
   // 2. Fetch Rooms Function
   const fetchRooms = async () => {
-    const { rooms, error } = await getMyChatRooms();
-    if (error) {
-      console.error("Error fetching rooms:", error);
+    // [FIX] Handle union return type safely instead of destructuring
+    const res = await getMyChatRooms();
+    
+    if ("error" in res) {
+      console.error("Error fetching rooms:", res.error);
     } else {
-      setRooms(rooms || []);
+      setRooms((res.rooms as ChatRoom[]) || []);
+      
       // Handle URL param selection
       const paramId = searchParams.get('id');
-      if (paramId && rooms && !selectedRoom) {
-        const targetRoom = rooms.find(r => r.id === paramId);
-        if (targetRoom) setSelectedRoom(targetRoom);
+      if (paramId && res.rooms && !selectedRoom) {
+        // [FIX] Explicit typing for 'r' if inference fails, though it should be inferred now
+        const targetRoom = res.rooms.find((r) => r.id === paramId);
+        if (targetRoom) setSelectedRoom(targetRoom as ChatRoom);
       }
     }
     setLoading(false);
