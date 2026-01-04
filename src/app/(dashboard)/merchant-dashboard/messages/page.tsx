@@ -1,5 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
-import { AdminMessagesClient } from "./messages-client"; // Updated import
+import { MerchantMessagesClient } from "./messages-client"; // Updated import
 import { redirect } from "next/navigation";
 
 export default async function MerchantMessagesPage() { // Function name can remain or change to AdminMessagesPage
@@ -10,7 +10,7 @@ export default async function MerchantMessagesPage() { // Function name can rema
 
   return (
     <div className="max-w-full h-[calc(100dvh-5rem)] md:h-[calc(100vh-2rem)] flex flex-col">
-       <AdminMessagesClient currentUserId={user.id} />
+       <MerchantMessagesClient currentUserId={user.id} />
     </div>
   );
 }

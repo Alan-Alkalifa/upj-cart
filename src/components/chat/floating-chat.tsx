@@ -208,7 +208,7 @@ export function FloatingChatWidget({ currentUserId }: FloatingChatWidgetProps) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <h3 className="font-semibold text-lg tracking-tight">
-                    Pesan
+                    Inbox
                   </h3>
                   <span className="bg-muted text-muted-foreground text-xs px-2 py-0.5 rounded-full font-medium">
                     {rooms.length}
