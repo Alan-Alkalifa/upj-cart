@@ -22,11 +22,12 @@ import {
   ShieldCheck,
   Truck,
   MessageCircle,
+  TicketPercent,
 } from "lucide-react";
 import Link from "next/link";
 import { Metadata, ResolvingMetadata } from "next";
-// --- NEW IMPORT ---
 import { ChatMerchantButton } from "@/components/shop/chat-merchant-button";
+import { Progress } from "@/components/ui/progress";
 
 // --- 1. GENERATE METADATA (Dynamic SEO) ---
 export async function generateMetadata(
@@ -112,6 +113,15 @@ export default async function ProductDetailPage({
     .single();
 
   if (!product) notFound();
+
+  // 4. Fetch Available Coupons for this Organization
+  const { data: coupons } = await supabase
+    .from("coupons")
+    .select("id, code, discount_percent, times_used, max_uses")
+    .eq("org_id", product.organizations?.id)
+    .eq("is_active", true)
+    .gt("expires_at", new Date().toISOString())
+    .order("discount_percent", { ascending: false });
 
   const reviews = product.reviews || [];
   const avgRating =
@@ -281,6 +291,66 @@ export default async function ProductDetailPage({
               </div>
             </div>
 
+            {/* --- COUPONS SECTION (Above Description) --- */}
+            {coupons && coupons.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="font-bold text-sm flex items-center gap-2">
+                  <TicketPercent className="h-4 w-4 text-primary" />
+                  Kupon Toko Tersedia
+                </h3>
+                {/* Changed from grid to flex with overflow-x-auto */}
+                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none scrollbar-thumb-primary/10 hover:scrollbar-thumb-primary/20">
+                  {coupons.map((coupon) => {
+                    const max = coupon.max_uses;
+                    const used = coupon.times_used;
+                    // Check if infinite (-1) or invalid
+                    const isUnlimited = max === -1 || max === null;
+                    const percentage =
+                      !isUnlimited && max > 0 ? (used / max) * 100 : 0;
+
+                    return (
+                      <div
+                        key={coupon.id}
+                        // Added shrink-0 and min-w to ensure they don't squash and can scroll
+                        className="flex flex-col gap-2 p-3 bg-primary/5 border border-primary/20 border-dashed rounded-lg shrink-0 min-w-[280px]"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex flex-col">
+                            <span className="font-mono font-bold text-primary text-sm tracking-wide">
+                              {coupon.code}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground uppercase font-medium mt-0.5">
+                              Potongan {coupon.discount_percent}%
+                            </span>
+                          </div>
+                          <Badge
+                            variant="secondary"
+                            className="bg-background shadow-sm text-xs border"
+                          >
+                            Hemat {coupon.discount_percent}%
+                          </Badge>
+                        </div>
+
+                        {/* Progress Bar for Usage */}
+                        {!isUnlimited && (
+                          <div className="space-y-1.5 pt-1">
+                            <Progress 
+                              value={percentage} 
+                              className="h-1.5 bg-primary/20" 
+                            />
+                            <div className="flex justify-between text-[10px] text-muted-foreground font-medium">
+                              <span>Terpakai: {used}</span>
+                              <span>Total: {max}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <Separator />
 
             <div className="space-y-4">
@@ -362,8 +432,7 @@ export default async function ProductDetailPage({
                         {review.reply_comment && (
                           <div className="mt-3 bg-muted/50 p-3 rounded-lg text-sm border-l-2 border-primary">
                             <div className="flex items-center gap-2 mb-1">
-                              <Store className="h-3 w-3 text-primary"
-                              />
+                              <Store className="h-3 w-3 text-primary" />
                               <span className="font-semibold text-xs text-primary">
                                 Respon Penjual
                               </span>
@@ -433,7 +502,10 @@ function MerchantCard({
       </div>
 
       <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 w-full sm:w-auto shrink-0 mt-2 sm:mt-0">
-        <ChatMerchantButton orgId={organization.id} isRestricted={isRestricted} />
+        <ChatMerchantButton
+          orgId={organization.id}
+          isRestricted={isRestricted}
+        />
         <Button
           variant="default"
           className="font-medium w-full sm:w-auto"

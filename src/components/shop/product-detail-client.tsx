@@ -96,7 +96,7 @@ export function ProductDetailClient({
         <div key={priceKey} className="text-4xl font-bold text-primary animate-in fade-in slide-in-from-left-2 duration-300">
           Rp {displayPrice.toLocaleString("id-ID")}
         </div>
-        {selectedVariant && selectedVariant.price_override > 0 && selectedVariant.price_override !== product.base_price && (
+        {selectedVariant && selectedVariant.price_override > 0 && selectedVariant.price_override < product.base_price && (
            <div className="flex items-center gap-2">
              <div className="text-muted-foreground text-sm line-through decoration-red-500/50 decoration-2">
                Rp {product.base_price.toLocaleString("id-ID")}

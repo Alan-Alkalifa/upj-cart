@@ -5,9 +5,14 @@ import { CartClient } from "@/components/shop/cart-client"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Store, ArrowRight, ShieldCheck, ShoppingBag } from "lucide-react"
+// --- IMPORTS BARU ---
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Store, ArrowRight, ShieldCheck, ShoppingBag, TicketPercent, Loader2, X } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
+import { validateCoupon } from "./actions" 
 // [ANALYTICS] Import Helper
 import { trackEvent } from "@/lib/analytics"
 
@@ -19,6 +24,16 @@ export function CartPageClient({ cartItems }: { cartItems: any[] }) {
   
   // State: Menyimpan ID cart_item yang dipilih
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+
+  // State: Kupon
+  const [couponCode, setCouponCode] = useState("")
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string; 
+    discount_percent: number; 
+    org_id: string; 
+    id: string
+  } | null>(null)
+  const [isCheckingCoupon, setIsCheckingCoupon] = useState(false)
 
   // GROUPING LOGIC
   const groupedCart: Record<string, any> = {}
@@ -48,61 +63,92 @@ export function CartPageClient({ cartItems }: { cartItems: any[] }) {
     groupedCart[orgId].items.push(normalizedItem)
   })
 
-  // [ANALYTICS] 1. Track View Cart saat halaman dimuat
+  // [ANALYTICS]
   useEffect(() => {
     if (cartItems.length > 0) {
-      // Hitung total value cart
       const totalCartValue = cartItems.reduce((acc, i) => {
         const v = unwrap(i.product_variants);
         const p = v?.products;
         const price = v?.price_override || p?.base_price || 0;
         return acc + (price * i.quantity);
       }, 0);
-
-      // Helper analytics akan mengurus unwrap data untuk GA4
       trackEvent.viewCart(cartItems, totalCartValue);
     }
   }, [cartItems]);
 
-  // HELPER: Toggle per Item
+  // HELPER TOGGLES
   const toggleItem = (id: string, checked: boolean) => {
-    if (checked) {
-      setSelectedIds(prev => [...prev, id])
-    } else {
-      setSelectedIds(prev => prev.filter(i => i !== id))
-    }
+    if (checked) setSelectedIds(prev => [...prev, id])
+    else setSelectedIds(prev => prev.filter(i => i !== id))
   }
 
-  // HELPER: Toggle per Toko
   const toggleStore = (items: any[], checked: boolean) => {
     const ids = items.map(i => i.id)
-    if (checked) {
-      // Tambahkan semua ID dari toko ini yang belum ada di state
-      setSelectedIds(prev => [...new Set([...prev, ...ids])])
-    } else {
-      // Hapus semua ID dari toko ini
-      setSelectedIds(prev => prev.filter(i => !ids.includes(i)))
-    }
+    if (checked) setSelectedIds(prev => [...new Set([...prev, ...ids])])
+    else setSelectedIds(prev => prev.filter(i => !ids.includes(i)))
   }
 
-  // HELPER: Toggle Semua
   const toggleAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedIds(cartItems.map(i => i.id))
-    } else {
-      setSelectedIds([])
-    }
+    if (checked) setSelectedIds(cartItems.map(i => i.id))
+    else setSelectedIds([])
   }
 
-  // HITUNG TOTAL (Hanya yang dipilih)
+  // --- LOGIKA PERHITUNGAN HARGA ---
   const selectedItems = cartItems.filter(i => selectedIds.includes(i.id))
-  const totalPrice = selectedItems.reduce((acc, i) => {
+  
+  // 1. Subtotal
+  const subTotalPrice = selectedItems.reduce((acc, i) => {
     const variant = unwrap(i.product_variants)
     const product = variant ? unwrap(variant.products) : null
     const price = variant.price_override || product.base_price
     return acc + (price * i.quantity)
   }, 0)
+  
   const totalQty = selectedItems.reduce((acc, i) => acc + i.quantity, 0)
+
+  // 2. Diskon Kupon
+  const discountAmount = appliedCoupon ? selectedItems.reduce((acc, i) => {
+    const variant = unwrap(i.product_variants)
+    const product = variant ? unwrap(variant.products) : null
+    const org = product ? unwrap(product.organizations) : null
+    
+    if (org && org.id === appliedCoupon.org_id) {
+       const price = variant.price_override || product.base_price
+       return acc + (price * i.quantity)
+    }
+    return acc
+  }, 0) * (appliedCoupon.discount_percent / 100) : 0
+
+  // 3. Total Akhir
+  const finalTotalPrice = subTotalPrice - discountAmount
+
+  // --- HANDLER KUPON (FIXED ERROR) ---
+  const handleApplyCoupon = async () => {
+    if (!couponCode) return
+    if (selectedIds.length === 0) {
+      toast.error("Pilih produk terlebih dahulu")
+      return
+    }
+
+    setIsCheckingCoupon(true)
+    const res = await validateCoupon(couponCode, selectedIds)
+    setIsCheckingCoupon(false)
+
+    if (res.error) {
+      toast.error("Gagal menggunakan kupon", { description: res.error })
+      setAppliedCoupon(null)
+    } else if (res.success && res.coupon) {
+      // FIX: Check res.success && res.coupon explisit untuk memuaskan TypeScript
+      toast.success("Kupon berhasil dipasang!", { description: `Potongan ${res.coupon.discount_percent}% untuk produk terkait.` })
+      setAppliedCoupon(res.coupon)
+    }
+  }
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null)
+    setCouponCode("")
+    toast.info("Kupon dilepas")
+  }
 
   // Empty State
   if (cartItems.length === 0) {
@@ -120,12 +166,15 @@ export function CartPageClient({ cartItems }: { cartItems: any[] }) {
   }
 
   const handleCheckout = () => {
-    // [ANALYTICS] 2. Track Begin Checkout
-    // Kirim data hanya item yang DIPILIH (selectedItems)
-    trackEvent.beginCheckout(selectedItems, totalPrice);
+    trackEvent.beginCheckout(selectedItems, finalTotalPrice);
 
-    // Redirect ke checkout dengan membawa ID items yang dipilih
-    router.push(`/checkout?items=${selectedIds.join(',')}`)
+    const query = new URLSearchParams()
+    query.set("items", selectedIds.join(','))
+    if (appliedCoupon) {
+      query.set("coupon", appliedCoupon.code)
+    }
+    
+    router.push(`/checkout?${query.toString()}`)
   }
 
   return (
@@ -136,8 +185,6 @@ export function CartPageClient({ cartItems }: { cartItems: any[] }) {
         
         {/* Left: Cart Items List */}
         <div className="space-y-6">
-          
-          {/* Header Pilih Semua */}
           <div className="bg-card border rounded-xl px-6 py-4 flex items-center gap-3 shadow-sm">
              <Checkbox 
                id="select-all" 
@@ -189,7 +236,55 @@ export function CartPageClient({ cartItems }: { cartItems: any[] }) {
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Total Harga</span>
-                <span>Rp {totalPrice.toLocaleString("id-ID")}</span>
+                <span>Rp {subTotalPrice.toLocaleString("id-ID")}</span>
+              </div>
+              
+              {appliedCoupon && (
+                <div className="flex justify-between text-green-600 font-medium animate-in fade-in slide-in-from-top-1">
+                  <div className="flex items-center gap-1">
+                    <TicketPercent className="h-4 w-4" />
+                    <span>Diskon ({appliedCoupon.code})</span>
+                  </div>
+                  <span>-Rp {discountAmount.toLocaleString("id-ID")}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Coupon Input */}
+            <div className="pt-2">
+              <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Makin hemat pakai kupon</label>
+              <div className="flex gap-2">
+                 <div className="relative flex-1">
+                   <Input 
+                     placeholder="Kode Kupon" 
+                     value={couponCode}
+                     onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                     disabled={!!appliedCoupon || isCheckingCoupon}
+                     className="bg-background uppercase font-mono placeholder:normal-case placeholder:font-sans"
+                   />
+                   {appliedCoupon && (
+                     <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                       <Badge variant="secondary" className="h-6 px-2 text-[10px] gap-1 bg-green-100 text-green-700 hover:bg-green-100 border-green-200">
+                         {appliedCoupon.discount_percent}%
+                       </Badge>
+                     </div>
+                   )}
+                 </div>
+                 
+                 {appliedCoupon ? (
+                    <Button variant="outline" size="icon" onClick={handleRemoveCoupon} className="shrink-0 text-red-500 hover:text-red-600 hover:bg-red-50 border-red-200">
+                      <X className="h-4 w-4" />
+                    </Button>
+                 ) : (
+                    <Button 
+                      variant="secondary" 
+                      onClick={handleApplyCoupon} 
+                      disabled={!couponCode || isCheckingCoupon || selectedIds.length === 0}
+                      className="shrink-0"
+                    >
+                      {isCheckingCoupon ? <Loader2 className="h-4 w-4 animate-spin" /> : "Gunakan"}
+                    </Button>
+                 )}
               </div>
             </div>
             
@@ -198,7 +293,7 @@ export function CartPageClient({ cartItems }: { cartItems: any[] }) {
             <div className="flex justify-between items-end">
               <span className="font-bold text-base">Total Tagihan</span>
               <span className="font-bold text-2xl text-primary">
-                Rp {totalPrice.toLocaleString("id-ID")}
+                Rp {finalTotalPrice.toLocaleString("id-ID")}
               </span>
             </div>
 
