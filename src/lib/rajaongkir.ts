@@ -96,31 +96,25 @@ export async function getShippingCost({ origin, destination, weight, courier }: 
       return { error: data.meta?.message || "Gagal cek ongkir" };
     }
 
-    // FIX: Definisikan tipe array secara eksplisit untuk menghindari error "implicitly has type 'any[]'"
+    // --- FIX START: Correctly parse Komerce API response ---
     const results: ShippingResult[] = [];
-    
-    // Key respons dari API Komerce
-    const keys = ['calculate_reguler', 'calculate_cargo', 'calculate_instant', 'calculate_sameday'];
-    
-    keys.forEach(key => {
-        if (data.data && data.data[key]) {
-             // Normalisasi ke array karena API kadang mengembalikan object tunggal atau array
-             const services = Array.isArray(data.data[key]) ? data.data[key] : [data.data[key]];
-             
-             services.forEach((svc: any) => {
-                 if (svc) {
-                     results.push({
-                         service: svc.service_name || svc.shipping_name || "Unknown Service",
-                         description: svc.shipping_name || svc.service_name || "Standard",
-                         cost: [{ 
-                           value: svc.shipping_cost_net || svc.shipping_cost || 0, 
-                           etd: svc.etd || '-' 
-                         }]
-                     });
-                 }
-             });
-        }
-    });
+
+    // The Komerce API returns 'data' as a flat array of services
+    if (Array.isArray(data.data)) {
+      data.data.forEach((svc: any) => {
+        results.push({
+          // Map fields based on Komerce response structure
+          service: svc.service || svc.service_name || svc.code || "Unknown",
+          description: svc.description || svc.shipping_name || svc.name || "Standard",
+          cost: [{ 
+            // Komerce returns cost as a number, UI expects an array
+            value: svc.cost || svc.shipping_cost || 0, 
+            etd: svc.etd || '-' 
+          }]
+        });
+      });
+    }
+    // --- FIX END ---
 
     return { results };
 
