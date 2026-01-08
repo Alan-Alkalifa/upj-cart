@@ -20,12 +20,13 @@ export default async function CheckoutPage({
   }
 
   // 1. Fetch Selected Cart Items
+  // FIXED: Removed 'weight_grams' from product_variants as it is not in the type definition.
   const { data: cartItems } = await supabase
     .from("carts")
     .select(`
       id, quantity,
       product_variants (
-        id, name, price_override, weight_grams,
+        id, name, price_override,
         products (
           id, name, weight_grams, image_url,
           organizations (id, name, origin_district_id)

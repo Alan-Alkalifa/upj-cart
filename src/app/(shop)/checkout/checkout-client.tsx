@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Script from "next/script"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -58,8 +58,9 @@ export function CheckoutClient({ cartItems, addresses, coupon }: CheckoutClientP
       groupedItems[org.id] = { org, items: [], totalWeight: 0, subtotal: 0 }
     }
     
-    // Weight Calculation: Variant weight -> Product weight -> Default 1kg
-    const weight = (variant.weight_grams || product.weight_grams || 1000) * item.quantity
+    // Weight Calculation: Variant (if any, typically not in type) -> Product weight -> Default 1kg
+    // FIXED: Removed variant.weight_grams as it does not exist in the Supabase types provided.
+    const weight = (product.weight_grams || 1000) * item.quantity
     const price = variant.price_override || product.base_price
     
     groupedItems[org.id].items.push({ ...item, weight, price })
@@ -130,8 +131,6 @@ export function CheckoutClient({ cartItems, addresses, coupon }: CheckoutClientP
   // Coupon Calculation
   let discountAmount = 0
   if (coupon) {
-    // If coupon is specific to an org, apply only to that org's subtotal
-    // For now, assuming Global or Specific Org logic:
     if (coupon.org_id) {
       const targetGroup = groupedItems[coupon.org_id]
       if (targetGroup) {
@@ -157,7 +156,6 @@ export function CheckoutClient({ cartItems, addresses, coupon }: CheckoutClientP
 
     setIsProcessing(true)
 
-    // Prepare Payload
     const address = addresses.find(a => a.id === selectedAddressId)
     const itemsPayload = cartItems.map(item => {
         const group = Object.values(groupedItems).find((g: any) => g.items.includes(item)) as any
@@ -166,7 +164,8 @@ export function CheckoutClient({ cartItems, addresses, coupon }: CheckoutClientP
             variant_id: item.product_variants.id,
             quantity: item.quantity,
             price: item.product_variants.price_override || item.product_variants.products.base_price,
-            weight: (item.product_variants.weight_grams || item.product_variants.products.weight_grams || 1000),
+            // FIXED: Use product weight.
+            weight: (item.product_variants.products.weight_grams || 1000),
             product_name: item.product_variants.products.name,
             org_id: group.org.id,
             org_origin_id: group.org.origin_district_id
@@ -304,7 +303,6 @@ export function CheckoutClient({ cartItems, addresses, coupon }: CheckoutClientP
                             <div className="flex gap-3">
                                 <Select onValueChange={(val: any) => {
                                     handleCheckOngkir(group.org.id, val)
-                                    // Update state to track selected courier immediately
                                     setShippingState(prev => ({ 
                                         ...prev, 
                                         [group.org.id]: { ...prev[group.org.id], courier: val, service: "", cost: 0, etd: "" } 

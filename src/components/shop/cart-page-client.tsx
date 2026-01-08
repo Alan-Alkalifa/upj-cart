@@ -5,7 +5,6 @@ import { CartClient } from "@/components/shop/cart-client"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
-// --- IMPORTS BARU ---
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Store, ArrowRight, ShieldCheck, ShoppingBag, TicketPercent, Loader2, X } from "lucide-react"
@@ -13,19 +12,15 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { validateCoupon } from "./actions" 
-// [ANALYTICS] Import Helper
 import { trackEvent } from "@/lib/analytics"
 
-// Helper untuk unwrap data array/object dari Supabase
+// Helper to unwrap Supabase data
 const unwrap = (data: any) => Array.isArray(data) ? data[0] : data
 
 export function CartPageClient({ cartItems }: { cartItems: any[] }) {
   const router = useRouter()
   
-  // State: Menyimpan ID cart_item yang dipilih
   const [selectedIds, setSelectedIds] = useState<string[]>([])
-
-  // State: Kupon
   const [couponCode, setCouponCode] = useState("")
   const [appliedCoupon, setAppliedCoupon] = useState<{
     code: string; 
@@ -44,7 +39,6 @@ export function CartPageClient({ cartItems }: { cartItems: any[] }) {
     
     if (!variant || !product || !org) return
 
-    // Normalized Item Structure
     const normalizedItem = {
       ...item,
       product_variants: {
@@ -63,7 +57,7 @@ export function CartPageClient({ cartItems }: { cartItems: any[] }) {
     groupedCart[orgId].items.push(normalizedItem)
   })
 
-  // [ANALYTICS]
+  // ANALYTICS
   useEffect(() => {
     if (cartItems.length > 0) {
       const totalCartValue = cartItems.reduce((acc, i) => {
@@ -76,7 +70,7 @@ export function CartPageClient({ cartItems }: { cartItems: any[] }) {
     }
   }, [cartItems]);
 
-  // HELPER TOGGLES
+  // TOGGLE HANDLERS
   const toggleItem = (id: string, checked: boolean) => {
     if (checked) setSelectedIds(prev => [...prev, id])
     else setSelectedIds(prev => prev.filter(i => i !== id))
@@ -93,10 +87,9 @@ export function CartPageClient({ cartItems }: { cartItems: any[] }) {
     else setSelectedIds([])
   }
 
-  // --- LOGIKA PERHITUNGAN HARGA ---
+  // CALCULATION LOGIC
   const selectedItems = cartItems.filter(i => selectedIds.includes(i.id))
   
-  // 1. Subtotal
   const subTotalPrice = selectedItems.reduce((acc, i) => {
     const variant = unwrap(i.product_variants)
     const product = variant ? unwrap(variant.products) : null
@@ -106,7 +99,6 @@ export function CartPageClient({ cartItems }: { cartItems: any[] }) {
   
   const totalQty = selectedItems.reduce((acc, i) => acc + i.quantity, 0)
 
-  // 2. Diskon Kupon
   const discountAmount = appliedCoupon ? selectedItems.reduce((acc, i) => {
     const variant = unwrap(i.product_variants)
     const product = variant ? unwrap(variant.products) : null
@@ -119,10 +111,9 @@ export function CartPageClient({ cartItems }: { cartItems: any[] }) {
     return acc
   }, 0) * (appliedCoupon.discount_percent / 100) : 0
 
-  // 3. Total Akhir
   const finalTotalPrice = subTotalPrice - discountAmount
 
-  // --- HANDLER KUPON (FIXED ERROR) ---
+  // COUPON HANDLERS
   const handleApplyCoupon = async () => {
     if (!couponCode) return
     if (selectedIds.length === 0) {
@@ -138,7 +129,6 @@ export function CartPageClient({ cartItems }: { cartItems: any[] }) {
       toast.error("Gagal menggunakan kupon", { description: res.error })
       setAppliedCoupon(null)
     } else if (res.success && res.coupon) {
-      // FIX: Check res.success && res.coupon explisit untuk memuaskan TypeScript
       toast.success("Kupon berhasil dipasang!", { description: `Potongan ${res.coupon.discount_percent}% untuk produk terkait.` })
       setAppliedCoupon(res.coupon)
     }
@@ -150,7 +140,21 @@ export function CartPageClient({ cartItems }: { cartItems: any[] }) {
     toast.info("Kupon dilepas")
   }
 
-  // Empty State
+  const handleCheckout = () => {
+    trackEvent.beginCheckout(selectedItems, finalTotalPrice);
+
+    const query = new URLSearchParams()
+    // Pass selected IDs to checkout
+    query.set("items", selectedIds.join(','))
+    
+    // Pass coupon code if applied
+    if (appliedCoupon) {
+      query.set("coupon", appliedCoupon.code)
+    }
+    
+    router.push(`/checkout?${query.toString()}`)
+  }
+
   if (cartItems.length === 0) {
     return (
       <div className="container mx-auto px-4 py-24 flex flex-col items-center justify-center text-center max-w-md">
@@ -163,18 +167,6 @@ export function CartPageClient({ cartItems }: { cartItems: any[] }) {
         </Button>
       </div>
     )
-  }
-
-  const handleCheckout = () => {
-    trackEvent.beginCheckout(selectedItems, finalTotalPrice);
-
-    const query = new URLSearchParams()
-    query.set("items", selectedIds.join(','))
-    if (appliedCoupon) {
-      query.set("coupon", appliedCoupon.code)
-    }
-    
-    router.push(`/checkout?${query.toString()}`)
   }
 
   return (
@@ -250,7 +242,6 @@ export function CartPageClient({ cartItems }: { cartItems: any[] }) {
               )}
             </div>
 
-            {/* Coupon Input */}
             <div className="pt-2">
               <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Makin hemat pakai kupon</label>
               <div className="flex gap-2">
