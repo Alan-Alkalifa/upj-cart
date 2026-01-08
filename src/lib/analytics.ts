@@ -21,7 +21,7 @@ export const trackEvent = {
           item_id: product.id,
           item_name: product.name,
           item_category: product.global_categories?.name || "Uncategorized",
-          item_brand: product.organizations?.name || "UPJ Cart Store",
+          item_brand: product.organizations?.name || "Bemlanja Store",
           price: product.base_price,
         },
       ],

@@ -61,7 +61,7 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
             <div className="bg-primary text-primary-foreground p-1.5 rounded-lg group-hover:bg-primary/90 transition-colors">
               <Store className="h-5 w-5" />
             </div>
-            <span className="font-bold text-xl hidden sm:inline-block tracking-tight">UPJ MARKETPLACE</span>
+            <span className="font-bold text-xl hidden sm:inline-block tracking-tight">Bemlanja</span>
           </Link>
         </div>
 

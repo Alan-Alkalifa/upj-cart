@@ -211,7 +211,7 @@ export function MerchantMessagesClient({ currentUserId }: { currentUserId: strin
         ) : (
           <div className="hidden md:flex flex-col items-center justify-center h-full text-muted-foreground">
             <div className="bg-muted/30 p-6 rounded-full mb-4"><Store className="size-12 opacity-20" /></div>
-            <h3 className="font-semibold text-lg">UPJ Cart Messenger</h3>
+            <h3 className="font-semibold text-lg">Bemlanja Messenger</h3>
             <p className="text-sm mt-1">Pilih percakapan dari daftar untuk memulai.</p>
           </div>
         )}

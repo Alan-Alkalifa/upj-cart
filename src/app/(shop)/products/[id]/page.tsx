@@ -59,7 +59,7 @@ export async function generateMetadata(
   return {
     title: product.name,
     description:
-      product.description?.slice(0, 160) || `Beli ${product.name} di UPJ Cart.`,
+      product.description?.slice(0, 160) || `Beli ${product.name} di Bemlanja.`,
     openGraph: {
       title: product.name,
       description: product.description?.slice(0, 200),
@@ -153,7 +153,7 @@ export default async function ProductDetailPage({
     sku: product.id,
     brand: {
       "@type": "Brand",
-      name: product.organizations?.name || "UPJ Cart Merchant",
+      name: product.organizations?.name || "Bemlanja Merchant",
     },
     offers: {
       "@type": "Offer",

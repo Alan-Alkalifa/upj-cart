@@ -160,7 +160,7 @@ export default async function AdminUsersPage(props: {
           Manajemen Pengguna
         </h1>
         <p className="text-muted-foreground text-sm">
-          Daftar seluruh akun yang terdaftar di platform UPJ Cart.
+          Daftar seluruh akun yang terdaftar di platform Bemlanja.
         </p>
       </div>
 

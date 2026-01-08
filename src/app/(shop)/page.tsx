@@ -153,7 +153,7 @@ export default async function ShopPage() {
       <section className="container mx-auto px-4 mt-8">
         <div className="bg-primary/5 border-2 border-primary/10 rounded-3xl p-8 md:p-12 text-center space-y-4 relative overflow-hidden">
           <div className="relative z-10">
-            <h3 className="text-2xl md:text-3xl font-black tracking-tight text-primary">Ingin Jualan di UPJ Cart?</h3>
+            <h3 className="text-2xl md:text-3xl font-black tracking-tight text-primary">Ingin Jualan di Bemlanja?</h3>
             <p className="text-muted-foreground max-w-lg mx-auto text-base md:text-lg">
               Daftarkan tokomu sekarang dan jangkau ribuan mahasiswa dan civitas akademika UPJ dengan mudah.
             </p>

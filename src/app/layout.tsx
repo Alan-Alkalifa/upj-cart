@@ -23,21 +23,21 @@ export const metadata: Metadata = {
   // Base URL is required for Open Graph images to work correctly
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://upj-cart.com"),
   title: {
-    default: "UPJ Cart - Marketplace Universitas Pembangunan Jaya",
-    template: "%s | UPJ Cart" 
+    default: "Bemlanja - Marketplace Universitas Pembangunan Jaya",
+    template: "%s | Bemlanja" 
   },
   description: "Platform jual beli resmi untuk civitas akademika Universitas Pembangunan Jaya.",
   openGraph: {
-    title: "UPJ Cart",
+    title: "Bemlanja",
     description: "Belanja produk dari civitas akademika UPJ.",
     url: "https://upj-cart.com",
-    siteName: "UPJ Cart",
+    siteName: "Bemlanja",
     locale: "id_ID",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "UPJ Cart",
+    title: "Bemlanja",
     description: "Marketplace Civitas UPJ",
   }
 };

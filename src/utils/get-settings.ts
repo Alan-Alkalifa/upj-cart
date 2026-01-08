@@ -10,7 +10,7 @@ export async function getPlatformSettings() {
     
   // Return default values jika DB kosong/error (Safety fallback)
   return data || {
-    platform_name: "UPJ Cart",
+    platform_name: "Bemlanja",
     support_email: "admin@upj.ac.id",
     transaction_fee_percent: 0,
     is_maintenance_mode: false

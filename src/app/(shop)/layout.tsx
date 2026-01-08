@@ -5,7 +5,7 @@ import { FloatingChatWidget } from "@/components/chat/floating-chat";
 
 // Metadata bisa ditambahkan di sini untuk SEO
 export const metadata = {
-  title: "UPJ Cart - Shopping for UPJ Academic Community Products",
+  title: "Bemlanja - Shopping for UPJ Academic Community Products",
   description: "Official Marketplace Universitas Pembangunan Jaya.",
 }
 

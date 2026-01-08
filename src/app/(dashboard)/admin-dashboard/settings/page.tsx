@@ -13,7 +13,7 @@ export default async function AdminSettingsPage() {
 
   // Default values jika database kosong (fallback)
   const initialData = settings || {
-    platform_name: "UPJ Cart",
+    platform_name: "Bemlanja",
     support_email: "admin@example.com",
     transaction_fee_percent: 0,
     is_maintenance_mode: false

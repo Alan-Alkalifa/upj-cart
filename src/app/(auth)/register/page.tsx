@@ -75,7 +75,7 @@ export default function RegisterPage() {
       <CardHeader className="px-0 pt-0">
         <CardTitle className="text-2xl font-bold">Register</CardTitle>
         <CardDescription>
-          Create a new account to start shopping on UPJ MARKETPLACE.
+          Create a new account to start shopping on Bemlanja.
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0">

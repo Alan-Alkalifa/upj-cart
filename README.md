@@ -1,6 +1,6 @@
-# UPJ Cart
+# Bemlanja
 
-**UPJ Cart** is a full-featured, multi-role e-commerce platform built with Next.js 16, React 19, and Supabase. It features a modern, responsive UI designed with Tailwind CSS and Shadcn UI, supporting three distinct user roles: **Customers**, **Merchants**, and **Admins**.
+**Bemlanja** is a full-featured, multi-role e-commerce platform built with Next.js 16, React 19, and Supabase. It features a modern, responsive UI designed with Tailwind CSS and Shadcn UI, supporting three distinct user roles: **Customers**, **Merchants**, and **Admins**.
 
 ## 🚀 Tech Stack
 

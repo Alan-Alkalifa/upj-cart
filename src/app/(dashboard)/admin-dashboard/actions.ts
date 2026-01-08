@@ -22,7 +22,7 @@ export async function approveMerchant(orgId: string, merchantEmail: string) {
 
   try {
     await resend.emails.send({
-      from: 'UPJ Cart <onboarding@resend.dev>',
+      from: 'Bemlanja <onboarding@resend.dev>',
       to: merchantEmail, 
       subject: 'Status Toko: Aktif',
       html: `<h1>Toko Anda Kini Aktif</h1><p>Selamat! Toko Anda telah diaktifkan kembali oleh Admin.</p>`
@@ -51,7 +51,7 @@ export async function rejectMerchant(orgId: string, merchantEmail: string, reaso
 
   try {
     await resend.emails.send({
-      from: 'UPJ Cart <onboarding@resend.dev>',
+      from: 'Bemlanja <onboarding@resend.dev>',
       to: merchantEmail,
       subject: 'Status Pendaftaran Toko',
       html: `<h1>Pengajuan Ditolak</h1><p>Alasan: ${reason}</p>`
@@ -77,7 +77,7 @@ export async function suspendMerchant(orgId: string, merchantEmail: string) {
 
   try {
     await resend.emails.send({
-      from: 'UPJ Cart Support <support@resend.dev>',
+      from: 'Bemlanja Support <support@resend.dev>',
       to: merchantEmail,
       subject: 'PENTING: Toko Ditangguhkan',
       html: `<h1>Toko Ditangguhkan</h1><p>Toko Anda sementara dinonaktifkan oleh admin karena pelanggaran kebijakan.</p>`
@@ -171,7 +171,7 @@ export async function approveWithdrawal(withdrawalId: string, note: string) {
   if (owner && owner.profiles?.email) {
     try {
       await resend.emails.send({
-        from: 'UPJ Cart Finance <onboarding@resend.dev>',
+        from: 'Bemlanja Finance <onboarding@resend.dev>',
         to: owner.profiles.email,
         subject: 'Dana Cair! Penarikan Berhasil',
         html: `
@@ -234,7 +234,7 @@ export async function rejectWithdrawal(withdrawalId: string, reason: string) {
   if (owner && owner.profiles?.email) {
     try {
       await resend.emails.send({
-        from: 'UPJ Cart Finance <onboarding@resend.dev>',
+        from: 'Bemlanja Finance <onboarding@resend.dev>',
         to: owner.profiles.email,
         subject: 'PENTING: Penarikan Dana Ditolak',
         html: `

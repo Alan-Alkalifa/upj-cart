@@ -60,9 +60,9 @@ export async function generateMetadata(
 
   return {
     title: merchant.name,
-    description: merchant.description || `Kunjungi official store ${merchant.name} di UPJ Cart.`,
+    description: merchant.description || `Kunjungi official store ${merchant.name} di Bemlanja.`,
     openGraph: {
-      title: `${merchant.name} - Official Store UPJ Cart`,
+      title: `${merchant.name} - Official Store Bemlanja`,
       description: merchant.description,
       images: merchant.logo_url ? [merchant.logo_url] : [],
     }

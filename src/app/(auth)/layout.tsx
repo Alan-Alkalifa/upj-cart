@@ -17,7 +17,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
               <Store className="h-6 w-6" />
             </div>
             <span className="font-bold text-xl tracking-tight drop-shadow-md">
-              UPJ MARKETPLACE
+              Bemlanja
             </span>
           </Link>
         </div>
@@ -33,7 +33,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
               <div className="bg-primary text-primary-foreground p-1.5 rounded-lg">
                 <Store className="h-5 w-5" />
               </div>
-              <span className="font-bold text-lg tracking-tight">UPJ MARKETPLACE</span>
+              <span className="font-bold text-lg tracking-tight">Bemlanja</span>
            </Link>
         </div>
 

@@ -66,7 +66,7 @@ export function AppSidebar({ user }: { user: any }) {
                 <ShieldCheck className="size-4" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">UPJ Cart</span>
+                <span className="truncate font-semibold">Bemlanja</span>
                 <span className="truncate text-xs">Super Admin</span>
               </div>
             </SidebarMenuButton>
