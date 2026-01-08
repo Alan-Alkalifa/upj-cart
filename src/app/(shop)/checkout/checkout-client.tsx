@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Script from "next/script";
-import Image from "next/image"; // Added Image import
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -21,6 +21,8 @@ import {
   getLocationData,
   addUserAddressAction,
 } from "@/app/(shop)/checkout/actions";
+
+// UI Components
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -31,7 +33,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -57,6 +58,13 @@ interface ShippingState {
     cost: number;
     etd: string;
   };
+}
+
+// Ensure TypeScript recognizes snap if global.d.ts is missing
+declare global {
+  interface Window {
+    snap: any;
+  }
 }
 
 export function CheckoutClient({
@@ -178,12 +186,16 @@ export function CheckoutClient({
       const selectedDistrict = districts.find(
         (d) => d.id === parseInt(newAddress.district_id)
       );
+      const selectedSubdistrict = subdistricts.find(
+        (d) => d.id === parseInt(newAddress.subdistrict_id)
+      );
 
       const res = await addUserAddressAction({
         ...newAddress,
         province_name: selectedProvince?.name || "",
         city_name: selectedCity?.name || "",
         district_name: selectedDistrict?.name || "",
+        subdistrict_name: selectedSubdistrict?.name || "",
         city: selectedCity?.name || "",
       });
 
@@ -224,6 +236,7 @@ export function CheckoutClient({
       groupedItems[org.id] = { org, items: [], totalWeight: 0, subtotal: 0 };
     }
 
+    // This creates a NEW object, which breaks reference equality checks later
     const weight = (product.weight_grams || 1000) * item.quantity;
     const price = variant.price_override || product.base_price;
 
@@ -312,6 +325,7 @@ export function CheckoutClient({
   }
   const grandTotal = productTotal + shippingTotal - discountAmount;
 
+  // --- HANDLE PAY WITH SNAP ---
   const handlePay = async () => {
     if (!selectedAddressId) return toast.error("Pilih alamat pengiriman");
     const unselectedStores = Object.keys(groupedItems).filter(
@@ -323,10 +337,19 @@ export function CheckoutClient({
     setIsProcessing(true);
     const address = addresses.find((a) => a.id === selectedAddressId);
 
+    // Construct Payload
     const itemsPayload = cartItems.map((item) => {
-      const group = Object.values(groupedItems).find((g: any) =>
-        g.items.includes(item)
-      ) as any;
+      // FIX: Don't use .includes() or .find() on groupedItems values because
+      // groupedItems contains COPIES of the items. Use the ID directly.
+      const orgId = item.product_variants.products.organizations.id;
+      const group = groupedItems[orgId];
+
+      // Safe check to ensure group exists (it should)
+      if (!group) {
+        console.error("Group not found for item:", item);
+        throw new Error("Data error: Organization group missing");
+      }
+
       return {
         cart_id: item.id,
         variant_id: item.product_variants.id,
@@ -342,6 +365,7 @@ export function CheckoutClient({
     });
 
     try {
+      // 1. Create Order in DB & Get Snap Token from Server
       const res = await processCheckout(
         itemsPayload,
         selectedAddressId,
@@ -351,26 +375,57 @@ export function CheckoutClient({
 
       if (res.error) {
         toast.error(res.error);
-      } else if (res.snapToken) {
-        // @ts-ignore
+        setIsProcessing(false);
+        return;
+      }
+
+      // 2. Trigger Snap Popup
+      if (res.snapToken && window.snap) {
         window.snap.pay(res.snapToken, {
-          onSuccess: (result: any) =>
-            router.push(`/orders/success?order_id=${result.order_id}`),
-          onPending: () => router.push("/orders/history"),
-          onError: () => toast.error("Pembayaran gagal"),
+          onSuccess: (result: any) => {
+            console.log("Payment Success", result);
+            router.push(`/orders/success?order_id=${result.order_id}`);
+          },
+          onPending: (result: any) => {
+            console.log("Payment Pending", result);
+            toast.info("Pesanan dibuat. Silakan selesaikan pembayaran.");
+            router.push("/orders/history");
+          },
+          onError: (result: any) => {
+            console.error("Payment Error", result);
+            toast.error("Pembayaran gagal atau ditolak.");
+            setIsProcessing(false);
+          },
+          onClose: () => {
+            console.log(
+              "Customer closed the popup without finishing the payment"
+            );
+            toast.warning("Pembayaran belum diselesaikan.");
+            setIsProcessing(false);
+          },
         });
+      } else {
+        toast.error("Gagal memuat sistem pembayaran. Coba refresh halaman.");
+        setIsProcessing(false);
       }
     } catch (err) {
+      console.error(err);
       toast.error("Terjadi kesalahan sistem");
-    } finally {
       setIsProcessing(false);
     }
   };
 
+  // Determine Snap URL based on environment
+  const snapScriptUrl =
+    process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === "true"
+      ? "https://app.midtrans.com/snap/snap.js"
+      : "https://app.sandbox.midtrans.com/snap/snap.js";
+
   return (
     <>
+      {/* Midtrans Snap Script */}
       <Script
-        src="https://app.sandbox.midtrans.com/snap/snap.js"
+        src={snapScriptUrl}
         data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
         strategy="lazyOnload"
       />
@@ -401,6 +456,7 @@ export function CheckoutClient({
                       <DialogTitle>Tambah Alamat Baru</DialogTitle>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
+                      {/* Form inputs omitted for brevity - no changes here */}
                       <div className="grid gap-2">
                         <Label>Label Alamat</Label>
                         <Input
@@ -440,6 +496,7 @@ export function CheckoutClient({
                         />
                       </div>
 
+                      {/* Cascading Location Selects */}
                       <div className="grid gap-2">
                         <Label>Provinsi</Label>
                         <Select onValueChange={handleProvinceChange}>
@@ -595,7 +652,6 @@ export function CheckoutClient({
                   <h3 className="font-semibold">{group.org.name}</h3>
                 </div>
 
-                {/* --- FIXED: ADDED PRODUCT LIST HERE --- */}
                 <div className="mb-6 space-y-4">
                   {group.items.map((item: any) => (
                     <div
@@ -608,6 +664,7 @@ export function CheckoutClient({
                             src={item.product_variants.products.image_url}
                             alt={item.product_variants.products.name}
                             fill
+                            sizes="64px" // FIX: Added sizes prop to fix the warning
                             className="object-cover"
                           />
                         ) : (
@@ -715,7 +772,6 @@ export function CheckoutClient({
             <Card className="p-6 space-y-6 shadow-md border-primary/20">
               <h3 className="font-semibold text-lg">Ringkasan Pembayaran</h3>
 
-              {/* --- FIXED: ADDED DETAILED SUMMARY BREAKDOWN --- */}
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between text-muted-foreground">
                   <span>Total Harga ({totalQty} barang)</span>

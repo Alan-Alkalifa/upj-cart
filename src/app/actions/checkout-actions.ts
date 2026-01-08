@@ -93,13 +93,14 @@ export async function processCheckout(
         total_amount: orderTotal,
         status: "pending",
         payment_group_id: paymentGroupId,
-        // Optional: snapshot fields if you added them to schema
+        delivery_method: "shipping", // <--- FIX: This field is required in your DB schema
       })
       .select("id")
       .single();
 
     if (orderError) {
         console.error("Order Create Error:", orderError);
+        // Hint: Check the console logs on your server for the exact Postgres error
         return { error: "Gagal membuat pesanan." };
     }
 

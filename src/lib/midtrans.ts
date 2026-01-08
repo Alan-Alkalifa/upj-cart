@@ -1,10 +1,12 @@
+// src/lib/midtrans.ts
+
 import midtransClient from 'midtrans-client';
 
-const snap = new midtransClient.Snap({
+// Create the Snap client instance
+export const snap = new midtransClient.Snap({
   isProduction: process.env.MIDTRANS_IS_PRODUCTION === 'true',
-  // Fix: Add '!' to assert that this variable is defined in .env
-  serverKey: process.env.MIDTRANS_SERVER_KEY!, 
-  clientKey: process.env.MIDTRANS_CLIENT_KEY!
+  serverKey: process.env.NEXT_PUBLIC_MIDTRANS_SERVER_KEY!, 
+  clientKey: process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY!
 });
 
 interface TransactionParams {
@@ -30,8 +32,9 @@ export async function createSnapToken(params: TransactionParams) {
       credit_card: {
         secure: true,
       },
+      // Optional: Add redirect URL for "Finish" button in the popup
       callbacks: {
-        finish: `${process.env.NEXT_PUBLIC_AFTER_PAYMENT_URL}/orders/history`,
+        finish: `${process.env.NEXT_PUBLIC_SITE_URL}/orders/history`,
       },
     };
 
