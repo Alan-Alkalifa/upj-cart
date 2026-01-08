@@ -70,6 +70,10 @@ export const organizationSchema = z.object({
   address_district: z.string().optional(),
   address_city: z.string().optional(),
   address_postal_code: z.string().optional(),
+  
+  // RajaOngkir Origin Data (for shipping calc)
+  origin_district_id: z.string().optional(),
+  origin_district_name: z.string().optional(),
 
   // Bank
   bank_name: z.string().optional(),

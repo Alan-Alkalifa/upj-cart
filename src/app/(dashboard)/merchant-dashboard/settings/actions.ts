@@ -1,10 +1,33 @@
 "use server"
 
 import { createClient } from "@/utils/supabase/server"
-import { createAdminClient } from "@/utils/supabase/admin" // PERBAIKAN: Import Admin Client
+import { createAdminClient } from "@/utils/supabase/admin"
 import { organizationSchema } from "@/lib/dashboard-schemas"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
+import { getProvinces, getCities, getDistricts, getSubdistricts } from "@/lib/rajaongkir"
+
+// --- LOCATION DATA FETCHING ---
+// Consistent with checkout/actions.ts
+export async function getLocationData(type: 'province' | 'city' | 'district' | 'subdistrict', parentId?: string) {
+  try {
+    switch (type) {
+      case 'province':
+        return await getProvinces();
+      case 'city':
+        return parentId ? await getCities(parentId) : [];
+      case 'district':
+        return parentId ? await getDistricts(parentId) : [];
+      case 'subdistrict':
+        return parentId ? await getSubdistricts(parentId) : [];
+      default:
+        return [];
+    }
+  } catch (error) {
+    console.error(`Error fetching ${type}:`, error);
+    return [];
+  }
+}
 
 export async function updateOrganization(orgId: string, values: z.infer<typeof organizationSchema>) {
   const supabase = await createClient()
@@ -26,7 +49,6 @@ export async function updateOrganization(orgId: string, values: z.infer<typeof o
   }
 
   // 3. Update Menggunakan Admin Client (Bypass RLS)
-  // Ini memastikan data tersimpan meskipun RLS database memblokir update user biasa
   const supabaseAdmin = createAdminClient()
 
   const { error } = await supabaseAdmin
@@ -45,6 +67,10 @@ export async function updateOrganization(orgId: string, values: z.infer<typeof o
       address_district: values.address_district,
       address_city: values.address_city,
       address_postal_code: values.address_postal_code,
+      
+      // Update Origin Data for Shipping
+      origin_district_id: values.origin_district_id,
+      origin_district_name: values.origin_district_name,
 
       bank_name: values.bank_name,
       bank_account_number: values.bank_account_number,
