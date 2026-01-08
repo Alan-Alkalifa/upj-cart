@@ -7,10 +7,44 @@ const LOCATION_TYPE = process.env.RAJAONGKIR_LOCATION_TYPE || 'subdistrict';
 export type CourierCode = 'jne' | 'pos' | 'tiki';
 
 interface ShippingParams {
-  origin: string;      // The Merchant's Location ID
-  destination: string; // The User's Location ID
-  weight: number;      // Total weight in grams
+  origin: string;
+  destination: string;
+  weight: number;
   courier: CourierCode;
+}
+
+// Helper untuk fetch data lokasi
+async function fetchLocation(endpoint: string, params: Record<string, string> = {}) {
+  const url = new URL(`${BASE_URL}/${endpoint}`);
+  Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
+
+  try {
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      headers: { "key": API_KEY },
+      next: { revalidate: 3600 } // Cache 1 jam
+    });
+    const data = await response.json();
+    if (data.rajaongkir.status.code !== 200) throw new Error(data.rajaongkir.status.description);
+    return data.rajaongkir.results;
+  } catch (err) {
+    console.error(`RajaOngkir Fetch Error (${endpoint}):`, err);
+    return [];
+  }
+}
+
+export async function getProvinces() {
+  return await fetchLocation("province");
+}
+
+export async function getCities(provinceId: string) {
+  return await fetchLocation("city", { province: provinceId });
+}
+
+export async function getSubdistricts(cityId: string) {
+  // Note: Endpoint subdistrict hanya tersedia di akun Pro/Starter tertentu
+  // Jika gagal, mungkin perlu fallback atau handle error di UI
+  return await fetchLocation("subdistrict", { city: cityId });
 }
 
 export async function getShippingCost({ origin, destination, weight, courier }: ShippingParams) {
@@ -29,7 +63,7 @@ export async function getShippingCost({ origin, destination, weight, courier }: 
         weight: weight.toString(),
         courier: courier,
       }),
-      cache: "no-store", // Don't cache shipping costs
+      cache: "no-store", 
     });
 
     const data = await response.json();
@@ -39,7 +73,6 @@ export async function getShippingCost({ origin, destination, weight, courier }: 
       return { error: data.rajaongkir.status.description };
     }
 
-    // Returns array of services (e.g., [{ service: "REG", cost: [{ value: 10000, etd: "1-2" }] }])
     return { results: data.rajaongkir.results[0].costs };
   } catch (err) {
     console.error("Fetch Error:", err);

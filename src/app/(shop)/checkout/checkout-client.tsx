@@ -1,19 +1,29 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Script from "next/script"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Loader2, Truck, MapPin, ShieldCheck, Ticket } from "lucide-react"
+import { Loader2, Truck, MapPin, ShieldCheck, Ticket, Plus } from "lucide-react"
 
 // Actions & Utils
-import { calculateShippingAction, processCheckout } from "@/app/(shop)/checkout/actions"
+import { calculateShippingAction, processCheckout, getLocationData, addUserAddressAction } from "@/app/(shop)/checkout/actions"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog"
 
 // --- TYPES ---
 interface CheckoutClientProps {
@@ -40,12 +50,86 @@ export function CheckoutClient({ cartItems, addresses, coupon }: CheckoutClientP
     addresses.length > 0 ? addresses[0].id : ""
   )
   
+  // State: Add Address Dialog
+  const [isAddAddressOpen, setIsAddAddressOpen] = useState(false)
+  const [isSavingAddress, setIsSavingAddress] = useState(false)
+  const [newAddress, setNewAddress] = useState({
+    label: "",
+    recipient_name: "",
+    phone: "",
+    street_address: "",
+    province_id: "",
+    city_id: "",
+    district_id: "",
+    postal_code: ""
+  })
+  const [provinces, setProvinces] = useState<any[]>([])
+  const [cities, setCities] = useState<any[]>([])
+  const [districts, setDistricts] = useState<any[]>([])
+
   // State: Shipping Selection
   const [shippingState, setShippingState] = useState<ShippingState>({})
-  
-  // State: Shipping Options (Loaded from API)
   const [shippingOptions, setShippingOptions] = useState<Record<string, any[]>>({})
   const [loadingShipping, setLoadingShipping] = useState<Record<string, boolean>>({})
+
+  // Fetch Provinces when Dialog opens
+  useEffect(() => {
+    if (isAddAddressOpen && provinces.length === 0) {
+      getLocationData('province').then(setProvinces)
+    }
+  }, [isAddAddressOpen, provinces.length])
+
+  // Handle Location Change
+  const handleProvinceChange = async (val: string) => {
+    setNewAddress(prev => ({ ...prev, province_id: val, city_id: "", district_id: "" }))
+    setCities([])
+    setDistricts([])
+    const data = await getLocationData('city', val)
+    setCities(data)
+  }
+
+  const handleCityChange = async (val: string) => {
+    setNewAddress(prev => ({ ...prev, city_id: val, district_id: "" }))
+    setDistricts([])
+    const data = await getLocationData('subdistrict', val)
+    setDistricts(data)
+  }
+
+  // Save Address
+  const handleSaveAddress = async () => {
+    if (!newAddress.label || !newAddress.recipient_name || !newAddress.phone || !newAddress.street_address || !newAddress.district_id) {
+      toast.error("Mohon lengkapi semua field alamat")
+      return
+    }
+
+    setIsSavingAddress(true)
+    try {
+      const selectedProvince = provinces.find(p => p.province_id === newAddress.province_id)
+      const selectedCity = cities.find(c => c.city_id === newAddress.city_id)
+      const selectedDistrict = districts.find(d => d.subdistrict_id === newAddress.district_id)
+
+      const res = await addUserAddressAction({
+        ...newAddress,
+        province_name: selectedProvince?.province || "",
+        city_name: `${selectedCity?.type} ${selectedCity?.city_name}` || "",
+        district_name: selectedDistrict?.subdistrict_name || "",
+      })
+
+      if (res.error) {
+        toast.error(res.error)
+      } else {
+        toast.success("Alamat berhasil ditambahkan")
+        setIsAddAddressOpen(false)
+        router.refresh() // Refresh to fetch new address
+        // Reset form
+        setNewAddress({ label: "", recipient_name: "", phone: "", street_address: "", province_id: "", city_id: "", district_id: "", postal_code: "" })
+      }
+    } catch (error) {
+      toast.error("Gagal menyimpan alamat")
+    } finally {
+      setIsSavingAddress(false)
+    }
+  }
 
   // GROUP ITEMS BY MERCHANT
   const groupedItems: Record<string, any> = {}
@@ -58,8 +142,6 @@ export function CheckoutClient({ cartItems, addresses, coupon }: CheckoutClientP
       groupedItems[org.id] = { org, items: [], totalWeight: 0, subtotal: 0 }
     }
     
-    // Weight Calculation: Variant (if any, typically not in type) -> Product weight -> Default 1kg
-    // FIXED: Removed variant.weight_grams as it does not exist in the Supabase types provided.
     const weight = (product.weight_grams || 1000) * item.quantity
     const price = variant.price_override || product.base_price
     
@@ -95,7 +177,7 @@ export function CheckoutClient({ cartItems, addresses, coupon }: CheckoutClientP
 
     if (res.results) {
       setShippingOptions(prev => ({ ...prev, [orgId]: res.results }))
-      // Reset selection for this store
+      // Reset selection
       setShippingState(prev => {
         const newState = { ...prev }
         delete newState[orgId]
@@ -115,7 +197,7 @@ export function CheckoutClient({ cartItems, addresses, coupon }: CheckoutClientP
       setShippingState(prev => ({
         ...prev,
         [orgId]: {
-          courier: prev[orgId]?.courier || 'jne', // Fallback preserve courier
+          courier: prev[orgId]?.courier || 'jne',
           service: selected.service,
           cost: selected.cost[0].value,
           etd: selected.cost[0].etd
@@ -137,7 +219,6 @@ export function CheckoutClient({ cartItems, addresses, coupon }: CheckoutClientP
         discountAmount = targetGroup.subtotal * (coupon.discount_percent / 100)
       }
     } else {
-      // Global coupon
       discountAmount = productTotal * (coupon.discount_percent / 100)
     }
   }
@@ -148,7 +229,6 @@ export function CheckoutClient({ cartItems, addresses, coupon }: CheckoutClientP
   const handlePay = async () => {
     if (!selectedAddressId) return toast.error("Pilih alamat pengiriman")
     
-    // Validate: All stores must have shipping selected
     const unselectedStores = Object.keys(groupedItems).filter(orgId => !shippingState[orgId])
     if (unselectedStores.length > 0) {
       return toast.error("Mohon pilih pengiriman untuk semua toko")
@@ -164,7 +244,6 @@ export function CheckoutClient({ cartItems, addresses, coupon }: CheckoutClientP
             variant_id: item.product_variants.id,
             quantity: item.quantity,
             price: item.product_variants.price_override || item.product_variants.products.base_price,
-            // FIXED: Use product weight.
             weight: (item.product_variants.products.weight_grams || 1000),
             product_name: item.product_variants.products.name,
             org_id: group.org.id,
@@ -225,16 +304,120 @@ export function CheckoutClient({ cartItems, addresses, coupon }: CheckoutClientP
                 
                 {/* 1. Address Section */}
                 <Card className="p-6">
-                    <div className="flex items-center gap-2 mb-4">
-                        <MapPin className="h-5 w-5 text-primary" />
-                        <h3 className="font-semibold text-lg">Alamat Pengiriman</h3>
+                    <div className="flex justify-between items-center mb-4">
+                        <div className="flex items-center gap-2">
+                            <MapPin className="h-5 w-5 text-primary" />
+                            <h3 className="font-semibold text-lg">Alamat Pengiriman</h3>
+                        </div>
+                        
+                        {/* ADD ADDRESS DIALOG */}
+                        <Dialog open={isAddAddressOpen} onOpenChange={setIsAddAddressOpen}>
+                            <DialogTrigger asChild>
+                                <Button variant="outline" size="sm">
+                                    <Plus className="h-4 w-4 mr-2" /> Tambah Alamat
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
+                                <DialogHeader>
+                                    <DialogTitle>Tambah Alamat Baru</DialogTitle>
+                                </DialogHeader>
+                                <div className="grid gap-4 py-4">
+                                    <div className="grid gap-2">
+                                        <Label>Label Alamat (contoh: Rumah, Kantor)</Label>
+                                        <Input 
+                                          value={newAddress.label} 
+                                          onChange={e => setNewAddress({...newAddress, label: e.target.value})}
+                                          placeholder="Rumah"
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label>Nama Penerima</Label>
+                                        <Input 
+                                          value={newAddress.recipient_name} 
+                                          onChange={e => setNewAddress({...newAddress, recipient_name: e.target.value})}
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label>No. Telepon</Label>
+                                        <Input 
+                                          value={newAddress.phone} 
+                                          onChange={e => setNewAddress({...newAddress, phone: e.target.value})}
+                                          type="tel"
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label>Provinsi</Label>
+                                        <Select onValueChange={handleProvinceChange}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Pilih Provinsi" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {provinces.map((p: any) => (
+                                                    <SelectItem key={p.province_id} value={p.province_id}>{p.province}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label>Kota/Kabupaten</Label>
+                                        <Select onValueChange={handleCityChange} disabled={!newAddress.province_id}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Pilih Kota" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {cities.map((c: any) => (
+                                                    <SelectItem key={c.city_id} value={c.city_id}>{c.type} {c.city_name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label>Kecamatan</Label>
+                                        <Select 
+                                            onValueChange={(val) => setNewAddress(prev => ({ ...prev, district_id: val }))}
+                                            disabled={!newAddress.city_id}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Pilih Kecamatan" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {districts.map((d: any) => (
+                                                    <SelectItem key={d.subdistrict_id} value={d.subdistrict_id}>{d.subdistrict_name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label>Kode Pos</Label>
+                                        <Input 
+                                          value={newAddress.postal_code} 
+                                          onChange={e => setNewAddress({...newAddress, postal_code: e.target.value})}
+                                          type="number"
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label>Alamat Lengkap (Jalan, No. Rumah, RT/RW)</Label>
+                                        <Input 
+                                          value={newAddress.street_address} 
+                                          onChange={e => setNewAddress({...newAddress, street_address: e.target.value})}
+                                        />
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button onClick={handleSaveAddress} disabled={isSavingAddress}>
+                                        {isSavingAddress && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        Simpan Alamat
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
                     </div>
                     
                     {addresses.length === 0 ? (
                         <div className="text-center py-6 bg-muted/30 rounded-lg">
                             <p className="text-muted-foreground mb-3">Belum ada alamat tersimpan</p>
-                            <Button variant="outline" onClick={() => router.push('/settings/address')}>
-                                Tambah Alamat Baru
+                            <Button variant="link" onClick={() => setIsAddAddressOpen(true)}>
+                                Tambah Alamat Sekarang
                             </Button>
                         </div>
                     ) : (
@@ -252,7 +435,8 @@ export function CheckoutClient({ cartItems, addresses, coupon }: CheckoutClientP
                                    <div className="flex justify-between items-start">
                                        <div>
                                            <p className="font-medium">{addr.label} <span className="text-muted-foreground font-normal">({addr.recipient_name})</span></p>
-                                           <p className="text-sm text-muted-foreground mt-1">{addr.street_address}, {addr.city_name}, {addr.province_name}</p>
+                                           <p className="text-sm text-muted-foreground mt-1">{addr.street_address}</p>
+                                           <p className="text-sm text-muted-foreground">{addr.district_name}, {addr.city_name}, {addr.province_name} {addr.postal_code}</p>
                                            <p className="text-sm text-muted-foreground">{addr.phone}</p>
                                        </div>
                                        {selectedAddressId === addr.id && <Badge>Dipilih</Badge>}
@@ -262,8 +446,8 @@ export function CheckoutClient({ cartItems, addresses, coupon }: CheckoutClientP
                         </div>
                     )}
                 </Card>
-
-                {/* 2. Items & Shipping Section */}
+                
+                {/* 2. Items & Shipping Section (Sama seperti sebelumnya) */}
                 {Object.values(groupedItems).map((group: any) => (
                     <Card key={group.org.id} className="p-6">
                         <div className="flex items-center gap-2 mb-4 pb-4 border-b">
