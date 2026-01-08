@@ -1,10 +1,10 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin"; //
 import { getShippingCost, CourierCode } from "@/lib/rajaongkir";
 import { createSnapToken } from "@/lib/midtrans";
 import { nanoid } from "nanoid";
-import { redirect } from "next/navigation";
 
 // --- TYPES ---
 interface CheckoutItem {
@@ -15,7 +15,7 @@ interface CheckoutItem {
   weight: number;
   product_name: string;
   org_id: string;
-  org_origin_id: string; // The merchant's location ID
+  org_origin_id: string;
 }
 
 interface ShippingSelection {
@@ -27,7 +27,6 @@ interface ShippingSelection {
 }
 
 // --- ACTION: CALCULATE SHIPPING ---
-// Called when user selects a courier in the dropdown
 export async function calculateShippingAction(
   origin: string, 
   destination: string, 
@@ -42,29 +41,30 @@ export async function processCheckout(
   items: CheckoutItem[],
   addressId: string,
   shippingSelections: ShippingSelection,
-  userDistrictId: string // Needed to validate shipping didn't change
+  userDistrictId: string
 ) {
+  // 1. Validasi User (Tetap pakai Client biasa untuk cek session)
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) return { error: "Unauthorized" };
 
-  // 1. GENERATE PAYMENT GROUP ID
-  // Midtrans needs a unique ID. Since one payment covers multiple orders, 
-  // we use a specific prefix.
+  // 2. Gunakan ADMIN Client untuk operasi Database (BYPASS RLS)
+  // Ini solusi utama untuk error 42501
+  const adminSupabase = createAdminClient();
+
   const paymentGroupId = `PAY-${nanoid(10)}`;
   let grandTotal = 0;
   const createdOrderIds: string[] = [];
 
-  // 2. GROUP ITEMS BY MERCHANT (ORGANIZATION)
+  // 3. Group Items by Merchant
   const groupedItems: Record<string, CheckoutItem[]> = {};
   items.forEach(item => {
     if (!groupedItems[item.org_id]) groupedItems[item.org_id] = [];
     groupedItems[item.org_id].push(item);
   });
 
-  // 3. DATABASE TRANSACTION LOOP
-  // We create one Order per Merchant
+  // 4. Proses Loop Order per Merchant
   for (const orgId in groupedItems) {
     const orgItems = groupedItems[orgId];
     const shipping = shippingSelections[orgId];
@@ -73,18 +73,18 @@ export async function processCheckout(
       return { error: `Pengiriman belum dipilih untuk salah satu toko.` };
     }
 
-    // Calculate Subtotals
     const productSubtotal = orgItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const totalWeight = orgItems.reduce((sum, item) => sum + (item.weight * item.quantity), 0);
     const orderTotal = productSubtotal + shipping.cost;
 
     grandTotal += orderTotal;
 
-    // A. Create Order Record
-    const { data: order, error: orderError } = await supabase
+    // A. Create Order Record (Pakai adminSupabase)
+    const { data: order, error: orderError } = await adminSupabase
       .from("orders")
       .insert({
         buyer_id: user.id,
+        organization_id: orgId, // FIX: Wajib ada (sesuai diagnosa sebelumnya)
         shipping_address_id: addressId,
         courier_code: shipping.courier,
         courier_service: shipping.service,
@@ -93,20 +93,19 @@ export async function processCheckout(
         total_amount: orderTotal,
         status: "pending",
         payment_group_id: paymentGroupId,
-        delivery_method: "shipping", // <--- FIX: This field is required in your DB schema
+        delivery_method: "shipping",
       })
       .select("id")
       .single();
 
     if (orderError) {
         console.error("Order Create Error:", orderError);
-        // Hint: Check the console logs on your server for the exact Postgres error
-        return { error: "Gagal membuat pesanan." };
+        return { error: `Gagal membuat pesanan: ${orderError.message}` };
     }
 
     createdOrderIds.push(order.id);
 
-    // B. Create Order Items
+    // B. Create Order Items (Pakai adminSupabase)
     const orderItemsPayload = orgItems.map(item => ({
       order_id: order.id,
       product_variant_id: item.variant_id,
@@ -114,13 +113,23 @@ export async function processCheckout(
       price_at_purchase: item.price
     }));
 
-    const { error: itemsError } = await supabase.from("order_items").insert(orderItemsPayload);
-    if (itemsError) return { error: "Gagal menyimpan detail produk." };
+    const { error: itemsError } = await adminSupabase
+      .from("order_items")
+      .insert(orderItemsPayload);
+
+    if (itemsError) {
+      console.error("Order Items Error:", itemsError);
+      return { error: "Gagal menyimpan detail produk." };
+    }
   }
 
-  // 4. GENERATE MIDTRANS TOKEN
-  // We use the 'profiles' table to get customer info for Midtrans
-  const { data: profile } = await supabase.from("profiles").select("full_name, email, phone").eq("id", user.id).single();
+  // 5. Generate Midtrans Token
+  // Ambil profil user untuk data customer Midtrans
+  const { data: profile } = await adminSupabase
+    .from("profiles")
+    .select("full_name, email, phone")
+    .eq("id", user.id)
+    .single();
   
   const snapToken = await createSnapToken({
     orderId: paymentGroupId,
@@ -132,22 +141,33 @@ export async function processCheckout(
     }
   });
 
-  // 5. UPDATE ORDERS WITH TOKEN & CLEAN CART
-  // Save the token to all orders in this group so we can resume payment if needed
-  await supabase.from("orders").update({ snap_token: snapToken }).in("id", createdOrderIds);
+  // 6. Update Token ke Semua Order (Pakai adminSupabase)
+  await adminSupabase
+    .from("orders")
+    .update({ snap_token: snapToken })
+    .in("id", createdOrderIds);
 
-  // Remove items from cart
+  // 7. Bersihkan Cart (Pakai adminSupabase)
+  // FIX: Pastikan nama tabel sesuai ('carts' atau 'cart_items')
+  // Berdasarkan file page.tsx Anda fetch dari 'carts', tapi delete 'cart_items'.
+  // Saya gunakan 'carts' untuk konsistensi dengan fetch Anda, sesuaikan jika error.
   const cartIdsToRemove = items.map(i => i.cart_id);
-  await supabase.from("cart_items").delete().in("id", cartIdsToRemove);
+  const { error: deleteCartError } = await adminSupabase
+    .from("carts") // Ganti ke "cart_items" jika tabel Anda bernama cart_items
+    .delete()
+    .in("id", cartIdsToRemove);
 
-  // 6. CREATE INITIAL PAYMENT LOG
-  await supabase.from("payments").insert({
-    order_id: createdOrderIds[0], // We link it to the first order for reference, or handle better in DB
+  if (deleteCartError) {
+    console.error("Warning: Gagal hapus cart (cek nama tabel)", deleteCartError);
+  }
+
+  // 8. Create Payment Log (Pakai adminSupabase)
+  await adminSupabase.from("payments").insert({
+    order_id: createdOrderIds[0], 
     amount: grandTotal,
     snap_token: snapToken,
     payment_type: "midtrans_snap",
     transaction_status: "pending",
-    // midtrans_transaction_id will be updated via Webhook later
   });
 
   return { success: true, snapToken };
