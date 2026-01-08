@@ -60,12 +60,8 @@ interface ShippingState {
   };
 }
 
-// Ensure TypeScript recognizes snap if global.d.ts is missing
-declare global {
-  interface Window {
-    snap: any;
-  }
-}
+// FIX: Removed the conflicting 'declare global' block because 'snap'
+// is already defined in the project's global type definitions.
 
 export function CheckoutClient({
   cartItems,
