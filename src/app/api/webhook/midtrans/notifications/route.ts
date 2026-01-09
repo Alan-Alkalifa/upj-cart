@@ -1,6 +1,6 @@
-// src/app/api/midtrans/notification/route.ts
+// src/app/api/webhook/midtrans/notifications/route.ts
 import { NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin"; // UPDATE: Pakai Admin Client
 import crypto from "crypto";
 
 export async function POST(request: Request) {
@@ -11,7 +11,6 @@ export async function POST(request: Request) {
     const { order_id, status_code, gross_amount, transaction_status, fraud_status } = notificationJson;
 
     // 2. Verify Signature
-    // Signature = SHA512(order_id + status_code + gross_amount + ServerKey)
     const serverKey = process.env.MIDTRANS_SERVER_KEY!;
     const inputString = order_id + status_code + gross_amount + serverKey;
     const signature = crypto.createHash("sha512").update(inputString).digest("hex");
@@ -25,7 +24,7 @@ export async function POST(request: Request) {
 
     if (transaction_status == "capture") {
       if (fraud_status == "challenge") {
-        newStatus = "pending"; // Challenge means manual verification needed
+        newStatus = "pending";
       } else if (fraud_status == "accept") {
         newStatus = "paid";
       }
@@ -45,48 +44,95 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Status not mapped" }, { status: 200 });
     }
 
-    // 4. Update Database
-    const supabase = await createClient();
+    // 4. Update Database using Admin Client
+    const supabase = createAdminClient();
 
-    // NOTE: In your checkout-actions, 'order_id' sent to Midtrans is actually the 'payment_group_id'
-    // So we must update ALL orders sharing this payment_group_id.
-    
-    // A. Update Orders Table
+    // A. LOGIKA ROLLBACK (Hanya jika status menjadi cancelled)
+    if (newStatus === "cancelled") {
+      // 1. Ambil semua Order ID yang terkait dengan Payment Group ini
+      const { data: ordersData } = await supabase
+        .from("orders")
+        .select("id")
+        .eq("payment_group_id", order_id);
+
+      if (ordersData && ordersData.length > 0) {
+        const orderIds = ordersData.map((o) => o.id);
+
+        // 2. Ambil semua item produk dari order-order tersebut
+        const { data: orderItems } = await supabase
+          .from("order_items")
+          .select("product_variant_id, quantity")
+          .in("order_id", orderIds);
+
+        // 3. Loop dan Kembalikan Stok (Restore Stock)
+        if (orderItems) {
+          for (const item of orderItems) {
+            if (item.product_variant_id && item.quantity) {
+              await supabase.rpc("restore_stock", {
+                qty: item.quantity,
+                variant_id: item.product_variant_id,
+              });
+            }
+          }
+        }
+
+        // 4. Restore Coupon (Menggunakan coupon_id yang sudah disimpan di order)
+        // Kita hanya perlu mengecek satu order saja dalam grup pembayaran ini
+        const { data: orderWithCoupon } = await supabase
+           .from("orders")
+           .select("coupon_id")
+           .eq("payment_group_id", order_id)
+           .not("coupon_id", "is", null) // Filter hanya yang punya kupon
+           .limit(1)
+           .single();
+        
+        if (orderWithCoupon?.coupon_id) {
+           await supabase.rpc("restore_coupon_usage", {
+             coupon_id: orderWithCoupon.coupon_id
+           });
+           console.log("Coupon restored:", orderWithCoupon.coupon_id);
+        }
+      }
+    }
+
+    // B. Update Orders Table Status
     const { error: updateError } = await supabase
       .from("orders")
-      .update({ 
-        status: newStatus as any, // Cast to enum
-        // If paid, we might want to update tracking or other fields?
+      .update({
+        status: newStatus as any,
       })
-      .eq("payment_group_id", order_id); // Matches the ID sent to Midtrans
+      .eq("payment_group_id", order_id);
 
     if (updateError) {
       console.error("Error updating orders:", updateError);
       return NextResponse.json({ message: "Database update failed" }, { status: 500 });
     }
 
-    // B. Update/Insert Payment Log
-    // We try to update the existing payment log created during checkout
+    // C. Update/Insert Payment Log
+    const { data: firstOrder } = await supabase
+      .from("orders")
+      .select("id")
+      .eq("payment_group_id", order_id)
+      .limit(1)
+      .single();
+      
     const { error: paymentError } = await supabase
       .from("payments")
-      // We assume there's a payment record linked to one of the orders or we query by order_id logic
-      // Since payments table has 'order_id' (FK), but we have a group ID here. 
-      // Strategy: Find the first order in this group to link the payment, or update based on snap_token if available.
-      // Ideally, the 'payments' table should probably handle the group payment.
-      // For now, let's update based on the transaction ID if we can find the record, or insert a new log.
-      .upsert({
-         // We might not have the 'id' of the payment row easily without querying, 
-         // but we can query orders first to get an ID. 
-         // Simplified: We just log the transaction update.
-         // (You might need to adjust this based on how you want to track individual payment rows)
-         order_id: (await supabase.from("orders").select("id").eq("payment_group_id", order_id).limit(1).single()).data?.id || "",
-         amount: parseFloat(gross_amount),
-         payment_type: notificationJson.payment_type,
-         transaction_status: transaction_status,
-         midtrans_transaction_id: notificationJson.transaction_id,
-         snap_token: null // Token already used
-      }, { onConflict: 'order_id' }); // Assuming one payment per order group (simplified)
-
+      .upsert(
+        {
+          order_id: firstOrder?.id || "",
+          amount: parseFloat(gross_amount),
+          payment_type: notificationJson.payment_type,
+          transaction_status: transaction_status,
+          midtrans_transaction_id: notificationJson.transaction_id,
+          snap_token: null, 
+        },
+        { onConflict: "order_id" }
+      );
+      
+      if (paymentError) {
+        console.error("Error updating payment log:", paymentError);
+      }
 
     return NextResponse.json({ message: "OK" });
 

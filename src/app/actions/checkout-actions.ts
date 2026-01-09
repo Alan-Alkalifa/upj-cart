@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
-import { createAdminClient } from "@/utils/supabase/admin"; //
+import { createAdminClient } from "@/utils/supabase/admin"; 
 import { getShippingCost, CourierCode } from "@/lib/rajaongkir";
 import { createSnapToken } from "@/lib/midtrans";
 import { nanoid } from "nanoid";
@@ -41,17 +41,45 @@ export async function processCheckout(
   items: CheckoutItem[],
   addressId: string,
   shippingSelections: ShippingSelection,
-  userDistrictId: string
+  userDistrictId: string,
+  couponId: string | null // UPDATE: Menerima couponId
 ) {
-  // 1. Validasi User (Tetap pakai Client biasa untuk cek session)
+  // 1. Validasi User (Pakai Client biasa)
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) return { error: "Unauthorized" };
 
-  // 2. Gunakan ADMIN Client untuk operasi Database (BYPASS RLS)
-  // Ini solusi utama untuk error 42501
+  // 2. Gunakan ADMIN Client (Bypass RLS)
   const adminSupabase = createAdminClient();
+
+  // --- LOGIC BARU: Kunci Stok & Kupon ---
+  
+  // A. Lock Product Stock (Decrement)
+  for (const item of items) {
+    const { error: stockError } = await adminSupabase.rpc("decrement_stock", {
+      qty: item.quantity,
+      variant_id: item.variant_id
+    });
+    
+    if (stockError) {
+      console.error("Stock Lock Error:", stockError);
+      return { error: `Stok tidak mencukupi untuk produk: ${item.product_name}` };
+    }
+  }
+
+  // B. Lock Coupon Usage (Increment)
+  if (couponId) {
+    const { error: couponError } = await adminSupabase.rpc("increment_coupon_usage", {
+      coupon_id: couponId
+    });
+
+    if (couponError) {
+      console.error("Coupon Lock Error:", couponError);
+      return { error: "Gagal menggunakan kupon (Limit tercapai atau kadaluarsa)." };
+    }
+  }
+  // --- END LOGIC BARU ---
 
   const paymentGroupId = `PAY-${nanoid(10)}`;
   let grandTotal = 0;
@@ -79,12 +107,12 @@ export async function processCheckout(
 
     grandTotal += orderTotal;
 
-    // A. Create Order Record (Pakai adminSupabase)
+    // A. Create Order Record
     const { data: order, error: orderError } = await adminSupabase
       .from("orders")
       .insert({
         buyer_id: user.id,
-        organization_id: orgId, // FIX: Wajib ada (sesuai diagnosa sebelumnya)
+        organization_id: orgId,
         shipping_address_id: addressId,
         courier_code: shipping.courier,
         courier_service: shipping.service,
@@ -94,6 +122,7 @@ export async function processCheckout(
         status: "pending",
         payment_group_id: paymentGroupId,
         delivery_method: "shipping",
+        coupon_id: couponId // UPDATE: Simpan ID Kupon (pastikan kolom sudah dibuat via SQL)
       })
       .select("id")
       .single();
@@ -105,7 +134,7 @@ export async function processCheckout(
 
     createdOrderIds.push(order.id);
 
-    // B. Create Order Items (Pakai adminSupabase)
+    // B. Create Order Items
     const orderItemsPayload = orgItems.map(item => ({
       order_id: order.id,
       product_variant_id: item.variant_id,
@@ -124,7 +153,6 @@ export async function processCheckout(
   }
 
   // 5. Generate Midtrans Token
-  // Ambil profil user untuk data customer Midtrans
   const { data: profile } = await adminSupabase
     .from("profiles")
     .select("full_name, email, phone")
@@ -141,27 +169,24 @@ export async function processCheckout(
     }
   });
 
-  // 6. Update Token ke Semua Order (Pakai adminSupabase)
+  // 6. Update Token ke Semua Order
   await adminSupabase
     .from("orders")
     .update({ snap_token: snapToken })
     .in("id", createdOrderIds);
 
-  // 7. Bersihkan Cart (Pakai adminSupabase)
-  // FIX: Pastikan nama tabel sesuai ('carts' atau 'cart_items')
-  // Berdasarkan file page.tsx Anda fetch dari 'carts', tapi delete 'cart_items'.
-  // Saya gunakan 'carts' untuk konsistensi dengan fetch Anda, sesuaikan jika error.
+  // 7. Bersihkan Cart
   const cartIdsToRemove = items.map(i => i.cart_id);
   const { error: deleteCartError } = await adminSupabase
-    .from("carts") // Ganti ke "cart_items" jika tabel Anda bernama cart_items
+    .from("carts") 
     .delete()
     .in("id", cartIdsToRemove);
 
   if (deleteCartError) {
-    console.error("Warning: Gagal hapus cart (cek nama tabel)", deleteCartError);
+    console.error("Warning: Gagal hapus cart", deleteCartError);
   }
 
-  // 8. Create Payment Log (Pakai adminSupabase)
+  // 8. Create Payment Log
   await adminSupabase.from("payments").insert({
     order_id: createdOrderIds[0], 
     amount: grandTotal,

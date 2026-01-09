@@ -4,7 +4,7 @@ import {
   getProvinces, 
   getCities, 
   getDistricts, 
-  getSubdistricts,
+  getSubdistricts, 
   getShippingCost, 
   CourierCode 
 } from "@/lib/rajaongkir";
@@ -54,8 +54,6 @@ export async function addUserAddressAction(addressData: any) {
     
     if (!user) return { error: "Unauthorized" };
 
-    // Mapping data agar sesuai dengan tabel 'user_addresses' di supabase.ts
-    // Perhatikan field 'city' yang required, kita isi dengan city_name jika ada
     const payload = {
         user_id: user.id,
         label: addressData.label,
@@ -76,10 +74,10 @@ export async function addUserAddressAction(addressData: any) {
         district_name: addressData.district_name,
         subdistrict_name: addressData.subdistrict_name,
         
-        // Required field 'city' di DB (isi sama dengan city_name)
+        // Required field 'city' di DB
         city: addressData.city_name || "", 
         
-        is_default: false // Default value
+        is_default: false 
     };
 
     const { error } = await supabase.from('user_addresses').insert(payload);
@@ -92,6 +90,13 @@ export async function addUserAddressAction(addressData: any) {
 }
 
 // Wrapper untuk processCheckout
-export async function processCheckout(items: any, addressId: string, shipping: any, districtId: string) {
-    return processCheckoutCore(items, addressId, shipping, districtId);
+// UPDATE: Menambahkan parameter couponId
+export async function processCheckout(
+  items: any, 
+  addressId: string, 
+  shipping: any, 
+  districtId: string,
+  couponId: string | null
+) {
+    return processCheckoutCore(items, addressId, shipping, districtId, couponId);
 }

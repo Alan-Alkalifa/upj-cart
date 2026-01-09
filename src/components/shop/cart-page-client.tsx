@@ -28,7 +28,9 @@ export function CartPageClient({ cartItems }: { cartItems: any[] }) {
     org_id: string; 
     id: string
   } | null>(null)
+  
   const [isCheckingCoupon, setIsCheckingCoupon] = useState(false)
+  const [isCheckingOut, setIsCheckingOut] = useState(false) // NEW: Checkout Loading State
 
   // GROUPING LOGIC
   const groupedCart: Record<string, any> = {}
@@ -140,15 +142,19 @@ export function CartPageClient({ cartItems }: { cartItems: any[] }) {
     toast.info("Kupon dilepas")
   }
 
+  // CHECKOUT HANDLER
   const handleCheckout = () => {
+    if (isCheckingOut) return; // Prevent double click
+    setIsCheckingOut(true);
+
     trackEvent.beginCheckout(selectedItems, finalTotalPrice);
 
     const query = new URLSearchParams()
     // Pass selected IDs to checkout
     query.set("items", selectedIds.join(','))
     
-    // Pass coupon code if applied
-    if (appliedCoupon) {
+    // Pass coupon code if applied (Logic is correct here)
+    if (appliedCoupon && appliedCoupon.code) {
       query.set("coupon", appliedCoupon.code)
     }
     
@@ -291,10 +297,18 @@ export function CartPageClient({ cartItems }: { cartItems: any[] }) {
             <Button 
               className="w-full text-base py-6 font-bold shadow-lg shadow-primary/20" 
               size="lg" 
-              disabled={selectedIds.length === 0}
+              disabled={selectedIds.length === 0 || isCheckingOut}
               onClick={handleCheckout}
             >
-              Checkout <ArrowRight className="ml-2 h-5 w-5" />
+              {isCheckingOut ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                </>
+              ) : (
+                <>
+                  Checkout <ArrowRight className="ml-2 h-5 w-5" />
+                </>
+              )}
             </Button>
             
             <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground bg-muted/50 p-2 rounded-lg">

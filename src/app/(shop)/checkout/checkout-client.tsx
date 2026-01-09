@@ -60,9 +60,6 @@ interface ShippingState {
   };
 }
 
-// FIX: Removed the conflicting 'declare global' block because 'snap'
-// is already defined in the project's global type definitions.
-
 export function CheckoutClient({
   cartItems,
   addresses,
@@ -232,7 +229,6 @@ export function CheckoutClient({
       groupedItems[org.id] = { org, items: [], totalWeight: 0, subtotal: 0 };
     }
 
-    // This creates a NEW object, which breaks reference equality checks later
     const weight = (product.weight_grams || 1000) * item.quantity;
     const price = variant.price_override || product.base_price;
 
@@ -335,12 +331,9 @@ export function CheckoutClient({
 
     // Construct Payload
     const itemsPayload = cartItems.map((item) => {
-      // FIX: Don't use .includes() or .find() on groupedItems values because
-      // groupedItems contains COPIES of the items. Use the ID directly.
       const orgId = item.product_variants.products.organizations.id;
       const group = groupedItems[orgId];
 
-      // Safe check to ensure group exists (it should)
       if (!group) {
         console.error("Group not found for item:", item);
         throw new Error("Data error: Organization group missing");
@@ -362,11 +355,13 @@ export function CheckoutClient({
 
     try {
       // 1. Create Order in DB & Get Snap Token from Server
+      // UPDATE: Kirim coupon.id jika ada
       const res = await processCheckout(
         itemsPayload,
         selectedAddressId,
         shippingState,
-        address.district_id
+        address.district_id,
+        coupon?.id || null 
       );
 
       if (res.error) {
@@ -454,7 +449,7 @@ export function CheckoutClient({
                       <DialogTitle>Tambah Alamat Baru</DialogTitle>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
-                      {/* Form inputs omitted for brevity - no changes here */}
+                      {/* Form inputs */}
                       <div className="grid gap-2">
                         <Label>Label Alamat</Label>
                         <Input
@@ -662,7 +657,7 @@ export function CheckoutClient({
                             src={item.product_variants.products.image_url}
                             alt={item.product_variants.products.name}
                             fill
-                            sizes="64px" // FIX: Added sizes prop to fix the warning
+                            sizes="64px"
                             className="object-cover"
                           />
                         ) : (
