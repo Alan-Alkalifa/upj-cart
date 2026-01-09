@@ -385,7 +385,7 @@ export function CheckoutClient({
           onPending: (result: any) => {
             console.log("Payment Pending", result);
             toast.info("Pesanan dibuat. Silakan selesaikan pembayaran.");
-            router.push("/orders/history");
+            router.push("/orders");
           },
           onError: (result: any) => {
             console.error("Payment Error", result);
@@ -397,7 +397,9 @@ export function CheckoutClient({
               "Customer closed the popup without finishing the payment"
             );
             toast.warning("Pembayaran belum diselesaikan.");
-            setIsProcessing(false);
+            const targetUrl =
+              process.env.NEXT_PUBLIC_AFTER_PAYMENT_URL || "/orders";
+            router.push(targetUrl);
           },
         });
       } else {
@@ -414,7 +416,7 @@ export function CheckoutClient({
   // Determine Snap URL based on environment
   const snapScriptUrl =
     process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === "true"
-      ? "https://app.midtrans.com/snap/snap.js"
+      ? process.env.NEXT_PUBLIC_MIDTRANS_URL
       : "https://app.sandbox.midtrans.com/snap/snap.js";
 
   return (
