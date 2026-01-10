@@ -21,7 +21,7 @@ const geistMono = Geist_Mono({
 // --- SEO CONFIGURATION ---
 export const metadata: Metadata = {
   // Base URL is required for Open Graph images to work correctly
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://upj-cart.com"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://Bemlanja.com"),
   title: {
     default: "Bemlanja - Marketplace Universitas Pembangunan Jaya",
     template: "%s | Bemlanja" 
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Bemlanja",
     description: "Belanja produk dari civitas akademika UPJ.",
-    url: "https://upj-cart.com",
+    url: "https://Bemlanja.com",
     siteName: "Bemlanja",
     locale: "id_ID",
     type: "website",

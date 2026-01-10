@@ -5,7 +5,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const supabase = await createClient();
   
   // Uses the URL defined in your layout metadata or fallback to the project domain
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://upj-cart.com';
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://Bemlanja.com';
 
   // 1. Static Routes
   const staticRoutes = [
