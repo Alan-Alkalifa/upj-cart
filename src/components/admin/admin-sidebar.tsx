@@ -12,7 +12,8 @@ import {
   ChevronsUpDown,
   Wallet,
   MessageCircle,
-  LineChart, // [NEW] Import icon untuk Analytics
+  LineChart,
+  ShoppingCart, // [NEW] Import ShoppingCart icon
 } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
@@ -54,7 +55,6 @@ export function AppSidebar({ user }: { user: any }) {
 
   return (
     <Sidebar collapsible="icon">
-      {/* --- HEADER --- */}
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -84,6 +84,16 @@ export function AppSidebar({ user }: { user: any }) {
                 <a href="/admin-dashboard">
                   <LayoutDashboard />
                   <span>Overview</span>
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+
+            {/* [NEW] ORDERS MENU */}
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/admin-dashboard/orders")} tooltip="Orders">
+                <a href="/admin-dashboard/orders">
+                  <ShoppingCart />
+                  <span>Orders</span>
                 </a>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -121,8 +131,6 @@ export function AppSidebar({ user }: { user: any }) {
         <SidebarGroup>
           <SidebarGroupLabel>Monitoring</SidebarGroupLabel>
           <SidebarMenu>
-            
-            {/* [NEW] MENU ANALYTICS */}
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname.startsWith("/admin-dashboard/analytics")} tooltip="Analytics">
                 <a href="/admin-dashboard/analytics">
@@ -141,7 +149,6 @@ export function AppSidebar({ user }: { user: any }) {
               </SidebarMenuButton>
             </SidebarMenuItem>
 
-            {/* MESSAGES WITH BADGE */}
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname.startsWith("/admin-dashboard/messages")} tooltip="Messages">
                 <a href="/admin-dashboard/messages" className="flex items-center w-full">
@@ -170,7 +177,6 @@ export function AppSidebar({ user }: { user: any }) {
         </SidebarGroup>
       </SidebarContent>
 
-      {/* --- FOOTER --- */}
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
