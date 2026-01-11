@@ -194,9 +194,8 @@ export async function forgotPassword(
   values: z.infer<typeof forgotPasswordSchema>
 ) {
   const supabase = await createClient();
-
   const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
-    redirectTo: `${origin}/update-password`,
+    redirectTo: `${origin}/callback?next=/update-password`,
   });
 
   if (error) return { error: error.message };
