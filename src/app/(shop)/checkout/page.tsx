@@ -20,13 +20,13 @@ export default async function CheckoutPage({
   }
 
   // 1. Fetch Selected Cart Items
-  // FIXED: Removed 'weight_grams' from product_variants as it is not in the type definition.
+  // FIXED: Added 'stock' to the selection to perform availability checks
   const { data: cartItems } = await supabase
     .from("carts")
     .select(`
       id, quantity,
       product_variants (
-        id, name, price_override,
+        id, name, price_override, stock,
         products (
           id, name, weight_grams, image_url,
           organizations (id, name, origin_district_id)
@@ -35,6 +35,30 @@ export default async function CheckoutPage({
     `)
     .in("id", itemIds)
     .eq("user_id", user.id)
+
+  if (!cartItems || cartItems.length === 0) {
+    redirect("/cart")
+  }
+
+  // --- FIX START: Pre-Check Stock Availability ---
+  // Validate that all selected items are actually in stock before rendering checkout
+  const outOfStockItems = cartItems.filter((item: any) => {
+    // Unwrap variant (handle potential array/object structure from Supabase)
+    const variant = Array.isArray(item.product_variants) 
+      ? item.product_variants[0] 
+      : item.product_variants;
+      
+    // If variant doesn't exist or requested quantity exceeds stock
+    if (!variant) return true; 
+    return item.quantity > variant.stock;
+  });
+
+  if (outOfStockItems.length > 0) {
+    // Redirect back to cart. 
+    // The Cart page generally handles 'error' params to show a toast (e.g., "Stok berubah")
+    redirect("/cart?error=stock_limit_reached")
+  }
+  // --- FIX END ---
 
   // 2. Fetch User Addresses
   const { data: addresses } = await supabase
@@ -52,7 +76,11 @@ export default async function CheckoutPage({
       .eq("code", params.coupon)
       .gt("expires_at", new Date().toISOString())
       .single()
-    couponData = data
+    
+    // Only pass coupon data if it's found and valid
+    if (data) {
+       couponData = data
+    }
   }
 
   return (
