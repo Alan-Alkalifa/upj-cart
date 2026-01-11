@@ -202,7 +202,7 @@ export async function forgotPassword(
   if (error) return { error: error.message };
 
   (await cookies()).set("pending_verification_reset", "true", {
-    path: "/",
+    path: "/update-password",
     httpOnly: true,
     secure: isProduction,
     maxAge: 300,
