@@ -11,9 +11,11 @@ import {
 } from "@/lib/auth-schemas";
 import { z } from "zod";
 import { cookies } from "next/headers";
+import { Resend } from "resend";
 
 const isProduction = process.env.NODE_ENV === "production";
 const origin = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // --- 1. LOGIN ---
 export async function login(values: z.infer<typeof loginSchema>) {
@@ -62,7 +64,6 @@ export async function signup(values: z.infer<typeof registerSchema>) {
   const supabase = await createClient();
   const supabaseAdmin = createAdminClient();
 
-  // 1. Manual Check (Prevent Enumeration)
   const { data: existingProfile } = await supabaseAdmin
     .from("profiles")
     .select("id")
@@ -73,13 +74,12 @@ export async function signup(values: z.infer<typeof registerSchema>) {
     return { error: "Email already used." };
   }
 
-  // 2. SignUp (Triggers Supabase Auto-Email)
   const { error } = await supabase.auth.signUp({
     email: values.email,
     password: values.password,
     options: {
       data: { full_name: values.fullName },
-      emailRedirectTo: `${origin}/callback`, // Redirects here after clicking email link
+      emailRedirectTo: `${origin}/callback`,
     },
   });
 
@@ -90,7 +90,6 @@ export async function signup(values: z.infer<typeof registerSchema>) {
     return { error: error.message };
   }
 
-  // 3. Set Cookie
   (await cookies()).set("pending_verification_signup", "true", {
     path: "/",
     httpOnly: true,
@@ -101,21 +100,20 @@ export async function signup(values: z.infer<typeof registerSchema>) {
   return { success: true };
 }
 
-// --- 3. MERCHANT REGISTRATION (Supabase Native) ---
+// --- 3. MERCHANT REGISTRATION (Custom Email Flow) ---
 export async function registerMerchant(
   values: z.infer<typeof merchantRegisterSchema>
 ) {
   const supabase = await createClient();
   const supabaseAdmin = createAdminClient();
   const validatedFields = merchantRegisterSchema.safeParse(values);
-  
+
   if (!validatedFields.success) {
-    return { 
-      error: "Data tidak valid. Pastikan email menggunakan domain @upj.ac.id dan format lainnya sesuai." 
+    return {
+      error: "Data tidak valid. Pastikan email menggunakan domain @upj.ac.id.",
     };
   }
 
-  // Gunakan data yang sudah terverifikasi aman
   const data = validatedFields.data;
 
   // 1. Guard: User must be logged out
@@ -126,12 +124,10 @@ export async function registerMerchant(
   const { data: existingUser } = await supabaseAdmin
     .from("profiles")
     .select("role")
-    .eq("email", data.email) 
+    .eq("email", data.email)
     .maybeSingle();
 
-  if (existingUser) {
-    return { error: "Email sudah terdaftar." };
-  }
+  if (existingUser) return { error: "Email sudah terdaftar." };
 
   const { data: existingSlug } = await supabaseAdmin
     .from("organizations")
@@ -141,19 +137,24 @@ export async function registerMerchant(
 
   if (existingSlug) return { error: "URL Toko (Slug) sudah digunakan." };
 
-  const { data: authData, error: authError } = await supabase.auth.signUp({
+  // 3. GENERATE LINK + CREATE USER (Instead of standard signUp)
+  // This prevents Supabase from sending its default email and gives us the link
+  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.generateLink({
+    type: "signup",
     email: data.email,
     password: data.password,
     options: {
       data: { full_name: data.fullName },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/merchant-dashboard`,
+      redirectTo: `${origin}/merchant-dashboard`,
     },
   });
 
   if (authError) return { error: authError.message };
   if (!authData.user) return { error: "Gagal membuat user." };
 
-  // 5. RPC Transaction
+  const verificationLink = authData.properties?.action_link;
+
+  // 4. RPC Transaction (Create Profile & Store)
   const { error: rpcError } = await supabaseAdmin.rpc(
     "register_merchant_transaction",
     {
@@ -172,35 +173,103 @@ export async function registerMerchant(
     return { error: "Gagal membuat data toko. Silakan coba lagi." };
   }
 
+  // --- 5. SEND MERCHANT VERIFICATION EMAIL (RESEND) ---
+  if (verificationLink) {
+    try {
+      await resend.emails.send({
+        // Use your verified domain or the Resend testing domain
+        from: "Bemlanja Verification <support@bemlanja.com>",
+        to: data.email,
+        subject: "Verifikasi Email Toko - Bemlanja",
+        html: `
+          <div style="font-family: sans-serif; padding: 20px;">
+            <h1>Selamat Datang di Bemlanja!</h1>
+            <p>Halo <b>${data.fullName}</b>,</p>
+            <p>Terima kasih telah mendaftarkan toko <b>${data.storeName}</b>.</p>
+            <p>Silakan klik tombol di bawah untuk memverifikasi email Anda dan mengaktifkan akun:</p>
+            <br />
+            <a href="${verificationLink}" style="background-color: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Verifikasi Email</a>
+            <br /><br />
+            <p style="color: #666; font-size: 14px;">Atau copy link ini: <br/>${verificationLink}</p>
+          </div>
+        `,
+      });
+    } catch (emailError) {
+      console.error("Failed to send verification email:", emailError);
+    }
+  }
+
+  // --- 6. SEND ADMIN NOTIFICATION EMAIL ---
+  try {
+    await resend.emails.send({
+      from: "Bemlanja Notifications <support@bemlanja.com>",
+      to: process.env.ADMIN_EMAIL || "admin@upj.ac.id",
+      subject: `New Merchant Registration: ${data.storeName}`,
+      html: `
+        <h1>New Merchant Registration</h1>
+        <ul>
+          <li><strong>Store:</strong> ${data.storeName}</li>
+          <li><strong>Owner:</strong> ${data.fullName}</li>
+          <li><strong>Email:</strong> ${data.email}</li>
+        </ul>
+      `,
+    });
+  } catch (err) {
+    console.error("Failed to send admin notification:", err);
+  }
+
   return { success: true };
 }
 
-// --- 4. RESEND VERIFICATION EMAIL (Supabase Native) ---
+// --- 4. RESEND VERIFICATION EMAIL (Manual Trigger) ---
 export async function resendVerificationEmail(email: string) {
-  const supabase = await createClient();
+  const supabaseAdmin = createAdminClient();
 
-  const { error } = await supabase.auth.resend({
-    type: "signup",
+  // Use 'magiclink' to generate a verification link without needing a password
+  const { data, error } = await supabaseAdmin.auth.admin.generateLink({
+    type: "magiclink",
     email: email,
-    options: { emailRedirectTo: `${origin}/callback` },
+    options: { redirectTo: `${origin}/callback` },
   });
 
   if (error) return { error: error.message };
+
+  const verificationLink = data.properties?.action_link;
+
+  if (verificationLink) {
+    try {
+      await resend.emails.send({
+        from: "Bemlanja Verification <support@bemlanja.com>",
+        to: email,
+        subject: "Kirim Ulang Verifikasi Email",
+        html: `
+          <p>Klik tombol di bawah untuk memverifikasi email Anda:</p>
+          <a href="${verificationLink}">Verifikasi Email</a>
+        `,
+      });
+    } catch (e) {
+      console.error(e);
+      return { error: "Gagal mengirim email verifikasi." };
+    }
+  }
+
   return { success: true };
 }
 
-// --- 5. FORGOT PASSWORD (Supabase Native) ---
+// --- 5. FORGOT PASSWORD ---
 export async function forgotPassword(
   values: z.infer<typeof forgotPasswordSchema>
 ) {
   const supabase = await createClient();
+
   const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
-    redirectTo: `${origin}/callback?next=/update-password`,
+    redirectTo: `${origin}/update-password`,
   });
 
   if (error) return { error: error.message };
+
   (await cookies()).set("pending_verification_reset", "true", {
-    path: "/update-password",
+    path: "/",
     httpOnly: true,
     secure: isProduction,
     maxAge: 300,
@@ -211,8 +280,6 @@ export async function forgotPassword(
 
 export async function updatePassword(values: z.infer<typeof updatePasswordSchema>) {
   const supabase = await createClient();
-
-  // Validate fields on server side as well
   const validatedFields = updatePasswordSchema.safeParse(values);
 
   if (!validatedFields.success) {
@@ -225,10 +292,7 @@ export async function updatePassword(values: z.infer<typeof updatePasswordSchema
     password: password,
   });
 
-  if (error) {
-    return { error: error.message };
-  }
+  if (error) return { error: error.message };
 
-  // Do NOT redirect here. Return success so the client shows the toast and redirects.
   return { success: true };
 }
