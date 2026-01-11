@@ -11,11 +11,9 @@ import {
 } from "@/lib/auth-schemas";
 import { z } from "zod";
 import { cookies } from "next/headers";
-import { Resend } from "resend"; 
 
 const isProduction = process.env.NODE_ENV === "production";
 const origin = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-const resend = new Resend(process.env.RESEND_API_KEY); 
 
 // --- 1. LOGIN ---
 export async function login(values: z.infer<typeof loginSchema>) {
@@ -81,7 +79,7 @@ export async function signup(values: z.infer<typeof registerSchema>) {
     password: values.password,
     options: {
       data: { full_name: values.fullName },
-      emailRedirectTo: `${origin}/callback`,
+      emailRedirectTo: `${origin}/callback`, // Redirects here after clicking email link
     },
   });
 
@@ -173,29 +171,6 @@ export async function registerMerchant(
     await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
     return { error: "Gagal membuat data toko. Silakan coba lagi." };
   }
-
-  // --- 6. SEND ADMIN NOTIFICATION EMAIL (RESEND) --- 
-  try { 
-    await resend.emails.send({ 
-      from: "Bemlanja New Merchant Notifications <no-reply@bemlanja.com>", // Replace with your domain if configured 
-      to: process.env.SUPER_ADMIN_EMAIL || "admin@upj.ac.id", // Fallback email 
-      subject: `New Merchant Registration: ${data.storeName}`, 
-      html: ` 
-        <h1>New Merchant Registration</h1> 
-        <p>A new merchant has just registered on Bemlanja.</p> 
-        <ul> 
-          <li><strong>Store Name:</strong> ${data.storeName}</li> 
-          <li><strong>Owner Name:</strong> ${data.fullName}</li> 
-          <li><strong>Email:</strong> ${data.email}</li> 
-          <li><strong>Slug:</strong> ${data.storeSlug}</li> 
-        </ul> 
-        <p>Please check the admin dashboard for more details.</p> 
-      `, 
-    }); 
-  } catch (emailError) { 
-    // Log error but do not fail the registration process 
-    console.error("Failed to send admin notification email:", emailError); 
-  } 
 
   return { success: true };
 }
