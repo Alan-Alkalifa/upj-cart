@@ -42,7 +42,6 @@ export async function proxy(request: NextRequest) {
     "/login",
     "/register",
     "/forgot-password",
-    "/update-password",
     "/verify-email-sign-up",
     "/verify-email-reset-password",
   ];

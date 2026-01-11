@@ -199,7 +199,6 @@ export async function forgotPassword(
   });
 
   if (error) return { error: error.message };
-
   (await cookies()).set("pending_verification_reset", "true", {
     path: "/update-password",
     httpOnly: true,
