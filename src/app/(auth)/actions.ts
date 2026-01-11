@@ -203,7 +203,7 @@ export async function registerMerchant(
   try {
     await resend.emails.send({
       from: "Bemlanja Notifications <support@bemlanja.com>",
-      to: process.env.ADMIN_EMAIL || "admin@upj.ac.id",
+      to: process.env.SUPER_ADMIN_EMAIL || "admin@upj.ac.id",
       subject: `New Merchant Registration: ${data.storeName}`,
       html: `
         <h1>New Merchant Registration</h1>
