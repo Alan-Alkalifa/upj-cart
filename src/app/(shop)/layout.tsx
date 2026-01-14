@@ -1,6 +1,7 @@
-import { createClient } from "@/utils/supabase/server"; //
-import { Navbar } from "@/components/shop/navbar"; //
-import { Footer } from "@/components/shop/footer"; //
+// src/app/(shop)/layout.tsx
+import { createClient } from "@/utils/supabase/server"; 
+import { Navbar } from "@/components/shop/navbar"; 
+import { Footer } from "@/components/shop/footer"; 
 import { FloatingChatWidget } from "@/components/chat/floating-chat";
 
 // Metadata bisa ditambahkan di sini untuk SEO
@@ -29,26 +30,29 @@ export default async function ShopLayout({
     cartCount = count || 0;
   }
 
-  // 3. Inject Role info agar Navbar tahu user ini Merchant/Admin atau bukan
-  let userWithRole = null;
+  // 3. Inject Role & Profile info (Avatar, Name) agar Navbar bisa menampilkan data terbaru
+  let userWithProfile = null;
   if (user) {
-     // Kita ambil role dari tabel profiles untuk memastikan data terbaru
+     // Kita ambil role, avatar_url, dan full_name dari tabel profiles
      const { data: profile } = await supabase
        .from('profiles')
-       .select('role')
+       .select('role, avatar_url, full_name')
        .eq('id', user.id)
        .single();
      
-     // Gabungkan data user auth dengan role dari DB
-     userWithRole = { 
+     // Gabungkan data user auth dengan data dari DB profiles
+     // Navbar akan memprioritaskan properti di top-level (dari DB) daripada user_metadata
+     userWithProfile = { 
        ...user, 
-       role: profile?.role 
+       role: profile?.role,
+       avatar_url: profile?.avatar_url,
+       full_name: profile?.full_name
      };
   }
 
   return (
     <div className="flex min-h-screen flex-col bg-background relative">
-      <Navbar user={userWithRole} cartCount={cartCount} />
+      <Navbar user={userWithProfile} cartCount={cartCount} />
       
       <main className="flex-1 w-full">
         {children}

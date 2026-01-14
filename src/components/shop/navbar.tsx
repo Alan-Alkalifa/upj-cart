@@ -1,3 +1,4 @@
+// src/components/shop/navbar.tsx
 "use client"
 
 import Link from "next/link"
@@ -30,13 +31,16 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
   
   const userRole = user?.app_metadata?.role || user?.role
   
+  // Determine display values (prioritize profile table data over auth metadata)
+  const avatarUrl = user?.avatar_url || user?.user_metadata?.avatar_url
+  const fullName = user?.full_name || user?.user_metadata?.full_name || "Pengguna"
+  const email = user?.email
+  const initial = (fullName?.[0] || email?.[0] || "U").toUpperCase()
+
   // Restricted users (Admin & Merchant) still cannot see the Cart
   const isRestrictedUser = userRole === 'super_admin' || userRole === 'merchant'
   
-  // LOGIKA UPDATE: 
-  // 1. Super Admin SEKARANG BISA melihat search bar (hapus isSuperAdmin dari kondisi).
-  // 2. Search bar tetap sembunyi di halaman /search (karena redundan).
-  // 3. Search bar tetap sembunyi di dashboard merchant.
+  // Logic to hide search bar
   const isSearchHidden = pathname === '/search' || pathname?.startsWith('/merchant-dashboard/')
 
   const handleLogout = async () => {
@@ -104,9 +108,9 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full ml-1">
                   <Avatar className="h-8 w-8 border">
-                    <AvatarImage src={user.user_metadata?.avatar_url} />
+                    <AvatarImage src={avatarUrl} className="object-cover" />
                     <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                      {user.email?.[0].toUpperCase()}
+                      {initial}
                     </AvatarFallback>
                   </Avatar>
                 </Button>
@@ -115,10 +119,10 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
                 <DropdownMenuLabel>
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none truncate">
-                      {user.user_metadata?.full_name || "Pengguna"}
+                      {fullName}
                     </p>
                     <p className="text-xs leading-none text-muted-foreground truncate">
-                      {user.email}
+                      {email}
                     </p>
                     {isRestrictedUser && (
                         <Badge variant="outline" className="w-fit mt-1 text-[10px] h-5 px-1">

@@ -1,3 +1,4 @@
+// src/app/(shop)/profiles/actions.ts
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
@@ -42,6 +43,7 @@ export async function updateProfile(prevState: any, formData: FormData) {
 
   if (!user) return { error: "Unauthorized" };
 
+  // 1. Handle Text Data
   const rawData = {
     full_name: formData.get("full_name"),
     phone: formData.get("phone"),
@@ -53,12 +55,56 @@ export async function updateProfile(prevState: any, formData: FormData) {
     return { error: validated.error.flatten().fieldErrors };
   }
 
+  // 2. Handle Avatar Upload (if present)
+  const avatarFile = formData.get("avatar") as File | null;
+  let avatarUrl: string | undefined;
+
+  if (avatarFile && avatarFile.size > 0) {
+    // Validate File
+    if (avatarFile.size > 2 * 1024 * 1024) { // 2MB limit
+      return { error: "Ukuran foto maksimal 2MB" };
+    }
+    if (!avatarFile.type.startsWith("image/")) {
+      return { error: "Format file harus gambar (JPG, PNG, dll)" };
+    }
+
+    // Upload to Supabase Storage
+    const fileExt = avatarFile.name.split('.').pop();
+    const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('avatars') // Make sure this bucket exists in your Supabase Storage
+      .upload(filePath, avatarFile, {
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("Upload Error:", uploadError);
+      return { error: "Gagal mengupload foto profil" };
+    }
+
+    // Get Public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(filePath);
+      
+    avatarUrl = publicUrl;
+  }
+
+  // 3. Update Profile Database
+  const updateData: any = {
+    full_name: validated.data.full_name,
+    phone: validated.data.phone || null,
+  };
+
+  if (avatarUrl) {
+    updateData.avatar_url = avatarUrl;
+  }
+
   const { error } = await supabase
     .from("profiles")
-    .update({
-      full_name: validated.data.full_name,
-      phone: validated.data.phone || null,
-    })
+    .update(updateData)
     .eq("id", user.id);
 
   if (error) return { error: error.message };

@@ -1,3 +1,4 @@
+// src/app/(shop)/orders/[id]/page.tsx
 import { getOrderDetails } from "@/app/actions/order";
 import { formatRupiah, formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -27,11 +28,13 @@ import {
   CreditCard,
   Calendar,
   Copy,
+  Star,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { PayButton } from "@/components/shop/pay-button";
+import { OrderActionButtons } from "@/components/shop/order-actions-button";
 
 export const metadata = {
   title: "Detail Transaksi - Bemlanja",
@@ -47,7 +50,7 @@ export default async function OrderDetailPage(props: {
     notFound();
   }
 
-  // Consistent Status Colors (Matching OrderCard)
+  // Consistent Status Colors
   const statusColor: Record<
     string,
     "default" | "secondary" | "destructive" | "outline"
@@ -61,6 +64,8 @@ export default async function OrderDetailPage(props: {
   };
 
   const isPending = order.status === "pending" && order.snap_token;
+  // Check if any reviews exist for this order
+  const hasReviewed = order.reviews && order.reviews.length > 0;
 
   return (
     <div className="container mx-auto px-4 py-8 animate-in fade-in duration-500">
@@ -212,7 +217,6 @@ export default async function OrderDetailPage(props: {
                     </p>
                     <div className="flex items-center gap-2 font-mono font-bold">
                       {order.tracking_number}
-                      {/* Simple copy button placeholder logic */}
                       <Copy className="h-3 w-3 cursor-pointer opacity-50 hover:opacity-100" />
                     </div>
                   </div>
@@ -282,11 +286,6 @@ export default async function OrderDetailPage(props: {
                   </span>
                   <span>{formatRupiah(order.insurance_cost || 0)}</span>
                 </div>
-                {/* If you implement coupons later */}
-                {/* <div className="flex justify-between text-green-600">
-                    <span>Diskon</span>
-                    <span>-Rp 0</span>
-                  </div> */}
               </div>
 
               <Separator />
@@ -300,23 +299,36 @@ export default async function OrderDetailPage(props: {
             </CardContent>
 
             <CardFooter className="flex flex-col gap-3 bg-muted/5 pt-6">
-              {isPending ? (
-                <PayButton
-                  snapToken={order.snap_token}
-                  orderId={order.id}
-                />
-              ) : (
+              {/* Payment Button if Pending */}
+              {isPending && (
+                <PayButton snapToken={order.snap_token} orderId={order.id} />
+              )}
+
+              {/* Actions for Shipped/Completed Orders */}
+              <OrderActionButtons
+                orderId={order.id}
+                orderStatus={order.status || ""}
+                items={order.items}
+                hasReviewed={hasReviewed}
+              />
+
+              {/* Merchant Link */}
+              {!isPending && (
                 <Button variant="outline" className="w-full" asChild>
                   <Link href={`/merchant/${order.organization?.slug}`}>
                     Kunjungi Toko
                   </Link>
                 </Button>
               )}
+
               <p className="text-xs text-center text-muted-foreground px-4">
                 Butuh bantuan?{" "}
-                <Link href="#" className="underline hover:text-primary">
+                <a
+                  href="mailto:support@bemlanja.com"
+                  className="underline hover:text-primary"
+                >
                   Hubungi CS Bemlanja
-                </Link>
+                </a>
               </p>
             </CardFooter>
           </Card>
