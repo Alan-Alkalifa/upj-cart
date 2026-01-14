@@ -223,7 +223,7 @@ export default async function FinancePage(props: {
               variant="outline"
               className="bg-white hover:bg-red-100 border-red-300 text-red-800 ml-4"
             >
-              <Link href="/merchant/settings?tab=general">Atur Sekarang</Link>
+              <Link href="/merchant-dashboard/settings">Atur Sekarang</Link>
             </Button>
           </AlertDescription>
         </Alert>

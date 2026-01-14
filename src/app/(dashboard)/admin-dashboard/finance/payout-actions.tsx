@@ -74,20 +74,23 @@ export function PayoutActionButtons({ id, amount, merchantName, bankInfo }: Prop
             <XCircle className="h-4 w-4 mr-1" /> Reject
           </Button>
         </DialogTrigger>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Reject Request?</DialogTitle>
             <DialogDescription>
-              Why are you rejecting this request for <b>Rp {amount.toLocaleString("id-ID")}</b>?
+              Why are you rejecting this request for <span className="font-bold text-foreground">Rp {amount.toLocaleString("id-ID")}</span>?
             </DialogDescription>
           </DialogHeader>
-          <div className="py-2">
-             <Label>Reason</Label>
-             <Input 
-                placeholder="e.g. Invalid bank details"
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-             />
+          <div className="grid gap-4 py-4">
+             <div className="grid gap-2">
+               <Label htmlFor="reject-reason">Reason</Label>
+               <Input 
+                  id="reject-reason"
+                  placeholder="e.g. Invalid bank details"
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+               />
+             </div>
           </div>
           <DialogFooter>
              <Button variant="ghost" onClick={() => setRejectOpen(false)}>Cancel</Button>
@@ -106,23 +109,26 @@ export function PayoutActionButtons({ id, amount, merchantName, bankInfo }: Prop
             <CheckCircle className="h-4 w-4 mr-1" /> Approve
           </Button>
         </DialogTrigger>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Mark as Transferred</DialogTitle>
             <DialogDescription>
-              Have you manually transferred <b>Rp {amount.toLocaleString("id-ID")}</b> to:<br/>
-              <span className="font-mono text-xs bg-muted p-1 rounded mt-2 block">
+              Have you manually transferred <span className="font-bold text-foreground">Rp {amount.toLocaleString("id-ID")}</span> to:<br/>
+              <span className="font-mono text-xs bg-muted p-1 rounded mt-2 block break-all">
                 {bankInfo}
               </span>
             </DialogDescription>
           </DialogHeader>
-          <div className="py-2">
-             <Label>Transfer Reference ID (Optional)</Label>
-             <Input 
-                placeholder="e.g. TRX-998877"
-                value={transferRef}
-                onChange={(e) => setTransferRef(e.target.value)}
-             />
+          <div className="grid gap-4 py-4">
+             <div className="grid gap-2">
+                <Label htmlFor="transfer-ref">Transfer Reference ID (Optional)</Label>
+                <Input 
+                    id="transfer-ref"
+                    placeholder="e.g. TRX-998877"
+                    value={transferRef}
+                    onChange={(e) => setTransferRef(e.target.value)}
+                />
+             </div>
           </div>
           <DialogFooter>
              <Button variant="ghost" onClick={() => setApproveOpen(false)}>Cancel</Button>

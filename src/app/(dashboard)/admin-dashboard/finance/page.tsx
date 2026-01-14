@@ -85,8 +85,9 @@ export default async function AdminFinancePage(props: {
   if (queryParam) {
     // Mencari di Nama Merchant (Join), Nama Pemilik Rekening, atau No. Rekening
     // Catatan: Filtering relasi membutuhkan !inner pada select (sudah ditambahkan diatas)
+    // FIX: Updated column names to match DB (account_holder, account_number)
     mainQuery = mainQuery.or(
-      `bank_account_holder.ilike.%${queryParam}%,bank_account_number.ilike.%${queryParam}%,organizations.name.ilike.%${queryParam}%`
+      `account_holder.ilike.%${queryParam}%,account_number.ilike.%${queryParam}%,organizations.name.ilike.%${queryParam}%`
     );
   }
 
@@ -406,7 +407,8 @@ function PayoutTable({
               <TableCell>
                 <div className="text-sm font-medium">{w.bank_name}</div>
                 <div className="text-xs text-muted-foreground">
-                  {w.bank_account_number} <br /> ({w.bank_account_holder})
+                  {/* FIX: Use correct field names from DB (account_number, account_holder) */}
+                  {w.account_number} <br /> ({w.account_holder})
                 </div>
               </TableCell>
               <TableCell className="font-bold">
@@ -436,7 +438,8 @@ function PayoutTable({
                     id={w.id}
                     amount={w.amount}
                     merchantName={w.organizations?.name}
-                    bankInfo={`${w.bank_name} - ${w.bank_account_number}`}
+                    /* FIX: Use correct field name for account number */
+                    bankInfo={`${w.bank_name} - ${w.account_number}`}
                   />
                 </TableCell>
               )}

@@ -285,7 +285,7 @@ export async function approveWithdrawal(withdrawalId: string, note: string) {
     .update({ 
       status: "approved", 
       admin_note: note,
-      processed_at: new Date().toISOString()
+      // Removed processed_at as it doesn't exist in the table schema
     })
     .eq("id", withdrawalId)
     .select(`
@@ -350,7 +350,7 @@ export async function rejectWithdrawal(withdrawalId: string, reason: string) {
     .update({ 
       status: "rejected", 
       admin_note: reason,
-      processed_at: new Date().toISOString()
+      // Removed processed_at as it doesn't exist in the table schema
     })
     .eq("id", withdrawalId)
     .select(`
