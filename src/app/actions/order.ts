@@ -2,18 +2,18 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
-import { getPlatformSettings } from "@/utils/get-settings";
 
-// --- FETCH USER ORDERS ---
 export async function getUserOrders() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) return [];
+  if (!user) {
+    console.log("Debug: No user logged in"); // DEBUG LOG
+    return [];
+  }
 
-  // FIX: 
-  // 1. Removed 'slug' from products (it does not exist in your DB schema).
-  // 2. Added 'id' to products (needed for links in OrderCard).
+  console.log("Debug: Fetching orders for User ID:", user.id); // DEBUG LOG
+
   const { data, error } = await supabase
     .from("orders")
     .select(`
@@ -37,27 +37,48 @@ export async function getUserOrders() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    // Check your terminal for this error if orders still don't show!
-    console.error("Error fetching orders:", error.message);
+    console.error("Debug: Supabase Error:", error.message); // DEBUG LOG
     return [];
   }
 
+  console.log("Debug: Found orders count:", data?.length); // DEBUG LOG
   return data || [];
 }
 
-// --- PAYMENT PROCESSING LOGIC ---
-export async function processOrderPayment(orderId: string, orderTotal: number) {
+export async function getOrderDetails(orderId: string) {
   const supabase = await createClient();
-  
-  // 1. Get Settings (for Fee calculation if needed later)
-  const settings = await getPlatformSettings();
-  
-  // 2. Update Database to PAID
-  const { error } = await supabase
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return null;
+
+  const { data, error } = await supabase
     .from("orders")
-    .update({ status: "paid" })
+    .select(`
+      *,
+      organization:organizations(name, slug, logo_url),
+      shipping_address:user_addresses(*),
+      items:order_items(
+        id,
+        quantity,
+        price_at_purchase,
+        variant:product_variants(
+          name,
+          product:products(
+            id, 
+            name,
+            image_url, weight_grams
+          )
+        )
+      )
+    `)
     .eq("id", orderId)
-    .in("status", ["pending"]); // Prevent overwriting if already paid/cancelled
-    
-  if (error) console.error("Failed to update order payment status", error);
+    .eq("buyer_id", user.id) // Ensure users can only see their own orders
+    .single();
+
+  if (error) {
+    console.error("Error fetching order details:", error.message);
+    return null;
+  }
+
+  return data;
 }

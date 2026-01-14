@@ -73,7 +73,7 @@ export function PayButton({ snapToken, orderId }: PayButtonProps) {
       onClick={handlePay} 
       disabled={loading} 
       size="sm" 
-      className="bg-blue-600 hover:bg-blue-700 text-white"
+      className="w-full text-base shadow-md"
     >
       {loading ? (
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
