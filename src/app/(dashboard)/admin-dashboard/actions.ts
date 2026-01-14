@@ -162,26 +162,117 @@ export async function hardDeleteMerchant(orgId: string, merchantEmail?: string) 
 
 export async function deleteProduct(productId: string) {
   const supabase = createAdminClient()
-  const { error } = await supabase
+  
+  // 1. Update product and fetch related owner info
+  const { data: productData, error } = await supabase
     .from("products")
     .update({ deleted_at: new Date().toISOString() })
     .eq("id", productId)
+    .select(`
+      name,
+      organizations (
+        name,
+        organization_members (
+          role,
+          profiles (
+            email,
+            full_name
+          )
+        )
+      )
+    `)
+    .single()
 
   if (error) return { error: error.message }
+
+  // 2. Extract Owner Email
+  const product: any = productData
+  const members = product?.organizations?.organization_members || []
+  const owner = members.find((m: any) => m.role === 'owner')
+
+  // 3. Send Notification Email
+  if (owner && owner.profiles?.email) {
+    try {
+      await resend.emails.send({
+        from: 'Bemlanja Admin <support@bemlanja.com>',
+        to: owner.profiles.email,
+        subject: 'Pemberitahuan: Produk Dihapus oleh Admin',
+        html: `
+          <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+            <h2 style="color: #dc2626;">Produk Dihapus</h2>
+            <p>Halo <b>${owner.profiles.full_name}</b>,</p>
+            <p>Produk berikut di toko <b>${product.organizations.name}</b> telah dihapus oleh Admin karena alasan kebijakan/kepatuhan:</p>
+            <p style="background-color: #fef2f2; padding: 10px; border-left: 4px solid #dc2626; font-weight: bold;">
+              ${product.name}
+            </p>
+            <p>Produk ini tidak lagi muncul di etalase. Jika Anda merasa ini adalah kesalahan, silakan hubungi dukungan kami.</p>
+          </div>
+        `
+      })
+    } catch (e) {
+      console.error("Failed to send delete notification:", e)
+    }
+  }
 
   revalidatePath("/admin-dashboard/products")
   return { success: true }
 }
 
+// --- RESTORE PRODUCT ---
 export async function restoreProduct(productId: string) {
   const supabase = createAdminClient()
   
-  const { error } = await supabase
+  // 1. Restore product and fetch related owner info
+  const { data: productData, error } = await supabase
     .from("products")
-    .update({ deleted_at: null }) // Kembalikan ke null
+    .update({ deleted_at: null }) // Restore to null
     .eq("id", productId)
+    .select(`
+      name,
+      organizations (
+        name,
+        organization_members (
+          role,
+          profiles (
+            email,
+            full_name
+          )
+        )
+      )
+    `)
+    .single()
 
   if (error) return { error: error.message }
+
+  // 2. Extract Owner Email
+  const product: any = productData
+  const members = product?.organizations?.organization_members || []
+  const owner = members.find((m: any) => m.role === 'owner')
+
+  // 3. Send Notification Email
+  if (owner && owner.profiles?.email) {
+    try {
+      await resend.emails.send({
+        from: 'Bemlanja Admin <support@bemlanja.com>',
+        to: owner.profiles.email,
+        subject: 'Kabar Baik: Produk Dipulihkan',
+        html: `
+          <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+            <h2 style="color: #16a34a;">Produk Kembali Aktif</h2>
+            <p>Halo <b>${owner.profiles.full_name}</b>,</p>
+            <p>Produk berikut di toko <b>${product.organizations.name}</b> telah dipulihkan oleh Admin:</p>
+            <p style="background-color: #f0fdf4; padding: 10px; border-left: 4px solid #16a34a; font-weight: bold;">
+              ${product.name}
+            </p>
+            <p>Produk ini sekarang sudah kembali muncul di etalase toko Anda.</p>
+          </div>
+        `
+      })
+    } catch (e) {
+      console.error("Failed to send restore notification:", e)
+    }
+  }
+
   revalidatePath("/admin-dashboard/products")
   return { success: true }
 }
