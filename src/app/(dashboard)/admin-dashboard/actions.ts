@@ -7,6 +7,7 @@ import { Resend } from "resend"
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
+// --- APPROVE (Pending -> Active) ---
 export async function approveMerchant(orgId: string, merchantEmail: string) {
   const supabase = createAdminClient()
 
@@ -22,7 +23,7 @@ export async function approveMerchant(orgId: string, merchantEmail: string) {
 
   try {
     await resend.emails.send({
-      from: 'Bemlanja <onboarding@resend.dev>',
+      from: 'Bemlanja <support@bemlanja.com>',
       to: merchantEmail, 
       subject: 'Status Toko: Aktif',
       html: `<h1>Toko Anda Kini Aktif</h1><p>Selamat! Toko Anda telah diaktifkan kembali oleh Admin.</p>`
@@ -35,7 +36,41 @@ export async function approveMerchant(orgId: string, merchantEmail: string) {
   return { success: true }
 }
 
-// --- REJECT ---
+// --- RESTORE (Suspended -> Active) ---
+export async function restoreMerchant(orgId: string, merchantEmail: string) {
+  const supabase = createAdminClient()
+
+  const { error } = await supabase
+    .from("organizations")
+    .update({ 
+      status: "active",
+      rejection_reason: null
+    })
+    .eq("id", orgId)
+
+  if (error) return { error: error.message }
+
+  try {
+    await resend.emails.send({
+      from: 'Bemlanja Support <support@bemlanja.com>',
+      to: merchantEmail, 
+      subject: 'Toko Diaktifkan Kembali',
+      html: `
+        <h1>Status Toko Pulih</h1>
+        <p>Halo,</p>
+        <p>Toko Anda yang sebelumnya ditangguhkan (suspend) kini telah <b>diaktifkan kembali</b>.</p>
+        <p>Mohon patuhi kebijakan kami agar tidak terjadi penangguhan di masa mendatang.</p>
+      `
+    })
+  } catch (e) {
+    console.error("Email failed:", e)
+  }
+
+  revalidatePath("/admin-dashboard/merchants")
+  return { success: true }
+}
+
+// --- REJECT (Pending -> Rejected) ---
 export async function rejectMerchant(orgId: string, merchantEmail: string, reason: string) {
   const supabase = createAdminClient()
 
@@ -51,7 +86,7 @@ export async function rejectMerchant(orgId: string, merchantEmail: string, reaso
 
   try {
     await resend.emails.send({
-      from: 'Bemlanja <onboarding@resend.dev>',
+      from: 'Bemlanja <support@bemlanja.com>',
       to: merchantEmail,
       subject: 'Status Pendaftaran Toko',
       html: `<h1>Pengajuan Ditolak</h1><p>Alasan: ${reason}</p>`
@@ -64,7 +99,7 @@ export async function rejectMerchant(orgId: string, merchantEmail: string, reaso
   return { success: true }
 }
 
-// --- SUSPEND ---
+// --- SUSPEND (Active -> Suspended) ---
 export async function suspendMerchant(orgId: string, merchantEmail: string) {
   const supabase = createAdminClient()
 
@@ -77,7 +112,7 @@ export async function suspendMerchant(orgId: string, merchantEmail: string) {
 
   try {
     await resend.emails.send({
-      from: 'Bemlanja Support <support@resend.dev>',
+      from: 'Bemlanja Support <support@bemlanja.com>',
       to: merchantEmail,
       subject: 'PENTING: Toko Ditangguhkan',
       html: `<h1>Toko Ditangguhkan</h1><p>Toko Anda sementara dinonaktifkan oleh admin karena pelanggaran kebijakan.</p>`
@@ -90,9 +125,28 @@ export async function suspendMerchant(orgId: string, merchantEmail: string) {
   return { success: true }
 }
 
-// --- HARD DELETE ---
-export async function hardDeleteMerchant(orgId: string) {
+// --- HARD DELETE (Rejected/Suspended -> Deleted) ---
+export async function hardDeleteMerchant(orgId: string, merchantEmail?: string) {
   const supabase = createAdminClient()
+
+  // Send notification before deletion if email is provided
+  if (merchantEmail) {
+    try {
+      await resend.emails.send({
+        from: 'Bemlanja Admin <support@bemlanja.com>',
+        to: merchantEmail,
+        subject: 'Pemberitahuan Penghapusan Akun Toko',
+        html: `
+          <h1 style="color: #dc2626;">Toko Dihapus Permanen</h1>
+          <p>Halo,</p>
+          <p>Akun toko Anda telah <b>dihapus secara permanen</b> dari platform kami oleh Administrator.</p>
+          <p>Seluruh data produk dan riwayat toko tidak dapat dikembalikan.</p>
+        `
+      })
+    } catch (e) {
+      console.error("Email failed:", e)
+    }
+  }
 
   // Ensure database has ON DELETE CASCADE for related items
   const { error } = await supabase
@@ -171,7 +225,7 @@ export async function approveWithdrawal(withdrawalId: string, note: string) {
   if (owner && owner.profiles?.email) {
     try {
       await resend.emails.send({
-        from: 'Bemlanja Finance <onboarding@resend.dev>',
+        from: 'Bemlanja Finance <support@bemlanja.com>',
         to: owner.profiles.email,
         subject: 'Dana Cair! Penarikan Berhasil',
         html: `
@@ -234,7 +288,7 @@ export async function rejectWithdrawal(withdrawalId: string, reason: string) {
   if (owner && owner.profiles?.email) {
     try {
       await resend.emails.send({
-        from: 'Bemlanja Finance <onboarding@resend.dev>',
+        from: 'Bemlanja Finance <support@bemlanja.com>',
         to: owner.profiles.email,
         subject: 'PENTING: Penarikan Dana Ditolak',
         html: `
@@ -285,7 +339,7 @@ export async function sendNotificationEmail(toEmail: string) {
   const settings = await getPlatformSettings() // <-- Ambil settings
   
   await resend.emails.send({
-    from: `${settings.platform_name} <no-reply@resend.dev>`, // Dynamic Sender Name
+    from: `${settings.platform_name} <support@bemlanja.com>`, // Dynamic Sender Name
     to: toEmail,
     subject: `Halo dari ${settings.platform_name}`,
     html: `

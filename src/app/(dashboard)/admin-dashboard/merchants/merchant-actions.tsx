@@ -1,7 +1,13 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { approveMerchant, rejectMerchant, suspendMerchant, hardDeleteMerchant } from "../actions"
+import { 
+  approveMerchant, 
+  rejectMerchant, 
+  suspendMerchant, 
+  restoreMerchant, 
+  hardDeleteMerchant 
+} from "../actions"
 import { toast } from "sonner"
 import { CheckCircle, XCircle, Loader2, AlertTriangle, Trash2, Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -52,13 +58,43 @@ export function MerchantActionButtons({ orgId, email, orgName, status }: Props) 
     })
   }
 
+  // Helper component for the Delete Dialog to avoid repetition
+  const DeleteDialog = ({ triggerLabel, triggerVariant = "destructive" }: { triggerLabel: string, triggerVariant?: "destructive" | "outline" }) => (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button size="sm" variant={triggerVariant} className={triggerVariant === 'outline' ? "text-red-600 border-red-200 hover:bg-red-50" : ""}>
+          <Trash2 className="mr-1 h-4 w-4" /> {triggerLabel}
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Hapus Permanen?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Tindakan ini tidak bisa dibatalkan. Semua data toko <b>{orgName}</b> beserta produknya akan dihapus selamanya.
+            <br/><br/>
+            Email notifikasi akan dikirim ke <b>{email}</b>.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Batal</AlertDialogCancel>
+          <AlertDialogAction 
+            className="bg-red-600 hover:bg-red-700" 
+            onClick={() => handleAction(() => hardDeleteMerchant(orgId, email), "Toko Berhasil Dihapus")}
+          >
+            {isPending ? <Loader2 className="animate-spin h-4 w-4" /> : "Ya, Hapus Permanen"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+
   return (
     <div className="flex justify-end gap-2">
       {/* 1. PENDING: APPROVE & REJECT */}
       {status === 'pending' && (
         <>
           <Button 
-            size="sm" variant="outline" className="text-green-600"
+            size="sm" variant="outline" className="text-green-600 hover:bg-green-50"
             onClick={() => handleAction(() => approveMerchant(orgId, email), "Toko Disetujui")}
             disabled={isPending}
           >
@@ -67,7 +103,7 @@ export function MerchantActionButtons({ orgId, email, orgName, status }: Props) 
 
           <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" variant="outline" className="text-red-600">
+              <Button size="sm" variant="outline" className="text-red-600 hover:bg-red-50">
                 <XCircle className="mr-1 h-4 w-4" /> Tolak
               </Button>
             </DialogTrigger>
@@ -95,18 +131,20 @@ export function MerchantActionButtons({ orgId, email, orgName, status }: Props) 
       {status === 'active' && (
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button size="sm" variant="outline" className="text-amber-600 border-amber-200">
+            <Button size="sm" variant="outline" className="text-amber-600 border-amber-200 hover:bg-amber-50">
               <AlertTriangle className="mr-1 h-4 w-4" /> Suspend
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Suspend Toko <b>{orgName}</b>?</AlertDialogTitle>
-              <AlertDialogDescription>Toko tidak akan bisa diakses oleh publik sementara waktu.</AlertDialogDescription>
+              <AlertDialogDescription>
+                Toko tidak akan bisa diakses oleh publik sementara waktu. Email pemberitahuan akan dikirim ke pemilik.
+              </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Batal</AlertDialogCancel>
-              <AlertDialogAction className="bg-amber-600" onClick={() => handleAction(() => suspendMerchant(orgId, email), "Toko Ditangguhkan")}>
+              <AlertDialogAction className="bg-amber-600 hover:bg-amber-700" onClick={() => handleAction(() => suspendMerchant(orgId, email), "Toko Ditangguhkan")}>
                 Ya, Suspend
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -114,34 +152,28 @@ export function MerchantActionButtons({ orgId, email, orgName, status }: Props) 
         </AlertDialog>
       )}
 
-      {/* 3. SUSPENDED: RESTORE TO ACTIVE */}
+      {/* 3. SUSPENDED: RESTORE OR DELETE */}
       {status === 'suspended' && (
-        <Button size="sm" variant="outline" className="text-green-600" onClick={() => handleAction(() => approveMerchant(orgId, email), "Toko Diaktifkan Kembali")}>
-          <Play className="mr-1 h-4 w-4" /> Aktifkan Kembali
-        </Button>
+        <>
+          {/* Action: Restore (Suspend -> Active) */}
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="text-green-600 border-green-200 hover:bg-green-50" 
+            onClick={() => handleAction(() => restoreMerchant(orgId, email), "Toko Diaktifkan Kembali")}
+            disabled={isPending}
+          >
+            <Play className="mr-1 h-4 w-4" /> Aktifkan
+          </Button>
+
+          {/* Action: Delete (Suspend -> Delete) */}
+          <DeleteDialog triggerLabel="Hapus" triggerVariant="outline" />
+        </>
       )}
 
       {/* 4. REJECTED: HARD DELETE */}
       {status === 'rejected' && (
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button size="sm" variant="destructive">
-              <Trash2 className="mr-1 h-4 w-4" /> Hapus Permanen
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Hapus Permanen?</AlertDialogTitle>
-              <AlertDialogDescription>Semua data <b>{orgName}</b> akan dihapus selamanya.</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Batal</AlertDialogCancel>
-              <AlertDialogAction className="bg-red-600" onClick={() => handleAction(() => hardDeleteMerchant(orgId), "Toko Berhasil Dihapus")}>
-                Hapus
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <DeleteDialog triggerLabel="Hapus Permanen" triggerVariant="destructive" />
       )}
     </div>
   )
