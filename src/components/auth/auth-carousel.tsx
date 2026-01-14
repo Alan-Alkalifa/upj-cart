@@ -14,19 +14,19 @@ import { Skeleton } from "@/components/ui/skeleton"
 const AUTH_BANNERS = [
   {
     id: 1,
-    url: "/1.png", // Pastikan file 1.png ada di folder public
+    url: "/12.png", // Pastikan file 1.png ada di folder public
     title: "Marketplace Civitas Akademika",
     subtitle: "Temukan produk unik karya mahasiswa dan dosen Universitas Pembangunan Jaya.",
   },
   {
     id: 2,
-    url: "/2.png", // Pastikan file 2.png ada di folder public
+    url: "/13.png", // Pastikan file 2.png ada di folder public
     title: "Dukung Wirausaha Kampus",
     subtitle: "Beli produk teman sendiri, dukung pertumbuhan ekonomi kreatif di lingkungan kampus.",
   },
   {
     id: 3,
-    url: "/3.png", // Pastikan file 3.png ada di folder public
+    url: "/14.png", // Pastikan file 3.png ada di folder public
     title: "Kemudahan Bertransaksi",
     subtitle: "Platform terintegrasi untuk jual beli yang aman, nyaman, dan terpercaya.",
   },
@@ -56,11 +56,11 @@ export function AuthCarousel() {
   }, [api])
 
   if (!mounted) {
-    return <Skeleton className="h-full w-full bg-muted" />
+    return <Skeleton className="h-full w-full" />
   }
 
   return (
-    <div className="relative h-full w-full bg-muted text-white overflow-hidden">
+    <div className="relative h-full w-full text-white overflow-hidden">
       <Carousel 
         setApi={setApi} 
         className="h-full w-full" 
@@ -80,7 +80,7 @@ export function AuthCarousel() {
                 />
                 
                 {/* Overlay Text */}
-                <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/20 to-transparent opacity-90" />
+                <div className="absolute inset-0 opacity-90" />
 
                 <div className="absolute bottom-0 left-0 right-0 p-12 z-20">
                   <div className="max-w-xl space-y-4">
