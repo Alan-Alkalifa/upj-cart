@@ -19,8 +19,13 @@ export default async function OrdersPage() {
   const orders = await getUserOrders();
 
   return (
-    <div className="container mx-auto max-w-4xl px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">Riwayat Pesanan</h1>
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex flex-col gap-2 mb-8">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">Riwayat Pesanan</h1>
+        <p className="text-muted-foreground text-sm">
+          Pantau status pembayaran dan pengiriman barang belanjaan Anda.
+        </p>
+      </div>
       <OrderList orders={orders} />
     </div>
   );

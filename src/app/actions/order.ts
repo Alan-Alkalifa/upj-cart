@@ -11,9 +11,9 @@ export async function getUserOrders() {
 
   if (!user) return [];
 
-  // Fetch orders with nested relations:
-  // Order -> Organization (Store Name)
-  // Order -> Order Items -> Product Variant -> Product (Image, Name)
+  // FIX: 
+  // 1. Removed 'slug' from products (it does not exist in your DB schema).
+  // 2. Added 'id' to products (needed for links in OrderCard).
   const { data, error } = await supabase
     .from("orders")
     .select(`
@@ -26,9 +26,9 @@ export async function getUserOrders() {
         variant:product_variants(
           name,
           product:products(
+            id, 
             name,
-            image_url,
-            slug
+            image_url
           )
         )
       )
@@ -37,32 +37,27 @@ export async function getUserOrders() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("Error fetching orders:", error);
+    // Check your terminal for this error if orders still don't show!
+    console.error("Error fetching orders:", error.message);
     return [];
   }
 
   return data || [];
 }
 
-// --- PAYMENT PROCESSING LOGIC (Server-Side) ---
+// --- PAYMENT PROCESSING LOGIC ---
 export async function processOrderPayment(orderId: string, orderTotal: number) {
   const supabase = await createClient();
   
-  // 1. Ambil Settings (Fee %)
+  // 1. Get Settings (for Fee calculation if needed later)
   const settings = await getPlatformSettings();
   
-  // 2. Hitung Potongan
-  const feePercent = Number(settings.transaction_fee_percent) || 0;
-  const adminFeeAmount = Math.round(orderTotal * (feePercent / 100));
-  const merchantNetAmount = orderTotal - adminFeeAmount;
-
-  // 3. Update Database (Example logic)
+  // 2. Update Database to PAID
   const { error } = await supabase
     .from("orders")
-    .update({
-      status: "paid",
-    })
-    .eq("id", orderId);
+    .update({ status: "paid" })
+    .eq("id", orderId)
+    .in("status", ["pending"]); // Prevent overwriting if already paid/cancelled
     
   if (error) console.error("Failed to update order payment status", error);
 }

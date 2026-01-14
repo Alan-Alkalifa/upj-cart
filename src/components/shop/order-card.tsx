@@ -1,3 +1,4 @@
+// src/components/shop/order-card.tsx
 "use client";
 
 import Image from "next/image";
@@ -9,52 +10,57 @@ import {
   CardContent,
   CardFooter,
   CardHeader,
-  CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { formatRupiah, formatDate } from "@/lib/utils";
 import { PayButton } from "./pay-button";
-import { ShoppingBag, Truck, Calendar, Store } from "lucide-react";
+import { Truck, Calendar, Store, ChevronRight } from "lucide-react";
 
 interface OrderCardProps {
   order: any;
 }
 
 export function OrderCard({ order }: OrderCardProps) {
-  // 1. Consistent Status Colors (matching Dashboard standards)
+  // Mapping status to Badge variants
   const statusColor: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-    pending: "secondary",    // Yellow/Orange-ish feel usually
-    paid: "default",         // Solid primary color
+    pending: "secondary",
+    paid: "default",
     packed: "default",
-    shipped: "outline",      // Border only
-    completed: "default",    // Green-ish usually handled by class overrides if needed
-    cancelled: "destructive", // Red
+    shipped: "outline",
+    completed: "default",
+    cancelled: "destructive",
   };
 
   const isPending = order.status === "pending" && order.snap_token;
   const isShipped = order.status === "shipped";
+  const orgName = order.organization?.name || "Toko";
 
   return (
-    <Card className="overflow-hidden border-muted transition-all hover:shadow-md">
-      {/* --- HEADER: Order Info & Status --- */}
-      <CardHeader className="flex flex-row items-start justify-between bg-muted/30 p-4 sm:p-6">
-        <div className="space-y-1.5">
-          <CardTitle className="flex items-center gap-2 text-base font-semibold">
+    <Card className="overflow-hidden border-muted transition-all hover:border-primary/50 group shadow-sm hover:shadow-md">
+      {/* --- HEADER --- */}
+      <CardHeader className="flex flex-row items-start justify-between bg-muted/20 p-4 sm:p-5">
+        <div className="space-y-1">
+          {/* Store Name Link */}
+          <Link 
+            href={order.organization?.slug ? `/merchant/${order.organization.slug}` : "#"} 
+            className="flex items-center gap-2 hover:underline"
+          >
             <Store className="h-4 w-4 text-primary" />
-            <span>{order.organization?.name || "Toko UPJ"}</span>
-          </CardTitle>
-          <CardDescription className="flex items-center gap-2 text-xs">
+            <span className="font-semibold text-sm">{orgName}</span>
+            <ChevronRight className="h-3 w-3 text-muted-foreground" />
+          </Link>
+          
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Calendar className="h-3 w-3" />
             {formatDate(order.created_at)}
-            <span className="hidden sm:inline">•</span>
-            <span className="font-mono text-xs">#{order.id.slice(0, 8)}</span>
-          </CardDescription>
+            <span>•</span>
+            <span className="font-mono">#{order.id.slice(0, 8)}</span>
+          </div>
         </div>
         
         <Badge 
           variant={statusColor[order.status] || "default"}
-          className="capitalize shadow-sm"
+          className="capitalize shadow-none"
         >
           {order.status === "pending" ? "Menunggu Pembayaran" : order.status}
         </Badge>
@@ -62,51 +68,66 @@ export function OrderCard({ order }: OrderCardProps) {
 
       <Separator />
 
-      {/* --- CONTENT: Items --- */}
-      <CardContent className="p-4 sm:p-6">
+      {/* --- CONTENT --- */}
+      <CardContent className="p-4 sm:p-5">
         <div className="flex flex-col gap-4">
-          {order.items.map((item: any) => (
-            <div key={item.id} className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              {/* Product Image */}
-              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md border bg-background">
-                <Image
-                  src={item.variant?.product?.image_url || "/placeholder.png"}
-                  alt={item.variant?.product?.name || "Product"}
-                  fill
-                  className="object-cover"
-                />
-              </div>
+          {order.items.map((item: any) => {
+             // Safe fallback if product data is missing or deleted
+             const product = item.variant?.product;
+             const productName = product?.name || "Produk tidak tersedia";
+             const productImage = product?.image_url || "/placeholder.png";
+             const variantName = item.variant?.name || "-";
+             const productId = product?.id;
+             
+             return (
+              <div key={item.id} className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                {/* Product Image Link */}
+                <Link href={productId ? `/products/${productId}` : "#"} className={`shrink-0 ${!productId && "pointer-events-none"}`}>
+                  <div className="relative h-20 w-20 overflow-hidden rounded-md border bg-gray-50 hover:opacity-90 transition-opacity">
+                    <Image
+                      src={productImage}
+                      alt={productName}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                </Link>
 
-              {/* Product Details */}
-              <div className="flex-1 space-y-1">
-                <h4 className="text-sm font-medium leading-none">
-                  {item.variant?.product?.name}
-                </h4>
-                <p className="text-xs text-muted-foreground">
-                  Varian: <span className="font-medium text-foreground">{item.variant?.name}</span>
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Qty: {item.quantity} x {formatRupiah(item.price_at_purchase)}
-                </p>
-              </div>
+                {/* Product Details */}
+                <div className="flex-1 space-y-1">
+                  <Link href={productId ? `/products/${productId}` : "#"} className={`hover:underline ${!productId && "pointer-events-none"}`}>
+                    <h4 className="text-sm font-medium leading-tight line-clamp-2">
+                      {productName}
+                    </h4>
+                  </Link>
+                  <p className="text-xs text-muted-foreground">
+                    Varian: <span className="text-foreground">{variantName}</span>
+                  </p>
+                  <div className="flex items-center justify-between sm:hidden mt-2">
+                    <span className="text-xs text-muted-foreground">{item.quantity} barang</span>
+                    <span className="text-sm font-medium">{formatRupiah(item.price_at_purchase)}</span>
+                  </div>
+                </div>
 
-              {/* Price (Right Aligned on Desktop) */}
-              <div className="text-left sm:text-right">
-                <p className="font-semibold text-sm">
-                  {formatRupiah(item.price_at_purchase * item.quantity)}
-                </p>
+                {/* Price (Desktop) */}
+                <div className="hidden sm:block text-right">
+                  <p className="font-medium text-sm">
+                    {formatRupiah(item.price_at_purchase * item.quantity)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{item.quantity} x {formatRupiah(item.price_at_purchase)}</p>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </CardContent>
 
       <Separator />
 
-      {/* --- FOOTER: Totals & Actions --- */}
-      <CardFooter className="flex flex-col gap-4 bg-muted/10 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-        <div className="flex flex-col gap-1">
-          <span className="text-xs text-muted-foreground uppercase tracking-wider">Total Pesanan</span>
+      {/* --- FOOTER --- */}
+      <CardFooter className="flex flex-col gap-4 bg-muted/10 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <div className="flex flex-col gap-1 w-full sm:w-auto">
+          <span className="text-xs text-muted-foreground font-medium">Total Belanja</span>
           <span className="text-lg font-bold text-primary">
             {formatRupiah(order.total_amount)}
           </span>
@@ -120,17 +141,17 @@ export function OrderCard({ order }: OrderCardProps) {
             </div>
           )}
           
-          {/* Shipping Info */}
+          {/* Tracking Info */}
           {isShipped && order.tracking_number && (
-            <div className="flex items-center justify-center gap-2 rounded-md bg-blue-50 px-4 py-2 text-sm text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+            <div className="flex items-center justify-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300">
               <Truck className="h-4 w-4" />
               <span className="font-medium">Resi: {order.tracking_number}</span>
             </div>
           )}
 
-          {/* Detail Link (Standard action button) */}
-           <Button variant="outline" size="sm" className="w-full sm:w-auto" asChild>
-            <Link href={`/orders/${order.id}`}>Lihat Detail</Link>
+          {/* Detail Link */}
+           <Button variant="outline" size="sm" className="w-full sm:w-auto border-dashed hover:border-solid" asChild>
+            <Link href={`/orders/${order.id}`}>Detail Transaksi</Link>
           </Button>
         </div>
       </CardFooter>

@@ -5,6 +5,40 @@ import { updateResiSchema } from "@/lib/order-schemas"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
+
+export async function updateOrderStatus(
+  orderId: string, 
+  newStatus: string, 
+  trackingNumber?: string
+) {
+  const supabase = await createClient()
+  
+  // Prepare update object
+  const updates: any = {
+    status: newStatus,
+    updated_at: new Date().toISOString(), // Assuming you have updated_at, if not remove this
+  }
+
+  // If status is shipped, we must have a tracking number
+  if (newStatus === 'shipped' && trackingNumber) {
+    updates.tracking_number = trackingNumber
+  }
+
+  const { error } = await supabase
+    .from('orders')
+    .update(updates)
+    .eq('id', orderId)
+
+  if (error) {
+    console.error('Error updating order:', error)
+    return { success: false, message: 'Failed to update order' }
+  }
+
+  // Refresh the page data
+  revalidatePath('/merchant-dashboard/orders')
+  return { success: true, message: 'Order updated successfully' }
+}
+
 // --- SHIP ORDER (Input Resi) ---
 export async function shipOrder(orderId: string, values: z.infer<typeof updateResiSchema>) {
   const supabase = await createClient()

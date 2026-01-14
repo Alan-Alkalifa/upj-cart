@@ -38,7 +38,7 @@ export default async function AdminOrdersPage(props: {
     const month = String(now.getMonth() + 1).padStart(2, '0')
     activeMonthFilter = `${year}-${month}`
   } else {
-    activeMonthFilter = rawMonthParam // Gunakan pilihan user (misal 2023-10)
+    activeMonthFilter = rawMonthParam 
   }
   
   const perPage = 10

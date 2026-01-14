@@ -132,7 +132,7 @@ export function Navbar({ user, cartCount = 0 }: NavbarProps) {
                 {!isRestrictedUser && (
                   <>
                     <DropdownMenuItem asChild>
-                      <Link href="/profile" className="cursor-pointer">
+                      <Link href="/profiles" className="cursor-pointer">
                         <User className="mr-2 h-4 w-4" /> Profile
                       </Link>
                     </DropdownMenuItem>

@@ -1,331 +1,262 @@
-import { createClient } from "@/utils/supabase/server"
-import { DateRangeFilter } from "@/components/dashboard/date-range-filter"
-import { ExportButton } from "@/components/dashboard/export-button"
-import { OrderActions } from "./order-actions"
-import { OrderSearch } from "./order-search" 
-import { redirect } from "next/navigation"
-import Link from "next/link"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ShoppingBag, Search } from "lucide-react"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-  PaginationEllipsis
-} from "@/components/ui/pagination"
+// src/app/(merchant)/dashboard/orders/page.tsx
+'use client'
 
-export default async function OrdersPage(props: { searchParams: Promise<{ page?: string, status?: string, from?: string, to?: string, q?: string }> }) {
-  const searchParams = await props.searchParams
-  const currentPage = Number(searchParams.page) || 1
-  const statusFilter = searchParams.status || "new"
-  const searchQuery = searchParams.q || "" 
-  
-  const perPage = 10
-  const start = (currentPage - 1) * perPage
-  const end = start + perPage
+import { useEffect, useState } from 'react'
+import { createClient } from '@/utils/supabase/client' // Adjust to your client creation
+import { OrderDetail } from './types'
+import { updateOrderStatus } from './actions'
+import { format } from 'date-fns' // You likely need date-fns or moment
 
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+// Icons (using Lucide-React, standard in Next.js)
+import { Eye, Truck, CheckCircle, AlertCircle, Package } from 'lucide-react'
 
-  if (!user) redirect("/login")
-  const { data: member } = await supabase.from("organization_members").select("org_id").eq("profile_id", user.id).single()
-  if (!member) redirect("/")
+export default function MerchantOrdersPage() {
+  const [orders, setOrders] = useState<OrderDetail[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedOrder, setSelectedOrder] = useState<OrderDetail | null>(null)
+  const [trackingInput, setTrackingInput] = useState('')
+  const [isDetailOpen, setIsDetailOpen] = useState(false)
 
-  // --- 1. BASE QUERY ---
-  let baseQuery = supabase
-    .from("order_items")
-    .select(`
-      order_id,
-      orders!inner (
-        id, status, total_amount, created_at,
-        profiles (full_name, email, phone),
-        user_addresses (street_address, city, postal_code)
-      ),
-      product_variants!inner ( products!inner ( org_id ) )
-    `)
-    .eq("product_variants.products.org_id", member.org_id)
-    .order("created_at", { ascending: false, referencedTable: "orders" })
+  // NOTE: In a real app, you get this from your Auth Context or URL params
+  const MERCHANT_ORG_ID = 'your-org-uuid-here' 
 
-  if (searchParams.from) baseQuery = baseQuery.gte("orders.created_at", searchParams.from)
-  if (searchParams.to) {
-    const toDate = new Date(searchParams.to)
-    toDate.setHours(23, 59, 59)
-    baseQuery = baseQuery.lte("orders.created_at", toDate.toISOString())
-  }
+  const supabase = createClient()
 
-  const { data: rawItems } = await baseQuery
+  useEffect(() => {
+    fetchOrders()
+  }, [])
 
-  // --- 2. DEDUPLICATE ---
-  const uniqueOrdersMap = new Map()
-  rawItems?.forEach((item: any) => {
-    if (item.orders) {
-      uniqueOrdersMap.set(item.orders.id, item.orders)
+  async function fetchOrders() {
+    setLoading(true)
+    const { data, error } = await supabase
+      .from('orders')
+      .select(`
+        id, created_at, status, total_amount, 
+        courier_code, courier_service, tracking_number,
+        buyer:profiles(full_name, email, phone, avatar_url),
+        shipping_address:user_addresses(recipient_name, phone, street_address, city_name, province_name, postal_code),
+        items:order_items(
+          id, quantity, price_at_purchase,
+          variant:product_variants(
+            name,
+            product:products(name, image_url)
+          )
+        )
+      `)
+      .eq('organization_id', MERCHANT_ORG_ID)
+      .order('created_at', { ascending: false })
+
+    if (!error && data) {
+      // Cast data to our Type (Supabase types can be loose with deep joins)
+      setOrders(data as unknown as OrderDetail[])
     }
-  })
-  
-  let allOrders = Array.from(uniqueOrdersMap.values())
-
-  // --- 3. APPLY SEARCH FILTER (In-Memory) ---
-  if (searchQuery) {
-    const lowerQ = searchQuery.toLowerCase()
-    allOrders = allOrders.filter((o: any) => {
-      const matchId = o.id.toLowerCase().includes(lowerQ)
-      const matchName = o.profiles?.full_name?.toLowerCase().includes(lowerQ)
-      return matchId || matchName
-    })
+    setLoading(false)
   }
 
-  // --- 4. CALCULATE STATS & TABS COUNTS (Based on Filtered Data) ---
-  const countByStatus = {
-    new: allOrders.filter((o: any) => ['paid', 'packed'].includes(o.status)).length,
-    shipped: allOrders.filter((o: any) => o.status === 'shipped').length,
-    completed: allOrders.filter((o: any) => o.status === 'completed').length,
-    cancelled: allOrders.filter((o: any) => o.status === 'cancelled').length,
-  }
-
-  const stats = {
-    pending: countByStatus.new,
-    total: allOrders.length,
-    completed: countByStatus.completed,
-    volume: allOrders.filter((o: any) => o.status !== 'cancelled').reduce((acc: number, o: any) => acc + o.total_amount, 0)
-  }
-
-  // --- 5. FILTER FOR CURRENT TAB ---
-  let filteredOrders = []
-  if (statusFilter === 'shipped') {
-    filteredOrders = allOrders.filter((o: any) => o.status === 'shipped')
-  } else if (statusFilter === 'completed') {
-    filteredOrders = allOrders.filter((o: any) => o.status === 'completed')
-  } else if (statusFilter === 'cancelled') {
-    filteredOrders = allOrders.filter((o: any) => o.status === 'cancelled')
-  } else {
-    filteredOrders = allOrders.filter((o: any) => ['paid', 'packed'].includes(o.status))
-  }
-
-  // --- 6. PAGINATION ---
-  const totalCount = filteredOrders.length
-  const paginatedOrders = filteredOrders.slice(start, end)
-  const totalPages = Math.ceil(totalCount / perPage)
-  const hasNext = currentPage < totalPages
-  const hasPrev = currentPage > 1
-
-  const getPageNumbers = () => {
-    const pages = []
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i)
+  const handleStatusUpdate = async (newStatus: string) => {
+    if (!selectedOrder) return
+    
+    // Optimistic UI Update (optional, but good UX)
+    const result = await updateOrderStatus(selectedOrder.id, newStatus, trackingInput)
+    
+    if (result.success) {
+      alert('Order updated!')
+      setIsDetailOpen(false)
+      fetchOrders() // Refresh list
     } else {
-      if (currentPage <= 3) {
-        for (let i = 1; i <= 4; i++) pages.push(i)
-        pages.push("ellipsis")
-        pages.push(totalPages)
-      } else if (currentPage >= totalPages - 2) {
-        pages.push(1)
-        pages.push("ellipsis")
-        for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i)
-      } else {
-        pages.push(1)
-        pages.push("ellipsis")
-        pages.push(currentPage - 1)
-        pages.push(currentPage)
-        pages.push(currentPage + 1)
-        pages.push("ellipsis")
-        pages.push(totalPages)
-      }
+      alert('Failed to update')
     }
-    return pages
   }
 
-  // Updated Build Link to include 'q'
-  const buildLink = (newParams: Record<string, string | number>) => {
-    const params = new URLSearchParams()
-    if (searchParams.from) params.set('from', searchParams.from)
-    if (searchParams.to) params.set('to', searchParams.to)
-    if (searchQuery) params.set('q', searchQuery)
-    
-    const finalPage = newParams.page || 1
-    const finalStatus = newParams.status || statusFilter
-
-    params.set('page', String(finalPage))
-    params.set('status', String(finalStatus))
-    
-    return `/merchant/orders?${params.toString()}`
-  }
-
-  // Export data uses allOrders (matching search result)
-  const exportData = allOrders.map((o: any) => ({
-    Order_ID: o.id,
-    Date: new Date(o.created_at).toLocaleDateString("id-ID"),
-    Customer: o.profiles?.full_name,
-    Email: o.profiles?.email,
-    Total: o.total_amount,
-    Status: o.status
-  }))
-
-  const getEmptyMessage = () => {
-    if (searchQuery) return `Tidak ditemukan pesanan dengan kata kunci "${searchQuery}".`
-    if (statusFilter === 'new') return "Tidak ada pesanan perlu dikirim."
-    return "Tidak ada data."
+  // Helper for Status Badge Color
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'paid': return 'bg-blue-100 text-blue-800'
+      case 'processed': return 'bg-yellow-100 text-yellow-800'
+      case 'shipped': return 'bg-purple-100 text-purple-800'
+      case 'completed': return 'bg-green-100 text-green-800'
+      case 'cancelled': return 'bg-red-100 text-red-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Pesanan</h2>
-          <p className="text-muted-foreground">Kelola pesanan masuk dan status pengiriman.</p>
+    <div className="p-6 max-w-7xl mx-auto">
+      <h1 className="text-2xl font-bold mb-6">Incoming Orders</h1>
+
+      {loading ? (
+        <p>Loading orders...</p>
+      ) : (
+        <div className="bg-white shadow rounded-lg overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {orders.map((order) => (
+                <tr key={order.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    #{order.id.slice(0, 8)}...
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {format(new Date(order.created_at), 'dd MMM yyyy')}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {order.buyer?.full_name || 'Guest'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    Rp {order.total_amount.toLocaleString('id-ID')}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(order.status)}`}>
+                      {order.status.toUpperCase()}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <button
+                      onClick={() => {
+                        setSelectedOrder(order)
+                        setTrackingInput(order.tracking_number || '')
+                        setIsDetailOpen(true)
+                      }}
+                      className="text-indigo-600 hover:text-indigo-900 flex items-center gap-1"
+                    >
+                      <Eye size={16} /> View
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <div className="flex items-center gap-2">
-           <DateRangeFilter />
-           <ExportButton data={exportData} filename="laporan_pesanan" />
-        </div>
-      </div>
+      )}
 
-      {/* STATS CARDS */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Perlu Dikirim</CardTitle></CardHeader>
-           <CardContent><div className="text-2xl font-bold text-orange-600">{stats.pending}</div></CardContent>
-        </Card>
-        <Card>
-           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total (Filter)</CardTitle></CardHeader>
-           <CardContent><div className="text-2xl font-bold">{stats.total}</div></CardContent>
-        </Card>
-        <Card>
-           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Selesai</CardTitle></CardHeader>
-           <CardContent><div className="text-2xl font-bold text-green-600">{stats.completed}</div></CardContent>
-        </Card>
-        <Card>
-           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Volume (Filter)</CardTitle></CardHeader>
-           <CardContent><div className="text-2xl font-bold">Rp {(stats.volume / 1000).toLocaleString("id-ID", { maximumFractionDigits: 0 })}rb</div></CardContent>
-        </Card>
-      </div>
+      {/* --- ORDER DETAIL MODAL --- */}
+      {isDetailOpen && selectedOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
+              <h3 className="text-lg font-bold text-gray-900">
+                Order Details #{selectedOrder.id.slice(0, 8)}
+              </h3>
+              <button onClick={() => setIsDetailOpen(false)} className="text-gray-400 hover:text-gray-500">
+                ✕
+              </button>
+            </div>
 
-      {/* TOOLBAR: TABS + SEARCH */}
-      <div className="flex flex-col-reverse md:flex-row md:items-center justify-between gap-4">
-        <Tabs defaultValue={statusFilter} className="w-full md:w-auto">
-          <TabsList className="w-full h-full justify-start overflow-hidden overflow-x-auto">
-            <TabsTrigger value="new" asChild>
-              <Link href={buildLink({ status: 'new', page: 1 })}>Perlu Dikirim ({countByStatus.new})</Link>
-            </TabsTrigger>
-            <TabsTrigger value="shipped" asChild>
-              <Link href={buildLink({ status: 'shipped', page: 1 })}>Sedang Dikirim ({countByStatus.shipped})</Link>
-            </TabsTrigger>
-            <TabsTrigger value="completed" asChild>
-              <Link href={buildLink({ status: 'completed', page: 1 })}>Selesai ({countByStatus.completed})</Link>
-            </TabsTrigger>
-            <TabsTrigger value="cancelled" asChild>
-              <Link href={buildLink({ status: 'cancelled', page: 1 })}>Dibatalkan ({countByStatus.cancelled})</Link>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-        
-        {/* COMPONENT SEARCH */}
-        <OrderSearch />
-      </div>
-
-      {/* TABLE */}
-      <div className="space-y-4">
-        <div className="rounded-md border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Order ID</TableHead>
-                <TableHead>Pembeli</TableHead>
-                <TableHead>Tanggal</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Aksi</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedOrders.length === 0 ? (
-                <TableRow>
-                   <TableCell colSpan={6} className="h-64">
-                      <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground">
-                        {searchQuery ? <Search className="h-10 w-10 opacity-20" /> : <ShoppingBag className="h-10 w-10 opacity-20" />}
-                        <p className="text-center font-medium">{getEmptyMessage()}</p>
-                      </div>
-                   </TableCell>
-                </TableRow>
-              ) : (
-                paginatedOrders.map((order: any) => (
-                  <TableRow key={order.id}>
-                    <TableCell className="font-mono text-xs">
-                        {order.id.slice(0, 8)}...
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-medium">{order.profiles?.full_name}</div>
-                      <div className="text-[10px] text-muted-foreground">{order.user_addresses?.city || "-"}</div>
-                    </TableCell>
-                    <TableCell>{new Date(order.created_at).toLocaleDateString("id-ID")}</TableCell>
-                    <TableCell>Rp {order.total_amount.toLocaleString("id-ID")}</TableCell>
-                    <TableCell>
-                      <Badge variant={
-                        order.status === 'paid' ? 'default' : 
-                        order.status === 'shipped' ? 'secondary' : 
-                        order.status === 'completed' ? 'outline' : 'destructive'
-                      } className="capitalize">
-                        {order.status === 'paid' ? 'Perlu Dikirim' : order.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <OrderActions order={order} />
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        {/* PAGINATION */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-2">
-          <div className="text-sm text-muted-foreground">
-             Menampilkan <b>{paginatedOrders.length > 0 ? start + 1 : 0}</b> - <b>{Math.min(start + paginatedOrders.length, totalCount)}</b> dari <b>{totalCount}</b> pesanan
-          </div>
-
-          {totalPages > 1 && (
-            <Pagination className="justify-center md:justify-end w-auto mx-0">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious 
-                    href={hasPrev ? buildLink({ page: currentPage - 1 }) : "#"} 
-                    className={!hasPrev ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                    aria-disabled={!hasPrev}
-                  />
-                </PaginationItem>
-                {getPageNumbers().map((page, i) => (
-                  <PaginationItem key={i}>
-                    {page === "ellipsis" ? (
-                      <PaginationEllipsis />
-                    ) : (
-                      <PaginationLink 
-                        href={buildLink({ page })}
-                        isActive={currentPage === page}
-                      >
-                        {page}
-                      </PaginationLink>
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              {/* Left Col: Customer Info */}
+              <div>
+                <h4 className="font-semibold text-gray-700 flex items-center gap-2 mb-2">
+                  <Package size={18} /> Shipping Info
+                </h4>
+                <div className="text-sm text-gray-600 space-y-1 bg-gray-50 p-3 rounded">
+                  <p className="font-medium text-gray-900">{selectedOrder.shipping_address?.recipient_name}</p>
+                  <p>{selectedOrder.shipping_address?.phone}</p>
+                  <p>{selectedOrder.shipping_address?.street_address}</p>
+                  <p>{selectedOrder.shipping_address?.city_name}, {selectedOrder.shipping_address?.province_name} {selectedOrder.shipping_address?.postal_code}</p>
+                  <div className="mt-2 pt-2 border-t border-gray-200">
+                    <p><strong>Courier:</strong> {selectedOrder.courier_code?.toUpperCase()} - {selectedOrder.courier_service}</p>
+                    {selectedOrder.tracking_number && (
+                      <p className="text-blue-600"><strong>Resi:</strong> {selectedOrder.tracking_number}</p>
                     )}
-                  </PaginationItem>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Col: Actions */}
+              <div>
+                <h4 className="font-semibold text-gray-700 flex items-center gap-2 mb-2">
+                  <AlertCircle size={18} /> Manage Order
+                </h4>
+                <div className="bg-gray-50 p-3 rounded space-y-3">
+                  <p className="text-sm">Current Status: <strong>{selectedOrder.status.toUpperCase()}</strong></p>
+                  
+                  {/* Action Buttons Logic */}
+                  {selectedOrder.status === 'paid' && (
+                    <button 
+                      onClick={() => handleStatusUpdate('processed')}
+                      className="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded text-sm font-medium"
+                    >
+                      Process Order
+                    </button>
+                  )}
+
+                  {selectedOrder.status === 'processed' && (
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-gray-700">Enter Resi / Tracking Number</label>
+                      <input 
+                        type="text" 
+                        value={trackingInput}
+                        onChange={(e) => setTrackingInput(e.target.value)}
+                        placeholder="e.g. JP12345678"
+                        className="w-full border rounded p-2 text-sm"
+                      />
+                      <button 
+                        onClick={() => handleStatusUpdate('shipped')}
+                        disabled={!trackingInput}
+                        className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white py-2 px-4 rounded text-sm font-medium flex justify-center items-center gap-2"
+                      >
+                        <Truck size={16} /> Ship Order
+                      </button>
+                    </div>
+                  )}
+
+                  {selectedOrder.status === 'shipped' && (
+                    <div className="text-center text-green-600 text-sm font-medium flex items-center justify-center gap-2">
+                      <CheckCircle size={16} /> Order Shipped
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Product List */}
+            <div className="px-6 pb-6">
+              <h4 className="font-semibold text-gray-700 mb-3 border-b pb-2">Items Ordered</h4>
+              <div className="space-y-3">
+                {selectedOrder.items.map((item) => (
+                  <div key={item.id} className="flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      {/* Optional Image */}
+                      {item.variant?.product?.image_url && (
+                        <img 
+                          src={item.variant.product.image_url} 
+                          alt={item.variant.product.name} 
+                          className="w-12 h-12 object-cover rounded border"
+                        />
+                      )}
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{item.variant?.product?.name}</p>
+                        <p className="text-xs text-gray-500">Variant: {item.variant?.name}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium">x{item.quantity}</p>
+                      <p className="text-sm text-gray-600">Rp {item.price_at_purchase.toLocaleString('id-ID')}</p>
+                    </div>
+                  </div>
                 ))}
-                <PaginationItem>
-                  <PaginationNext 
-                    href={hasNext ? buildLink({ page: currentPage + 1 }) : "#"}
-                    className={!hasNext ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                    aria-disabled={!hasNext}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          )}
+              </div>
+              <div className="mt-4 pt-4 border-t flex justify-between items-center">
+                <span className="font-bold text-gray-900">Total Amount</span>
+                <span className="font-bold text-xl text-blue-600">Rp {selectedOrder.total_amount.toLocaleString('id-ID')}</span>
+              </div>
+            </div>
+
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
